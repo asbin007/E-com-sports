@@ -89,9 +89,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const clearCart = () => setCart([]);
 
   const cartTotal = cart.reduce(
-    (total, item) => total + (item.price || 5999) * item.quantity,
+    (total, item) => total + (item.price || 0) * item.quantity,
     0,
-  ); // Placeholder price fallback
+  );
   const cartCount = cart.reduce((count, item) => count + item.quantity, 0);
 
   return (

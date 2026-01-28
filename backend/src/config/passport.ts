@@ -1,17 +1,21 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { envConfig } from "../../config/config.js";
+import { envConfig } from "./config.js";
 import User from "../database/models/userModel.js";
 
+console.log("Google Strategy Callback URL:", `${envConfig.backendUrl}/api/v1/auth/google/callback`);
 passport.use(
   new GoogleStrategy(
     {
       clientID: envConfig.client_id || "",
       clientSecret: envConfig.client_secret || "",
-      callbackURL: "/api/v1/auth/google/callback",
+      callbackURL: `${envConfig.backendUrl}/api/v1/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
+        console.log("Google Strategy: Verify callback started");
+        console.log("Google Profile ID:", profile.id);
+        
         // Check if user already exists
         let user = await User.findOne({ where: { googleId: profile.id } });
 
@@ -41,9 +45,9 @@ passport.use(
         // Create new user
         const newUser = await User.create({
           username: profile.displayName,
-          email: email,
+          email: email!,
           googleId: profile.id,
-          avatar: profile.photos?.[0]?.value,
+          avatar: profile.photos?.[0]?.value || "",
           isVerified: true, // Google verified email
           role: "customer",
         });

@@ -1,6 +1,7 @@
 import { Table, Column, Model, DataType, ForeignKey, BelongsTo } from "sequelize-typescript";
 import Category from "./categoryModel.js";
 import Brand from "./brandModel.js";
+import ProductType from "./productTypeModel.js";
 
 @Table({
   tableName: "products",
@@ -28,24 +29,83 @@ class Product extends Model {
   declare description: string;
 
   @Column({
-    type: DataType.STRING,
-    allowNull: true,
+    type: DataType.FLOAT,
+    allowNull: false,
+    defaultValue: 0,
   })
-  declare sportType: string;
+  declare price: number; // Selling Price
 
-  @ForeignKey(() => Brand)
   @Column({
-    type: DataType.UUID,
+    type: DataType.FLOAT,
+    allowNull: false,
+    defaultValue: 0,
+  })
+  declare originalPrice: number; // MRP
+
+  @Column({
+    type: DataType.FLOAT,
+    allowNull: false,
+    defaultValue: 0,
+  })
+  declare costPrice: number;
+
+  @Column({
+    type: DataType.INTEGER,
+    defaultValue: 0,
+  })
+  declare discount: number;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+  })
+  declare stock: number;
+
+  @Column({
+    type: DataType.ARRAY(DataType.STRING),
+    defaultValue: [],
+  })
+  declare sizes: string[];
+
+  @Column({
+    type: DataType.ARRAY(DataType.STRING),
+    defaultValue: [],
+  })
+  declare colors: string[];
+
+  @Column({
+    type: DataType.ARRAY(DataType.STRING),
+    defaultValue: [],
+  })
+  declare images: string[];
+
+  @Column({
+    type: DataType.ENUM("Men", "Women", "Kids", "Unisex"),
     allowNull: true,
   })
-  declare brandId: string;
+  declare gender: string;
 
   @ForeignKey(() => Category)
   @Column({
     type: DataType.UUID,
-    allowNull: true,
+    allowNull: false,
   })
   declare categoryId: string;
+
+  @ForeignKey(() => Brand)
+  @Column({
+    type: DataType.UUID,
+    allowNull: false,
+  })
+  declare brandId: string;
+
+  @ForeignKey(() => ProductType)
+  @Column({
+    type: DataType.UUID,
+    allowNull: false,
+  })
+  declare productTypeId: string;
 
   @Column({
     type: DataType.BOOLEAN,
@@ -53,11 +113,14 @@ class Product extends Model {
   })
   declare isActive: boolean;
 
+  @BelongsTo(() => Category)
+  declare Category: Category;
+
   @BelongsTo(() => Brand)
   declare Brand: Brand;
 
-  @BelongsTo(() => Category)
-  declare Category: Category;
+  @BelongsTo(() => ProductType)
+  declare ProductType: ProductType;
 }
 
 export default Product;

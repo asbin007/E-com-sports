@@ -6,6 +6,7 @@ import errorHandler from "../middleware/errorHandler.js";
 
 const router = Router();
 
+router.post("/create", userMiddleware.isUserLoggedIn, requireAdmin, errorHandler(adminController.createAdmin.bind(adminController)));
 router.post("/variants", userMiddleware.isUserLoggedIn, requireAdmin, errorHandler(adminController.createVariant.bind(adminController)));
 router.put("/variants/:id", userMiddleware.isUserLoggedIn, requireAdmin, errorHandler(adminController.updateVariant.bind(adminController)));
 router.delete("/variants/:id", userMiddleware.isUserLoggedIn, requireAdmin, errorHandler(adminController.deleteVariant.bind(adminController)));

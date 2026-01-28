@@ -5,6 +5,7 @@ import ProductImage from "../database/models/productImageModel.js";
 import Variant from "../database/models/variantModel.js";
 import Category from "../database/models/categoryModel.js";
 import Brand from "../database/models/brandModel.js";
+import ProductType from "../database/models/productTypeModel.js";
 import Inventory from "../database/models/inventoryModel.js";
 
 class ProductController {
@@ -14,7 +15,7 @@ class ProductController {
         categoryId,
         categoryName,
         brandId,
-        sportType,
+        productTypeId,
         search,
         page = 1,
         limit = 20,
@@ -23,8 +24,8 @@ class ProductController {
       const where: any = { isActive: true };
 
       if (categoryId) where.categoryId = categoryId;
-      if (sportType) where.sportType = sportType;
       if (brandId) where.brandId = brandId;
+      if (productTypeId) where.productTypeId = productTypeId;
       if (search) {
         where[Op.or] = [
           { name: { [Op.iLike]: `%${search}%` } },
@@ -34,7 +35,7 @@ class ProductController {
 
       const categoryWhere: any = {};
       if (categoryName) {
-          categoryWhere.name = { [Op.iLike]: `%${categoryName}%` };
+        categoryWhere.name = { [Op.iLike]: `%${categoryName}%` };
       }
 
       const offset = (Number(page) - 1) * Number(limit);
@@ -52,9 +53,8 @@ class ProductController {
             attributes: ["id", "name"],
           },
           {
-            model: ProductImage,
-            attributes: ["id", "url", "isPrimary"],
-            limit: 1,
+            model: ProductType,
+            attributes: ["id", "name", "description"],
           },
         ],
         limit: Number(limit),
@@ -88,25 +88,15 @@ class ProductController {
         include: [
           {
             model: Category,
-            attributes: ["id", "name", "description"],
+            attributes: ["id", "name"],
           },
           {
             model: Brand,
+            attributes: ["id", "name"],
+          },
+          {
+            model: ProductType,
             attributes: ["id", "name", "description"],
-          },
-          {
-            model: ProductImage,
-            attributes: ["id", "url", "publicId", "order", "isPrimary"],
-            order: [["order", "ASC"]],
-          },
-          {
-            model: Variant,
-            include: [
-              {
-                model: Inventory,
-                attributes: ["id", "stock", "reservedStock"],
-              },
-            ],
           },
         ],
       });
@@ -133,60 +123,63 @@ class ProductController {
 
   async createProduct(req: Request, res: Response): Promise<void> {
     try {
-      const { name, description, sportType, brandId, categoryId } = req.body;
+      console.log("DEBUG: createProduct called");
+      console.log("DEBUG: req.body:", req.body);
+      console.log("DEBUG: req.files:", req.files);
 
-      if (!name || !brandId || !categoryId) {
+      const {
+        name,
+        description,
+        brandId,
+        categoryId,
+        productTypeId,
+        gender,
+        price,
+        originalPrice,
+        stock,
+        discount,
+        sizes,
+        colors,
+        isNew,
+        features,
+        // sku,
+      } = (req.body || {}) as any;
+
+      if (!name || !categoryId || !brandId || !productTypeId) {
         res.status(400).json({
-          message: "Name, brandId, and categoryId are required",
+          message: "Name, categoryId, brandId, and productTypeId are required",
         });
         return;
+      }
+
+      let images: string[] = [];
+      if (req.files && Array.isArray(req.files)) {
+        images = (req.files as Express.Multer.File[]).map((file) => `/uploads/${file.filename}`);
       }
 
       const product = await Product.create({
         name,
         description,
-        sportType,
         brandId,
         categoryId,
+        productTypeId,
+        gender,
+        price: price ? parseFloat(price) : 0,
+        discount: discount ? parseInt(discount) : 0,
+        originalPrice: originalPrice ? parseFloat(originalPrice) : 0,
+        stock: stock ? parseInt(stock) : 0,
+        sizes: sizes ? sizes.split(",") : [],
+        colors: colors ? colors.split(",") : [],
+        features: features ? features.split("\n") : [],
+        isNew: isNew === "true" || isNew === true,
+
+        images,
         isActive: true,
-      });
-
-      if (req.files && Array.isArray(req.files)) {
-        const images = req.files as Express.Multer.File[];
-        for (let i = 0; i < images.length; i++) {
-          const image = images[i];
-          if (!image) continue;
-
-          await ProductImage.create({
-            productId: product.id,
-            url: image.path,
-            publicId: (image as any).public_id,
-            order: i,
-            isPrimary: i === 0,
-          });
-        }
-      }
-
-      const createdProduct = await Product.findByPk(product.id, {
-        include: [
-          {
-            model: Category,
-            attributes: ["id", "name"],
-          },
-          {
-            model: Brand,
-            attributes: ["id", "name"],
-          },
-          {
-            model: ProductImage,
-            attributes: ["id", "url", "publicId"],
-          },
-        ],
       });
 
       res.status(201).json({
         message: "Product created successfully",
-        data: createdProduct,
+        data: product,
       });
     } catch (error: any) {
       console.error(error);
@@ -200,8 +193,24 @@ class ProductController {
   async updateProduct(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params as { id: string };
-      const { name, description, sportType, brandId, categoryId, isActive } =
-        req.body;
+      const {
+        name,
+        description,
+        brandId,
+        categoryId,
+        productTypeId,
+        isActive,
+        gender,
+        price,
+        originalPrice,
+        stock,
+        discount,
+        sizes,
+        colors,
+        isNew,
+        features,
+        // sku,
+      } = req.body;
 
       const product = await Product.findByPk(id);
       if (!product) {
@@ -211,14 +220,43 @@ class ProductController {
         return;
       }
 
-      await product.update({
+      // Logic to append images (referenced from nike-backend)
+      let images = product.images || [];
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+         const newImages = (req.files as Express.Multer.File[]).map((file) => `/uploads/${file.filename}`);
+         images = [...images, ...newImages];
+      }
+
+      // Helper to valid numbers or return undefined (to fallback to existing)
+      const parseOrUndefined = (val: any) => {
+         const parsed = parseFloat(val);
+         return isNaN(parsed) ? undefined : parsed;
+       }
+      
+      const updateData = {
         name: name || product.name,
         description: description !== undefined ? description : product.description,
-        sportType: sportType !== undefined ? sportType : product.sportType,
         brandId: brandId || product.brandId,
         categoryId: categoryId || product.categoryId,
+        productTypeId: productTypeId || product.productTypeId,
         isActive: isActive !== undefined ? isActive : product.isActive,
-      });
+        gender: gender || product.gender,
+        
+        // Use helper to avoid NaN. If undefined, use existing product value.
+        price: parseOrUndefined(price) ?? product.price,
+        discount: parseOrUndefined(discount) ?? product.discount,
+        originalPrice: parseOrUndefined(originalPrice) ?? product.originalPrice,
+        stock: parseOrUndefined(stock) ?? product.stock,
+
+        sizes: sizes ? sizes.split(",") : product.sizes,
+        colors: colors ? colors.split(",") : product.colors,
+        features: features ? features.split("\n") : product.features,
+        isNew: isNew !== undefined ? (isNew === "true" || isNew === true) : product.isNew,
+        
+        images: images,
+      };
+
+      await product.update(updateData);
 
       res.status(200).json({
         message: "Product updated successfully",

@@ -92,8 +92,9 @@ class Order extends Model {
   })
   declare totalPrice: number;
 
+  @ForeignKey(() => Payment)
   @Column({
-    type: DataType.STRING,
+    type: DataType.UUID,
     allowNull: true,
   })
   declare paymentId: string;

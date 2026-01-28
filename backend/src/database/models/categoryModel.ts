@@ -19,18 +19,6 @@ class Category extends Model {
     unique: true,
   })
   declare name: string;
-
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-  })
-  declare description: string;
-
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-  })
-  declare imageUrl: string;
 }
 
 export default Category;

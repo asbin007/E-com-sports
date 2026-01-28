@@ -19,18 +19,6 @@ class Brand extends Model {
     unique: true,
   })
   declare name: string;
-
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-  })
-  declare description: string;
-
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-  })
-  declare logoUrl: string;
 }
 
 export default Brand;

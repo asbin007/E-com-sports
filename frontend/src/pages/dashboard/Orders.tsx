@@ -123,22 +123,26 @@ const Orders = () => {
                           {order.status}
                         </span>
                         <div className="flex -space-x-2">
-                          {/* Mock images for items */}
-                          {order.OrderItems?.slice(0, 3).map((item: any) => (
-                            <div
-                              key={item.id}
-                              className="w-8 h-8 rounded-full border-2 border-white bg-gray-100 overflow-hidden shadow-sm"
-                            >
-                              <img
-                                src={
-                                  item.ProductVariant?.ProductImages?.[0]
-                                    ?.url || "https://via.placeholder.com/40"
-                                }
-                                alt=""
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          ))}
+                          {order.OrderItems?.slice(0, 3).map((item: any) => {
+                            const product = item.Variant?.Product;
+                            const imageUrl = product?.images?.[0]
+                              ? product.images[0].startsWith("http")
+                                ? product.images[0]
+                                : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${product.images[0].replace("/uploads/", "")}`
+                              : "/placeholder-product.png";
+                            return (
+                              <div
+                                key={item.id}
+                                className="w-8 h-8 rounded-full border-2 border-white bg-gray-100 overflow-hidden shadow-sm"
+                              >
+                                <img
+                                  src={imageUrl}
+                                  alt={product?.name || "Product"}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            );
+                          })}
                           {order.OrderItems?.length > 3 && (
                             <div className="w-8 h-8 rounded-full border-2 border-white bg-stone-950 text-white flex items-center justify-center text-[8px] font-black">
                               +{order.OrderItems.length - 3}

@@ -5,6 +5,7 @@ import "./database/connection/connection.js";
 import authRoute from "./routes/authRoute.js";
 import categoryRoute from "./routes/categoryRoute.js";
 import brandRoute from "./routes/brandRoute.js";
+import productTypeRoute from "./routes/productTypeRoute.js";
 import productRoute from "./routes/productRoute.js";
 import cartRoute from "./routes/cartRoute.js";
 import orderRoute from "./routes/orderRoute.js";
@@ -23,8 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "http://localhost:3000",
-  "http://localhost:3001",
+  "http://localhost:2000",
 ];
 
 if (process.env.FRONTEND_URL) {
@@ -125,6 +125,7 @@ app.get("/", (req, res) => {
       products: "/api/v1/products",
       categories: "/api/v1/categories",
       brands: "/api/v1/brands",
+      productTypes: "/api/v1/product-types",
       cart: "/api/v1/cart",
       orders: "/api/v1/orders",
       payments: "/api/v1/payments",
@@ -142,6 +143,7 @@ app.get("/", (req, res) => {
 app.use("/api/v1/auth", authRoute);
 app.use("/api/v1/categories", categoryRoute);
 app.use("/api/v1/brands", brandRoute);
+app.use("/api/v1/product-types", productTypeRoute);
 app.use("/api/v1/products", productRoute);
 app.use("/api/v1/cart", cartRoute);
 app.use("/api/v1/orders", orderRoute);

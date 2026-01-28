@@ -1,11 +1,30 @@
 import { Table, Column, Model, DataType } from "sequelize-typescript";
+import type { Optional } from "sequelize";
+
+interface UserAttributes {
+  id: string;
+  username: string;
+  email: string;
+  password?: string;
+  googleId?: string;
+  role: string;
+  avatar?: string;
+  phoneNumber?: string;
+  otp?: string;
+  otpExpiration?: Date;
+  isVerified: boolean;
+  isActive: boolean;
+  lastLoginAt?: Date;
+}
+
+interface UserCreationAttributes extends Optional<UserAttributes, "id" | "password" | "googleId" | "avatar" | "phoneNumber" | "otp" | "otpExpiration" | "lastLoginAt" | 'role' | 'isVerified' | 'isActive'> {}
 
 @Table({
   tableName: "users",
   modelName: "User",
   timestamps: true,
 })
-class User extends Model {
+class User extends Model<UserAttributes, UserCreationAttributes> {
   @Column({
     primaryKey: true,
     type: DataType.UUID,

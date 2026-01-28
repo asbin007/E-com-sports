@@ -1,7 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import multer from "multer";
-import { envConfig } from "../../config/config.js";
+import { envConfig } from "../config/config.js";
 
 // Validate required Cloudinary environment variables
 if (!envConfig.cloudName || !envConfig.cloudApiKey || !envConfig.cloudApiSecret) {

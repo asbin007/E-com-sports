@@ -1,11 +1,15 @@
 import http from "http";
-import { envConfig } from "./config/config.js";
+import { envConfig } from "./src/config/config.js";
 import app from "./src/app.js";
 import sequelize, { connectDB } from "./src/database/connection/connection.js";
+import { seedAdmin } from "./src/database/seeders/adminSeeder.js";
+import categoryController from "./src/controllers/categoryController.js";
+import brandController from "./src/controllers/brandController.js";
+import productTypeController from "./src/controllers/productTypeController.js";
 
 function startServer() {
   const host = process.env.HOST || "0.0.0.0";
-  const port = envConfig.port || 1001;
+  const port = envConfig.port || 1000;
 
   try {
     console.log("Starting server...");
@@ -24,7 +28,18 @@ function startServer() {
 
           if (process.env.NODE_ENV !== "production") {
             await sequelize.sync({ force: false, alter: true });
-            console.log("✅ Database synchronized successfully (alter enabled)");
+            console.log(
+              "✅ Database synchronized successfully (alter enabled)"
+            );
+            await seedAdmin();
+            await seedAdmin();
+            await categoryController.seedCategory();
+            console.log("Categories seeded successfully");
+
+            await brandController.seedBrand();
+            console.log("Brands seeded successfully");
+            await productTypeController.seedProductType();
+            console.log("Product types seeded successfully");
           } else {
             console.log("⚠️  Skipping database sync in production");
           }

@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { envConfig } from "../../config/config.js";
+import { envConfig } from "../config/config.js";
 
 interface TokenPayload {
   userId: string;
@@ -9,6 +9,9 @@ interface TokenPayload {
 
 class JwtService {
   generateAccessToken(payload: TokenPayload): string {
+    if (!envConfig.jwtSecret) {
+      console.error("CRITICAL: jwtSecret is missing in JwtService!");
+    }
     return jwt.sign(payload, envConfig.jwtSecret as string, {
       expiresIn: envConfig.jwtExpiration || "24h",
     });

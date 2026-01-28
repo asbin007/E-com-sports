@@ -104,7 +104,12 @@ const ProductDetail = () => {
   }, [product, selectedSize]);
 
   // Derived values
-  const images = product?.ProductImages?.map((img) => img.url) || [];
+  const rawImages = product?.images || [];
+  const images = rawImages.map((img) =>
+    img.startsWith("http")
+      ? img
+      : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${img.replace("/uploads/", "")}`,
+  );
   const isAccessory =
     product?.Category?.name.toLowerCase().includes("accessory") || false;
   const isShoes =
@@ -112,10 +117,13 @@ const ProductDetail = () => {
   const isClothing =
     product?.Category?.name.toLowerCase().includes("clothing") || false;
 
-  // Derived available sizes from Variants
-  const availableSizes = product?.Variants
-    ? sortSizes(product.Variants.map((v) => v.size))
-    : [];
+  // Derived available sizes from new flat model (fallback to Variants for backward compat if needed)
+  const availableSizes =
+    product?.sizes && product.sizes.length > 0
+      ? product.sizes
+      : product?.Variants
+        ? sortSizes(product.Variants.map((v) => v.size))
+        : [];
 
   // Fallback if no variants (should ideally not happen in production with valid data)
   // If no variants, we can't really sell it with the current backend logic requiring variantId.
@@ -123,22 +131,23 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (!product) return;
-    if (!selectedSize) {
-      // Alert with animation or toast
+    if (!selectedSize && !isAccessory) {
+      // If accessory, size might be auto-selected
+      alert("Please select a size");
       return;
     }
 
+    // Find the actual variant ID based on selected size
     const selectedVariant = product.Variants?.find(
-      (v) => v.size === selectedSize,
+      (v) => v.size === selectedSize || v.size === "One Size",
     );
 
     if (!selectedVariant) {
-      console.error("Variant not found for selected size");
+      alert("Selected size is not available. Please choose another size.");
       return;
     }
 
-    addToCart(product, selectedSize, selectedVariant.id);
-    // Open cart drawer or show success state
+    addToCart(product, selectedSize || "One Size", selectedVariant.id);
   };
 
   if (loading || !product) {
@@ -250,8 +259,13 @@ const ProductDetail = () => {
             {/* Badges & Brand */}
             <div className="flex items-center gap-3 mb-6">
               <span className="bg-stone-950 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] italic">
-                {product.sportType || "Training"}
+                {product.ProductType?.name || "Training"}
               </span>
+              {product.gender && (
+                <span className="bg-gray-100 text-stone-950 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] italic border border-gray-200">
+                  {product.gender}
+                </span>
+              )}
               <span className="text-orange-600 text-xs font-black uppercase tracking-widest">
                 {product.Brand?.name || "Global Elite"}
               </span>
@@ -264,15 +278,25 @@ const ProductDetail = () => {
 
             <div className="flex items-center gap-4 mb-8">
               <span className="text-3xl font-black text-stone-950 italic">
-                Rs {product.price?.toLocaleString() || "12,500"}
+                Rs {product.price?.toLocaleString()}
               </span>
-              <span className="text-lg text-gray-400 line-through italic">
-                Rs {((product.price || 12500) + 3000).toLocaleString()}
-              </span>
-              <div className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase tracking-wider rounded-lg flex items-center gap-1.5">
-                <Zap className="w-3 h-3 fill-current" />
-                Featured Drop
-              </div>
+              {product.originalPrice &&
+                product.originalPrice > (product.price || 0) && (
+                  <>
+                    <span className="text-lg text-gray-400 line-through italic">
+                      Rs {product.originalPrice.toLocaleString()}
+                    </span>
+                    <div className="px-3 py-1 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-wider rounded-lg flex items-center gap-1.5">
+                      {product.discount}% OFF
+                    </div>
+                  </>
+                )}
+              {product.isNew && (
+                <div className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase tracking-wider rounded-lg flex items-center gap-1.5">
+                  <Zap className="w-3 h-3 fill-current" />
+                  New Drop
+                </div>
+              )}
             </div>
 
             {/* Rating */}
@@ -346,44 +370,51 @@ const ProductDetail = () => {
                   Elite Specifications
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Features List */}
+                  {product.features && product.features.length > 0 ? (
+                    <div className="col-span-full space-y-4">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        Product DNS
+                      </p>
+                      <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {product.features.map((feature, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-start gap-2 text-xs font-bold text-stone-950"
+                          >
+                            <div className="w-1.5 h-1.5 bg-orange-600 rounded-full mt-1.5 flex-shrink-0" />
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {/* Other Info */}
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Technology
+                      Colors
                     </p>
                     <p className="text-xs font-bold text-stone-950">
-                      {isShoes
-                        ? "Impact Absorbing Sole"
-                        : isClothing
-                          ? "Dri-FIT Advanced"
-                          : "Industrial Grade"}
+                      {product.colors && product.colors.length > 0
+                        ? product.colors.join(", ")
+                        : "Multi-Color"}
                     </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Material
+                      SKU
                     </p>
                     <p className="text-xs font-bold text-stone-950">
-                      {isShoes
-                        ? "Engineered Synth Skin"
-                        : isClothing
-                          ? "Recycled Polyester"
-                          : "Reinforced Nylon"}
+                      {product.sku || "N/A"}
                     </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Fit Type
+                      Gender
                     </p>
                     <p className="text-xs font-bold text-stone-950">
-                      Pro-Performance Fit
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Origin
-                    </p>
-                    <p className="text-xs font-bold text-stone-950">
-                      Global Import
+                      {product.gender || "Unisex"}
                     </p>
                   </div>
                 </div>
@@ -428,7 +459,7 @@ const ProductDetail = () => {
             title="Similar Drops"
             subtitle="Complete your elite kit"
             filter={{
-              sportType: product.sportType,
+              categoryId: product.categoryId,
               limit: 4,
             }}
           />

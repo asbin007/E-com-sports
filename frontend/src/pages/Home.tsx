@@ -145,7 +145,7 @@ const Home = () => {
       <Recommendations
         title="Featured Gear"
         subtitle="Top picks for the elite performance"
-        filter={{ limit: 4, sportType: "Football" }}
+        filter={{ limit: 4 }}
       />
 
       {/* Trust Banner */}

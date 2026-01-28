@@ -177,10 +177,15 @@ const OrderDetail = () => {
                   <div className="flex items-center gap-6">
                     <div className="w-20 h-24 bg-stone-50 rounded-2xl overflow-hidden border border-gray-50 p-2 relative">
                       <img
-                        src={
-                          item.ProductVariant?.ProductImages?.[0]?.url ||
-                          "https://via.placeholder.com/100"
-                        }
+                        src={(() => {
+                          const product = item.Variant?.Product;
+                          const imageUrl = product?.images?.[0];
+                          if (!imageUrl) return "/placeholder-product.png";
+                          return imageUrl.startsWith("http")
+                            ? imageUrl
+                            : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${imageUrl.replace("/uploads/", "")}`;
+                        })()}
+                        alt={item.Variant?.Product?.name || "Product"}
                         className="w-full h-full object-cover rounded-xl transition-transform group-hover:scale-110"
                       />
                       <div className="absolute top-2 right-2 bg-stone-950 text-white w-6 h-6 rounded-lg text-[10px] font-black flex items-center justify-center italic">
@@ -189,17 +194,17 @@ const OrderDetail = () => {
                     </div>
                     <div>
                       <p className="text-[9px] font-black text-orange-600 uppercase tracking-widest italic mb-1">
-                        {item.ProductVariant?.Product?.Brand?.name}
+                        {item.Variant?.Product?.Brand?.name}
                       </p>
                       <h4 className="text-sm font-black text-stone-950 uppercase italic tracking-tight mb-2">
-                        {item.ProductVariant?.Product?.name}
+                        {item.productName || item.Variant?.Product?.name}
                       </h4>
                       <div className="flex items-center gap-4">
                         <span className="bg-gray-100 text-stone-950 px-3 py-1 rounded-full text-[8px] font-black uppercase">
-                          Size: {item.ProductVariant?.size}
+                          Size: {item.size || item.Variant?.size}
                         </span>
                         <span className="bg-gray-100 text-stone-950 px-3 py-1 rounded-full text-[8px] font-black uppercase">
-                          Color: {item.ProductVariant?.color}
+                          Color: {item.color || item.Variant?.color}
                         </span>
                       </div>
                     </div>

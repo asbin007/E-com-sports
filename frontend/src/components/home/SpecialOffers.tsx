@@ -169,18 +169,21 @@ const SpecialOffers = ({
                     animate={{ rotate: 0, scale: 1.15 }}
                     whileHover={{ scale: 1.25, rotate: -3 }}
                     src={
-                      products[currentIdx].ProductImages?.[0]?.url ||
-                      "https://via.placeholder.com/600"
+                      products[currentIdx].images &&
+                      products[currentIdx].images[0]
+                        ? products[currentIdx].images[0].startsWith("http")
+                          ? products[currentIdx].images[0]
+                          : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${products[currentIdx].images[0].replace("/uploads/", "")}`
+                        : "https://via.placeholder.com/600"
                     }
                     alt={products[currentIdx].name}
                     className="w-full h-full object-contain filter drop-shadow-[0_40px_80px_rgba(0,0,0,0.4)] relative z-10 transition-transform duration-700"
                   />
 
-                  {/* Category badge */}
                   <div className="absolute top-12 right-12 z-20">
                     <span className="bg-stone-950/80 backdrop-blur-md px-8 py-3 rounded-full border border-white/10 font-black text-xs text-white uppercase tracking-widest italic">
-                      {products[currentIdx].Category?.name ||
-                        products[currentIdx].sportType ||
+                      {products[currentIdx].ProductType?.name ||
+                        products[currentIdx].Category?.name ||
                         "Sport"}
                     </span>
                   </div>

@@ -10,18 +10,15 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { productService, type Product } from "../services/productService";
+import {
+  categoryService,
+  brandService,
+  productTypeService,
+  type Category,
+  type Brand,
+  type ProductType,
+} from "../services/filterService";
 import { cn } from "../utils/cn";
-
-const SPORTS = [
-  "Football",
-  "Cricket",
-  "Basketball",
-  "Running",
-  "Gym & Fitness",
-  "Outdoor",
-];
-const BRANDS = ["Nike", "Adidas", "Puma", "New Balance", "Under Armour"];
-const CATEGORIES = ["Men", "Women", "Kids", "Accessories"];
 
 const ProductListing = () => {
   const { category: urlCategory } = useParams<{ category: string }>();
@@ -31,26 +28,55 @@ const ProductListing = () => {
   const [loading, setLoading] = useState(true);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // Filter States
+  // Filter Options from Backend
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [productTypes, setProductTypes] = useState<ProductType[]>([]);
+
+  // Filter States (using IDs)
   const [search, setSearch] = useState(searchParams.get("q") || "");
-  const [selectedSports, setSelectedSports] = useState<string[]>([]);
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
+  const [selectedProductTypeIds, setSelectedProductTypeIds] = useState<
+    string[]
+  >([]);
+
+  // Fetch filter options on mount
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const [categoriesData, brandsData, productTypesData] =
+          await Promise.all([
+            categoryService.getAllCategories(),
+            brandService.getAllBrands(),
+            productTypeService.getAllProductTypes(),
+          ]);
+        setCategories(categoriesData);
+        setBrands(brandsData);
+        setProductTypes(productTypesData);
+      } catch (error) {
+        console.error("Failed to fetch filter options", error);
+      }
+    };
+    fetchFilterOptions();
+  }, []);
 
   // Initial setup from URL
   useEffect(() => {
-    if (urlCategory) {
+    if (urlCategory && categories.length > 0) {
       const formatted =
         urlCategory.charAt(0).toUpperCase() +
         urlCategory.slice(1).replace(/-/g, " ");
-      if (SPORTS.includes(formatted)) setSelectedSports([formatted]);
-      else if (CATEGORIES.includes(formatted))
-        setSelectedCategories([formatted]);
+      const matchedCategory = categories.find(
+        (c) => c.name.toLowerCase() === formatted.toLowerCase(),
+      );
+      if (matchedCategory) {
+        setSelectedCategoryIds([matchedCategory.id]);
+      }
     } else {
-      setSelectedSports([]);
-      setSelectedCategories([]);
+      setSelectedCategoryIds([]);
     }
-  }, [urlCategory]);
+  }, [urlCategory, categories]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -58,19 +84,15 @@ const ProductListing = () => {
       try {
         const params: any = {
           search: search || undefined,
-          sportType: selectedSports.length > 0 ? selectedSports[0] : undefined,
-          brandName: selectedBrands.length > 0 ? selectedBrands[0] : undefined,
+          categoryId:
+            selectedCategoryIds.length > 0 ? selectedCategoryIds[0] : undefined,
+          brandId:
+            selectedBrandIds.length > 0 ? selectedBrandIds[0] : undefined,
+          productTypeId:
+            selectedProductTypeIds.length > 0
+              ? selectedProductTypeIds[0]
+              : undefined,
         };
-
-        if (!params.sportType && urlCategory) {
-          const formatted = urlCategory.replace(/-/g, " ");
-          const sportMatch = SPORTS.find(
-            (s) => s.toLowerCase() === formatted.toLowerCase(),
-          );
-          if (sportMatch) {
-            params.sportType = sportMatch;
-          }
-        }
 
         const response = await productService.getAllProducts(params);
         setProducts(response.data);
@@ -83,7 +105,7 @@ const ProductListing = () => {
 
     const timer = setTimeout(fetchProducts, 300);
     return () => clearTimeout(timer);
-  }, [selectedSports, selectedBrands, selectedCategories, search, urlCategory]);
+  }, [selectedCategoryIds, selectedBrandIds, selectedProductTypeIds, search]);
 
   const toggleFilter = (
     list: string[],
@@ -141,42 +163,46 @@ const ProductListing = () => {
         <div className="flex gap-12">
           {/* Desktop Sidebar */}
           <aside className="hidden lg:block w-72 flex-shrink-0 space-y-10 sticky top-32 h-[calc(100vh-160px)] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-orange-600/20">
-            {/* Sport Types */}
+            {/* Categories (Sport Types) */}
             <div className="space-y-4">
               <h3 className="text-sm font-black uppercase tracking-widest text-stone-950 flex items-center justify-between">
-                Disciplines
+                Sport Types
                 <ChevronDown className="w-4 h-4 text-gray-400" />
               </h3>
               <div className="space-y-2">
-                {SPORTS.map((sport) => (
+                {categories.map((category) => (
                   <div
-                    key={sport}
+                    key={category.id}
                     className="flex items-center gap-3 group cursor-pointer"
                     onClick={() =>
-                      toggleFilter(selectedSports, setSelectedSports, sport)
+                      toggleFilter(
+                        selectedCategoryIds,
+                        setSelectedCategoryIds,
+                        category.id,
+                      )
                     }
                   >
                     <div
                       className={cn(
                         "w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center",
-                        selectedSports.includes(sport)
+                        selectedCategoryIds.includes(category.id)
                           ? "bg-orange-600 border-orange-600"
                           : "border-gray-200 group-hover:border-orange-600",
                       )}
                     >
-                      {selectedSports.includes(sport) && (
+                      {selectedCategoryIds.includes(category.id) && (
                         <LayoutGrid className="w-3 h-3 text-white" />
                       )}
                     </div>
                     <span
                       className={cn(
                         "text-sm font-bold transition-colors",
-                        selectedSports.includes(sport)
+                        selectedCategoryIds.includes(category.id)
                           ? "text-stone-950"
                           : "text-gray-500 group-hover:text-stone-950",
                       )}
                     >
-                      {sport}
+                      {category.name}
                     </span>
                   </div>
                 ))}
@@ -189,80 +215,84 @@ const ProductListing = () => {
                 Brands
               </h3>
               <div className="space-y-2">
-                {BRANDS.map((brand) => (
+                {brands.map((brand) => (
                   <div
-                    key={brand}
+                    key={brand.id}
                     className="flex items-center gap-3 group cursor-pointer"
                     onClick={() =>
-                      toggleFilter(selectedBrands, setSelectedBrands, brand)
+                      toggleFilter(
+                        selectedBrandIds,
+                        setSelectedBrandIds,
+                        brand.id,
+                      )
                     }
                   >
                     <div
                       className={cn(
                         "w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center",
-                        selectedBrands.includes(brand)
+                        selectedBrandIds.includes(brand.id)
                           ? "bg-stone-950 border-stone-950"
                           : "border-gray-200 group-hover:border-stone-950",
                       )}
                     >
-                      {selectedBrands.includes(brand) && (
+                      {selectedBrandIds.includes(brand.id) && (
                         <div className="w-1.5 h-1.5 bg-white rounded-full" />
                       )}
                     </div>
                     <span
                       className={cn(
                         "text-sm font-bold transition-colors",
-                        selectedBrands.includes(brand)
+                        selectedBrandIds.includes(brand.id)
                           ? "text-stone-950"
                           : "text-gray-500 group-hover:text-stone-950",
                       )}
                     >
-                      {brand}
+                      {brand.name}
                     </span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Categories */}
+            {/* Product Types */}
             <div className="space-y-4 border-t border-gray-100 pt-8">
               <h3 className="text-sm font-black uppercase tracking-widest text-stone-950">
-                Category
+                Product Type
               </h3>
               <div className="space-y-2">
-                {CATEGORIES.map((cat) => (
+                {productTypes.map((type) => (
                   <div
-                    key={cat}
+                    key={type.id}
                     className="flex items-center gap-3 group cursor-pointer"
                     onClick={() =>
                       toggleFilter(
-                        selectedCategories,
-                        setSelectedCategories,
-                        cat,
+                        selectedProductTypeIds,
+                        setSelectedProductTypeIds,
+                        type.id,
                       )
                     }
                   >
                     <div
                       className={cn(
                         "w-5 h-5 rounded-full border-2 transition-all flex items-center justify-center",
-                        selectedCategories.includes(cat)
+                        selectedProductTypeIds.includes(type.id)
                           ? "bg-stone-950 border-stone-950"
                           : "border-gray-200 group-hover:border-stone-950",
                       )}
                     >
-                      {selectedCategories.includes(cat) && (
+                      {selectedProductTypeIds.includes(type.id) && (
                         <div className="w-1.5 h-1.5 bg-white rounded-full" />
                       )}
                     </div>
                     <span
                       className={cn(
                         "text-sm font-bold transition-colors",
-                        selectedCategories.includes(cat)
+                        selectedProductTypeIds.includes(type.id)
                           ? "text-stone-950"
                           : "text-gray-500 group-hover:text-stone-950",
                       )}
                     >
-                      {cat}
+                      {type.name}
                     </span>
                   </div>
                 ))}
@@ -273,43 +303,71 @@ const ProductListing = () => {
           {/* Main Content */}
           <main className="flex-1">
             {/* Active Filters Bar */}
-            {(selectedSports.length > 0 ||
-              selectedBrands.length > 0 ||
-              selectedCategories.length > 0) && (
+            {(selectedCategoryIds.length > 0 ||
+              selectedBrandIds.length > 0 ||
+              selectedProductTypeIds.length > 0) && (
               <div className="flex flex-wrap gap-2 mb-8 items-center">
                 <span className="text-xs font-black uppercase tracking-tighter text-gray-400 mr-2">
                   Active:
                 </span>
-                {[
-                  ...selectedSports,
-                  ...selectedBrands,
-                  ...selectedCategories,
-                ].map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => {
-                      if (selectedSports.includes(filter))
-                        toggleFilter(selectedSports, setSelectedSports, filter);
-                      else if (selectedBrands.includes(filter))
-                        toggleFilter(selectedBrands, setSelectedBrands, filter);
-                      else
+                {selectedCategoryIds.map((id) => {
+                  const category = categories.find((c) => c.id === id);
+                  return category ? (
+                    <button
+                      key={id}
+                      onClick={() =>
                         toggleFilter(
-                          selectedCategories,
-                          setSelectedCategories,
-                          filter,
-                        );
-                    }}
-                    className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-orange-600 hover:text-white transition-all border border-transparent"
-                  >
-                    {filter}
-                    <X className="w-3 h-3" />
-                  </button>
-                ))}
+                          selectedCategoryIds,
+                          setSelectedCategoryIds,
+                          id,
+                        )
+                      }
+                      className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-orange-600 hover:text-white transition-all border border-transparent"
+                    >
+                      {category.name}
+                      <X className="w-3 h-3" />
+                    </button>
+                  ) : null;
+                })}
+                {selectedBrandIds.map((id) => {
+                  const brand = brands.find((b) => b.id === id);
+                  return brand ? (
+                    <button
+                      key={id}
+                      onClick={() =>
+                        toggleFilter(selectedBrandIds, setSelectedBrandIds, id)
+                      }
+                      className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-orange-600 hover:text-white transition-all border border-transparent"
+                    >
+                      {brand.name}
+                      <X className="w-3 h-3" />
+                    </button>
+                  ) : null;
+                })}
+                {selectedProductTypeIds.map((id) => {
+                  const type = productTypes.find((t) => t.id === id);
+                  return type ? (
+                    <button
+                      key={id}
+                      onClick={() =>
+                        toggleFilter(
+                          selectedProductTypeIds,
+                          setSelectedProductTypeIds,
+                          id,
+                        )
+                      }
+                      className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-orange-600 hover:text-white transition-all border border-transparent"
+                    >
+                      {type.name}
+                      <X className="w-3 h-3" />
+                    </button>
+                  ) : null;
+                })}
                 <button
                   onClick={() => {
-                    setSelectedSports([]);
-                    setSelectedBrands([]);
-                    setSelectedCategories([]);
+                    setSelectedCategoryIds([]);
+                    setSelectedBrandIds([]);
+                    setSelectedProductTypeIds([]);
                   }}
                   className="text-xs font-bold text-orange-600 hover:underline ml-4"
                 >
@@ -345,9 +403,9 @@ const ProductListing = () => {
                 </p>
                 <button
                   onClick={() => {
-                    setSelectedSports([]);
-                    setSelectedBrands([]);
-                    setSelectedCategories([]);
+                    setSelectedCategoryIds([]);
+                    setSelectedBrandIds([]);
+                    setSelectedProductTypeIds([]);
                     setSearch("");
                   }}
                   className="mt-8 px-8 py-3 bg-stone-950 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-orange-600 transition-all active:scale-95"
@@ -370,9 +428,16 @@ const ProductListing = () => {
                     >
                       <Link to={`/product/${product.id}`}>
                         <div className="relative aspect-[4/5] bg-gray-100 rounded-3xl overflow-hidden mb-6 border border-gray-100 shadow-sm group-hover:shadow-2xl transition-all duration-500">
-                          {product.ProductImages?.[0] ? (
+                          {product.images && product.images[0] ? (
                             <img
-                              src={product.ProductImages[0].url}
+                              src={
+                                product.images[0].startsWith("http")
+                                  ? product.images[0]
+                                  : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${product.images[0].replace(
+                                      "/uploads/",
+                                      "",
+                                    )}`
+                              }
                               alt={product.name}
                               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                             />
@@ -385,9 +450,28 @@ const ProductListing = () => {
                           {/* Badge */}
                           <div className="absolute top-4 left-4">
                             <span className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
-                              {product.sportType || "Training"}
+                              {product.ProductType?.name || "Training"}
+                              {product.ProductType?.name || "Training"}
                             </span>
                           </div>
+
+                          {/* New Arrival Badge */}
+                          {product.isNew && (
+                            <div className="absolute top-4 right-4">
+                              <span className="bg-stone-950 text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
+                                New Arrival
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Discount Badge */}
+                          {product.discount && product.discount > 0 && (
+                            <div className="absolute bottom-4 left-4 z-10">
+                              <span className="bg-red-600 text-white px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                                {product.discount}% OFF
+                              </span>
+                            </div>
+                          )}
 
                           {/* Hover Overlay */}
                           <div className="absolute inset-0 bg-stone-950/20 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -404,9 +488,18 @@ const ProductListing = () => {
                             <p className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em]">
                               {product.Brand?.name || "Premium Gear"}
                             </p>
-                            <p className="text-sm font-black text-stone-950 italic">
-                              Rs {product.price || "5,999"}
-                            </p>
+                            <div className="flex flex-col items-end">
+                              {product.originalPrice &&
+                                product.originalPrice >
+                                  (product.price || 0) && (
+                                  <span className="text-xs text-gray-400 line-through font-medium">
+                                    Rs {product.originalPrice.toLocaleString()}
+                                  </span>
+                                )}
+                              <p className="text-sm font-black text-stone-950 italic">
+                                Rs {product.price?.toLocaleString() || "5,999"}
+                              </p>
+                            </div>
                           </div>
                           <h3 className="text-lg font-black text-stone-950 uppercase tracking-tighter italic line-clamp-1 group-hover:text-orange-600 transition-colors">
                             {product.name}
@@ -458,23 +551,27 @@ const ProductListing = () => {
               <div className="space-y-12">
                 <div className="space-y-4">
                   <h3 className="text-xs font-black uppercase tracking-widest text-stone-400">
-                    Disciplines
+                    Sport Types
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {SPORTS.map((sport) => (
+                    {categories.map((category) => (
                       <button
-                        key={sport}
+                        key={category.id}
                         onClick={() =>
-                          toggleFilter(selectedSports, setSelectedSports, sport)
+                          toggleFilter(
+                            selectedCategoryIds,
+                            setSelectedCategoryIds,
+                            category.id,
+                          )
                         }
                         className={cn(
                           "px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all",
-                          selectedSports.includes(sport)
+                          selectedCategoryIds.includes(category.id)
                             ? "bg-orange-600 border-orange-600 text-white"
                             : "border-gray-100 text-gray-500",
                         )}
                       >
-                        {sport}
+                        {category.name}
                       </button>
                     ))}
                   </div>
@@ -485,20 +582,52 @@ const ProductListing = () => {
                     Brands
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {BRANDS.map((brand) => (
+                    {brands.map((brand) => (
                       <button
-                        key={brand}
+                        key={brand.id}
                         onClick={() =>
-                          toggleFilter(selectedBrands, setSelectedBrands, brand)
+                          toggleFilter(
+                            selectedBrandIds,
+                            setSelectedBrandIds,
+                            brand.id,
+                          )
                         }
                         className={cn(
                           "px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all",
-                          selectedBrands.includes(brand)
+                          selectedBrandIds.includes(brand.id)
                             ? "bg-stone-950 border-stone-950 text-white"
                             : "border-gray-100 text-gray-500",
                         )}
                       >
-                        {brand}
+                        {brand.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4 border-t border-gray-100 pt-8">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-stone-400">
+                    Product Types
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {productTypes.map((type) => (
+                      <button
+                        key={type.id}
+                        onClick={() =>
+                          toggleFilter(
+                            selectedProductTypeIds,
+                            setSelectedProductTypeIds,
+                            type.id,
+                          )
+                        }
+                        className={cn(
+                          "px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all",
+                          selectedProductTypeIds.includes(type.id)
+                            ? "bg-stone-950 border-stone-950 text-white"
+                            : "border-gray-100 text-gray-500",
+                        )}
+                      >
+                        {type.name}
                       </button>
                     ))}
                   </div>

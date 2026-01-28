@@ -1,5 +1,5 @@
 import axios from "axios";
-import { envConfig } from "../../config/config.js";
+import { envConfig } from "../config/config.js";
 
 interface KhaltiInitiateRequest {
   return_url: string;

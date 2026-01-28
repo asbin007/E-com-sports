@@ -9,7 +9,7 @@ import jwtService from "../services/jwtService.js";
 class AuthController {
   async register(req: Request, res: Response): Promise<void> {
     try {
-      const { username, email, password } = req.body;
+      const { username, email, password } = req.body || {};
 
       if (!username || !email || !password) {
         res.status(400).json({
@@ -54,6 +54,8 @@ class AuthController {
           message: "User registered successfully. Please check your email for OTP.",
           userId: newUser.id,
           email: newUser.email,
+          
+
           requiresOtp: true,
         });
       } catch (emailError) {
@@ -80,7 +82,7 @@ class AuthController {
 
   async verifyOtp(req: Request, res: Response): Promise<void> {
     try {
-      const { email, otp } = req.body;
+      const { email, otp } = req.body || {};
 
       if (!email || !otp) {
         res.status(400).json({
@@ -141,7 +143,7 @@ class AuthController {
 
   async resendOtp(req: Request, res: Response): Promise<void> {
     try {
-      const { email } = req.body;
+      const { email } = req.body || {};
 
       if (!email) {
         res.status(400).json({
@@ -192,7 +194,7 @@ class AuthController {
 
   async login(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password } = req.body;
+      const { email, password } = req.body || {};
 
       if (!email || !password) {
         res.status(400).json({
@@ -259,7 +261,7 @@ class AuthController {
 
   async refresh(req: Request, res: Response): Promise<void> {
     try {
-      const { refreshToken } = req.body;
+      const { refreshToken } = req.body || {};
 
       if (!refreshToken) {
         res.status(400).json({
@@ -305,13 +307,17 @@ class AuthController {
 
   async googleCallback(req: Request, res: Response): Promise<void> {
     try {
+      console.log("AuthController: googleCallback handling request");
       const user = req.user as any;
+      console.log("AuthController: User from req:", user?.id);
 
       if (!user) {
+        console.error("AuthController: No user found in request");
         res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}/login?error=auth_failed`);
         return;
       }
 
+      console.log("AuthController: Generating tokens");
       const token = jwtService.generateAccessToken({
         userId: user.id,
         email: user.email,

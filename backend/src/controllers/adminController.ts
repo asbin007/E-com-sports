@@ -9,6 +9,54 @@ import inventoryService from "../services/inventoryService.js";
 import { Op } from "sequelize";
 
 class AdminController {
+  async createAdmin(req: Request, res: Response): Promise<void> {
+    try {
+      const { username, email, password } = req.body;
+      const { User } = require("../database/models/userModel"); // Dynamic import to avoid circular dependency if any
+      const bcrypt = require("bcrypt");
+
+      if (!username || !email || !password) {
+        res.status(400).json({
+          message: "Username, email, and password are required",
+        });
+        return;
+      }
+
+      const existingUser = await User.default.findOne({ where: { email } });
+      if (existingUser) {
+        res.status(400).json({
+          message: "User with this email already exists",
+        });
+        return;
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const newAdmin = await User.default.create({
+        username,
+        email,
+        password: hashedPassword,
+        role: "admin",
+        isVerified: true,
+      });
+
+      res.status(201).json({
+        message: "Admin created successfully",
+        data: {
+          id: newAdmin.id,
+          username: newAdmin.username,
+          email: newAdmin.email,
+          role: newAdmin.role,
+        },
+      });
+    } catch (error: any) {
+      console.error(error);
+      res.status(500).json({
+        message: "Internal server error",
+        error: error.message,
+      });
+    }
+  }
   async createVariant(req: Request, res: Response): Promise<void> {
     try {
       const { productId, size, color, sku, price, salePrice } = req.body;

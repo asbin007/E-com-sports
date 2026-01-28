@@ -3,12 +3,13 @@ import dns from "node:dns";
 dns.setDefaultResultOrder("ipv4first");
 
 import { Sequelize } from "sequelize-typescript";
-import { envConfig } from "../../../config/config.js";
+import { envConfig } from "../../config/config.js";
 
 import User from "../models/userModel.js";
 import Address from "../models/addressModel.js";
 import Category from "../models/categoryModel.js";
 import Brand from "../models/brandModel.js";
+import ProductType from "../models/productTypeModel.js";
 import Product from "../models/productModel.js";
 import ProductImage from "../models/productImageModel.js";
 import Variant from "../models/variantModel.js";
@@ -30,6 +31,7 @@ const sequelize = new Sequelize(( envConfig.databaseUrl as string), {
     Address,
     Category,
     Brand,
+    ProductType,
     Product,
     ProductImage,
     Variant,
@@ -82,6 +84,10 @@ Category.hasMany(Product, { foreignKey: "categoryId" });
 // Brand x Product
 Product.belongsTo(Brand, { foreignKey: "brandId" });
 Brand.hasMany(Product, { foreignKey: "brandId" });
+
+// ProductType x Product
+Product.belongsTo(ProductType, { foreignKey: "productTypeId" });
+ProductType.hasMany(Product, { foreignKey: "productTypeId" });
 
 // Product x ProductImage
 ProductImage.belongsTo(Product, { foreignKey: "productId" });

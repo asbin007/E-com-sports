@@ -11,7 +11,6 @@ interface RecommendationsProps {
   filter?: {
     limit?: number;
     categoryId?: string;
-    sportType?: string;
     search?: string;
   };
 }
@@ -27,7 +26,6 @@ const Recommendations = ({ title, subtitle, filter }: RecommendationsProps) => {
         const data = await productService.getAllProducts({
           limit: filter?.limit || 4,
           categoryId: filter?.categoryId,
-          sportType: filter?.sportType,
           search: filter?.search,
         });
         setProducts(data.data || []);
@@ -105,8 +103,11 @@ const Recommendations = ({ title, subtitle, filter }: RecommendationsProps) => {
               <div className="relative aspect-square mb-6 overflow-hidden rounded-[2rem] bg-gradient-to-br from-stone-50 to-stone-100 flex items-center justify-center p-8 group-hover:bg-white transition-colors duration-500">
                 <img
                   src={
-                    product.ProductImages?.[0]?.url ||
-                    "https://via.placeholder.com/300"
+                    product.images && product.images[0]
+                      ? product.images[0].startsWith("http")
+                        ? product.images[0]
+                        : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${product.images[0].replace("/uploads/", "")}`
+                      : "https://via.placeholder.com/300"
                   }
                   alt={product.name}
                   className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.1)]"

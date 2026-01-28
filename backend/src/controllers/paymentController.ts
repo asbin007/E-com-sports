@@ -1,7 +1,7 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import axios from "axios";
 import Order from "../database/models/orderModel.js";
-import { envConfig } from "../../config/config.js";
+import { envConfig } from "../config/config.js";
 
 class PaymentController {
   async initializeKhalti(req: Request, res: Response): Promise<void> {

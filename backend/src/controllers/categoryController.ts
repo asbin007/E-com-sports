@@ -1,160 +1,142 @@
 import type { Request, Response } from "express";
 import Category from "../database/models/categoryModel.js";
-import Product from "../database/models/productModel.js";
 
 class CategoryController {
-  async getAllCategories(req: Request, res: Response): Promise<void> {
-    try {
-      const categories = await Category.findAll({
-        include: [
-          {
-            model: Product,
-            attributes: ["id", "name"],
-          },
-        ],
-      });
+  categoryData = [
+    {
+      name: "Football",
+    },
+    {
+      name: "Cricket",
+    },
+    {
+      name: "Basketball",
+    },
+    {
+      name: "Running",
+    },
+    {
+      name: "Tennis",
+    },
+    {
+      name: "Badminton",
+    },
+  ];
 
-      res.status(200).json({
-        message: "Categories fetched successfully",
-        data: categories,
-      });
-    } catch (error: any) {
-      console.error(error);
-      res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
+  async seedCategory(): Promise<void> {
+    const datas = await Category.findAll();
+    if (datas.length === 0) {
+      await Category.bulkCreate(this.categoryData);
+      console.log("Categories seeded successfully");
+    } else {
+      console.log("Categories already seeded");
     }
+  }
+
+  async getAllCategories(req: Request, res: Response): Promise<void> {
+    const data = await Category.findAll();
+    res.status(200).json({
+      message: "Fetched categories",
+      data,
+    });
   }
 
   async getCategoryById(req: Request, res: Response): Promise<void> {
-    try {
-      const { id } = req.params as { id: string };
-      const category = await Category.findByPk(id, {
-        include: [
-          {
-            model: Product,
-            attributes: ["id", "name", "description"],
-          },
-        ],
+    const { id } = req.params as { id: string };
+    const category = await Category.findByPk(id);
+    if (!category) {
+      res.status(404).json({
+        message: "Category not found",
       });
-
-      if (!category) {
-        res.status(404).json({
-          message: "Category not found",
-        });
-        return;
-      }
-
-      res.status(200).json({
-        message: "Category fetched successfully",
-        data: category,
-      });
-    } catch (error: any) {
-      console.error(error);
-      res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
+      return;
     }
+    res.status(200).json({
+      message: "Fetched category",
+      data: category,
+    });
   }
 
   async createCategory(req: Request, res: Response): Promise<void> {
-    try {
-      const { name, description, imageUrl } = req.body;
-
-      if (!name) {
-        res.status(400).json({
-          message: "Category name is required",
-        });
-        return;
-      }
-
-      const existingCategory = await Category.findOne({ where: { name } });
-      if (existingCategory) {
-        res.status(400).json({
-          message: "Category already exists",
-        });
-        return;
-      }
-
-      const category = await Category.create({
-        name,
-        description,
-        imageUrl,
+    const { name } = req.body;
+    if (!name) {
+      res.status(400).json({
+        message: "Please provide category name",
       });
+      return;
+    }
+    const category = await Category.create({
+      name,
+    });
+    res.status(200).json({
+      message: "Category created successfully",
+      data: category,
+    });
+  }
 
-      res.status(201).json({
-        message: "Category created successfully",
-        data: category,
+  async deleteCategory(req: Request, res: Response): Promise<void> {
+    const { id } = req.params as { id: string };
+    if (!id) {
+      res.status(400).json({
+        message: "Please provide id to delete",
       });
-    } catch (error: any) {
-      console.error(error);
-      res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
+      return;
+    }
+    const data = await Category.findAll({
+      where: {
+        id: id,
+      },
+    });
+    if (data.length === 0) {
+      res.status(404).json({
+        message: "No category with that id",
+      });
+    } else {
+      await Category.destroy({
+        where: {
+          id,
+        },
+      });
+      res.status(200).json({
+        message: "Category deleted successfully",
       });
     }
   }
 
   async updateCategory(req: Request, res: Response): Promise<void> {
-    try {
-      const { id } = req.params as { id: string };
-      const { name, description, imageUrl } = req.body;
+    const { id } = req.params as { id: string };
+    const { name } = req.body;
 
-      const category = await Category.findByPk(id);
-      if (!category) {
-        res.status(404).json({
-          message: "Category not found",
-        });
-        return;
-      }
-
-      await category.update({
-        name: name || category.name,
-        description: description !== undefined ? description : category.description,
-        imageUrl: imageUrl !== undefined ? imageUrl : category.imageUrl,
+    if (!id || !name) {
+      res.status(400).json({
+        message: "Please provide id and name to update",
       });
-
+      return;
+    }
+    const data = await Category.findAll({
+      where: {
+        id: id,
+      },
+    });
+    if (data.length === 0) {
+      res.status(404).json({
+        message: "No category with that id",
+      });
+    } else {
+      await Category.update(
+        {
+          name: name,
+        },
+        {
+          where: {
+            id,
+          },
+        }
+      );
       res.status(200).json({
         message: "Category updated successfully",
-        data: category,
-      });
-    } catch (error: any) {
-      console.error(error);
-      res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
-    }
-  }
-
-  async deleteCategory(req: Request, res: Response): Promise<void> {
-    try {
-      const { id } = req.params as { id: string };
-      const category = await Category.findByPk(id);
-
-      if (!category) {
-        res.status(404).json({
-          message: "Category not found",
-        });
-        return;
-      }
-
-      await category.destroy();
-
-      res.status(200).json({
-        message: "Category deleted successfully",
-      });
-    } catch (error: any) {
-      console.error(error);
-      res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
       });
     }
   }
 }
 
 export default new CategoryController();
-

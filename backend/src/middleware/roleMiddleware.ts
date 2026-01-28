@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { envConfig } from "../../config/config.js";
+import { envConfig } from "../config/config.js";
 import User from "../database/models/userModel.js";
 
 export enum Role {

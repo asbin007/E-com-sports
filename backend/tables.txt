@@ -1,0 +1,22 @@
+[
+  "otps",
+  "categories",
+  "users",
+  "addresses",
+  "products",
+  "brands",
+  "product_types",
+  "product_images",
+  "inventory",
+  "cart_items",
+  "variants",
+  "orders",
+  "payments",
+  "order_items",
+  "collections",
+  "collection_products",
+  "wishlists",
+  "product_reviews",
+  "chats",
+  "messages"
+]

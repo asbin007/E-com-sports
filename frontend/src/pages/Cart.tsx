@@ -104,9 +104,16 @@ const Cart = () => {
                 >
                   {/* Item Image */}
                   <div className="w-full sm:w-44 h-48 bg-stone-50 rounded-[1.5rem] overflow-hidden flex-shrink-0 relative group-hover:bg-white transition-colors duration-500">
-                    {item.ProductImages?.[0] ? (
+                    {item.images && item.images[0] ? (
                       <img
-                        src={item.ProductImages[0].url}
+                        src={
+                          item.images[0].startsWith("http")
+                            ? item.images[0]
+                            : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${item.images[0].replace(
+                                "/uploads/",
+                                "",
+                              )}`
+                        }
                         alt={item.name}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       />

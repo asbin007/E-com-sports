@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { envConfig } from "../../config/config.js";
+import { envConfig } from "../config/config.js";
 import { logOTPToConsole } from "./simpleEmailService.js";
 
 const emailConfigs = {

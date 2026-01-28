@@ -93,7 +93,12 @@ const Checkout = () => {
 
     try {
       const items = cart
-        .filter((item) => item.variantId && item.variantId !== "mock-id")
+        .filter(
+          (item) =>
+            item.variantId &&
+            item.variantId !== "mock-id" &&
+            item.variantId !== "default-variant-id",
+        )
         .map((item) => ({
           variantId: item.variantId,
           quantity: item.quantity,
@@ -564,8 +569,11 @@ const Checkout = () => {
                       <div className="w-20 h-24 bg-white rounded-[1.5rem] border border-gray-100 overflow-hidden shrink-0 shadow-sm relative">
                         <img
                           src={
-                            item.ProductImages?.[0]?.url ||
-                            "https://via.placeholder.com/100"
+                            item.images && item.images[0]
+                              ? item.images[0].startsWith("http")
+                                ? item.images[0]
+                                : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${item.images[0].replace("/uploads/", "")}`
+                              : "https://via.placeholder.com/100"
                           }
                           className="w-full h-full object-cover transition-transform group-hover:scale-110"
                         />
