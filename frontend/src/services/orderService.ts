@@ -11,7 +11,7 @@ export const orderService = {
     state: string;
     zipcode: string;
     paymentMethod: string;
-    items: { variantId: string; quantity: number }[];
+    items: { productId: string; size: string | null; quantity: number; price?: number }[];
   }) {
     const response = await api.post('/orders', data);
     return response.data;

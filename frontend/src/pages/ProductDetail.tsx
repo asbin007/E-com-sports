@@ -48,6 +48,7 @@ const ProductDetail = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState<string>("");
+  const [selectedColor, setSelectedColor] = useState<string>("");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
 
@@ -110,20 +111,33 @@ const ProductDetail = () => {
       ? img
       : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${img.replace("/uploads/", "")}`,
   );
-  const isAccessory =
-    product?.Category?.name.toLowerCase().includes("accessory") || false;
-  const isShoes =
-    product?.Category?.name.toLowerCase().includes("shoe") || false;
-  const isClothing =
-    product?.Category?.name.toLowerCase().includes("clothing") || false;
+  // Category-driven UI flags from backend metadata
+  const categoryMeta = product?.Category;
+  const needsSize   = categoryMeta?.needsSize ?? true;
+  const sizeType    = categoryMeta?.sizeType ?? null;   // "shoe" | "clothing" | null
 
-  // Derived available sizes from new flat model (fallback to Variants for backward compat if needed)
+  const isShoes    = sizeType === "shoe";
+  const isJersey   = categoryMeta?.slug === "jersey";
+  const isSocks    = categoryMeta?.slug === "socks";
+  const isAccessory = !needsSize; // Gear, accessories
+  const isOther    = needsSize && !isShoes && !isJersey && !isSocks;
+
+  // Derived available sizes — trim any whitespace artifacts from backend split
   const availableSizes =
     product?.sizes && product.sizes.length > 0
-      ? product.sizes
+      ? product.sizes.map((s) => s.trim()).filter(Boolean)
       : product?.Variants
         ? sortSizes(product.Variants.map((v) => v.size))
         : [];
+
+  // Show size selector whenever sizes exist (any category)
+  const hasSizes = availableSizes.length > 0;
+
+  // Available colors — trim whitespace artifacts
+  const availableColors =
+    product?.colors && product.colors.length > 0
+      ? product.colors.map((c) => c.trim()).filter(Boolean)
+      : [];
 
   // Fallback if no variants (should ideally not happen in production with valid data)
   // If no variants, we can't really sell it with the current backend logic requiring variantId.
@@ -131,23 +145,26 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (!product) return;
-    if (!selectedSize && !isAccessory) {
-      // If accessory, size might be auto-selected
-      alert("Please select a size");
+
+    // Gear / accessories — no size needed
+    if (isAccessory || !hasSizes) {
+      addToCart(product, null);
       return;
     }
 
-    // Find the actual variant ID based on selected size
-    const selectedVariant = product.Variants?.find(
-      (v) => v.size === selectedSize || v.size === "One Size",
-    );
-
-    if (!selectedVariant) {
-      alert("Selected size is not available. Please choose another size.");
+    // All other categories need a size selected
+    if (!selectedSize) {
+      alert(
+        isShoes
+          ? "Please select a shoe size"
+          : isJersey
+            ? "Please select a jersey size"
+            : "Please select a size",
+      );
       return;
     }
 
-    addToCart(product, selectedSize || "One Size", selectedVariant.id);
+    addToCart(product, selectedSize);
   };
 
   if (loading || !product) {
@@ -311,16 +328,24 @@ const ProductDetail = () => {
               </span>
             </div>
 
-            {/* Size Selector */}
-            {!isAccessory && (
+            {/* Size Selector — Category Aware */}
+            {hasSizes && !isAccessory && (
               <div className="mb-10">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-sm font-black text-stone-950 uppercase tracking-widest">
-                    Select Size
+                    {isShoes
+                      ? "Select Shoe Size"
+                      : isJersey
+                        ? "Select Jersey Size"
+                        : isSocks
+                          ? "Select Sock Size"
+                          : "Select Size"}
                   </h3>
-                  <button className="flex items-center text-xs font-bold text-orange-600 hover:underline">
-                    <Ruler className="w-4 h-4 mr-1.5" /> Size Guide
-                  </button>
+                  {(isShoes || isJersey) && (
+                    <button className="flex items-center text-xs font-bold text-orange-600 hover:underline">
+                      <Ruler className="w-4 h-4 mr-1.5" /> Size Guide
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {availableSizes.map((size) => (
@@ -338,6 +363,64 @@ const ProductDetail = () => {
                     </button>
                   ))}
                 </div>
+                <p className="mt-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                  {isShoes && "UK Sizing — Half sizes not available"}
+                  {isJersey && "Refer to size guide for team fit vs slim fit"}
+                  {isSocks && "S fits UK 4–7 · M fits UK 7–10 · L fits UK 10+"}
+                </p>
+              </div>
+            )}
+
+            {/* Color Selector */}
+            {availableColors.length > 0 && (
+              <div className="mb-10">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-sm font-black text-stone-950 uppercase tracking-widest">
+                    Select Color
+                  </h3>
+                  {selectedColor && (
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                      {selectedColor}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {availableColors.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setSelectedColor(color)}
+                      title={color}
+                      className={cn(
+                        "group relative w-10 h-10 rounded-full border-2 transition-all duration-300 flex items-center justify-center",
+                        selectedColor === color
+                          ? "border-stone-950 scale-110 shadow-lg"
+                          : "border-gray-200 hover:border-stone-400 hover:scale-105",
+                      )}
+                    >
+                      <span
+                        className="w-6 h-6 rounded-full block border border-black/10"
+                        style={{
+                          backgroundColor:
+                            CSS.supports("color", color.toLowerCase())
+                              ? color.toLowerCase()
+                              : "transparent",
+                          backgroundImage:
+                            !CSS.supports("color", color.toLowerCase())
+                              ? "linear-gradient(135deg, #e0e0e0 25%, #bdbdbd 25%, #bdbdbd 50%, #e0e0e0 50%, #e0e0e0 75%, #bdbdbd 75%)"
+                              : undefined,
+                        }}
+                      />
+                      {selectedColor === color && (
+                        <span className="absolute inset-0 rounded-full ring-2 ring-offset-2 ring-stone-950" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                  {selectedColor
+                    ? `Selected: ${selectedColor}`
+                    : "Tap a color to select"}
+                </p>
               </div>
             )}
 
@@ -374,7 +457,7 @@ const ProductDetail = () => {
                   {product.features && product.features.length > 0 ? (
                     <div className="col-span-full space-y-4">
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        Product DNS
+                        Key Features
                       </p>
                       <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {product.features.map((feature, idx) => (
@@ -390,11 +473,107 @@ const ProductDetail = () => {
                     </div>
                   ) : null}
 
-                  {/* Other Info */}
+                  {/* ── JERSEY specific ── */}
+                  {isJersey && (
+                    <>
+                      {product.attributes?.team && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Team</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.team}</p>
+                        </div>
+                      )}
+                      {product.attributes?.player && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Player</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.player}</p>
+                        </div>
+                      )}
+                      {product.attributes?.season && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Season</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.season}</p>
+                        </div>
+                      )}
+                      {product.attributes?.isAuthentic !== undefined && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Authenticity</p>
+                          <p className="text-xs font-bold text-stone-950">
+                            {product.attributes.isAuthentic ? "✅ Official Licensed" : "Replica"}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ── SHOES specific ── */}
+                  {isShoes && (
+                    <>
+                      {product.attributes?.surface && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Surface</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.surface}</p>
+                        </div>
+                      )}
+                      {product.attributes?.shoeType && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Type</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.shoeType}</p>
+                        </div>
+                      )}
+                      {product.attributes?.sole && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sole</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.sole}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ── SOCKS specific ── */}
+                  {isSocks && (
+                    <>
+                      {product.attributes?.length && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Length</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.length}</p>
+                        </div>
+                      )}
+                      {product.attributes?.material && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Material</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.material}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ── OTHER / GEAR specific ── */}
+                  {(isAccessory || isOther) && (
+                    <>
+                      {product.attributes?.equipmentType && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Equipment Type</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.equipmentType}</p>
+                        </div>
+                      )}
+                      {product.attributes?.ageGroup && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Age Group</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.ageGroup}</p>
+                        </div>
+                      )}
+                      {product.attributes?.weight && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Weight</p>
+                          <p className="text-xs font-bold text-stone-950">{product.attributes.weight}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ── SHARED fields (all categories) ── */}
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Colors
-                    </p>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Colors</p>
                     <p className="text-xs font-bold text-stone-950">
                       {product.colors && product.colors.length > 0
                         ? product.colors.join(", ")
@@ -402,20 +581,12 @@ const ProductDetail = () => {
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      SKU
-                    </p>
-                    <p className="text-xs font-bold text-stone-950">
-                      {product.sku || "N/A"}
-                    </p>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">SKU</p>
+                    <p className="text-xs font-bold text-stone-950">{product.sku || "N/A"}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      Gender
-                    </p>
-                    <p className="text-xs font-bold text-stone-950">
-                      {product.gender || "Unisex"}
-                    </p>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Gender</p>
+                    <p className="text-xs font-bold text-stone-950">{product.gender || "Unisex"}</p>
                   </div>
                 </div>
               </div>

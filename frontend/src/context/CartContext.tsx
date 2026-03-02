@@ -8,16 +8,15 @@ import {
 import { type Product } from "../services/productService";
 
 export interface CartItem extends Product {
-  selectedSize: string;
+  selectedSize: string | null; // null for Gear
   quantity: number;
-  variantId?: string;
 }
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product, size: string, variantId?: string) => void;
-  removeFromCart: (productId: string, size: string) => void;
-  updateQuantity: (productId: string, size: string, quantity: number) => void;
+  addToCart: (product: Product, size: string | null) => void;
+  removeFromCart: (productId: string, size: string | null) => void;
+  updateQuantity: (productId: string, size: string | null, quantity: number) => void;
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
@@ -39,7 +38,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = (product: Product, size: string, variantId?: string) => {
+  const addToCart = (product: Product, size: string | null) => {
     setCart((prev) => {
       const existingItem = prev.find(
         (item) => item.id === product.id && item.selectedSize === size,
@@ -54,13 +53,13 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       }
       return [
         ...prev,
-        { ...product, selectedSize: size, quantity: 1, variantId },
+        { ...product, selectedSize: size, quantity: 1 },
       ];
     });
     setIsCartOpen(true); // Open drawer on add
   };
 
-  const removeFromCart = (productId: string, size: string) => {
+  const removeFromCart = (productId: string, size: string | null) => {
     setCart((prev) =>
       prev.filter(
         (item) => !(item.id === productId && item.selectedSize === size),
@@ -70,7 +69,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const updateQuantity = (
     productId: string,
-    size: string,
+    size: string | null,
     quantity: number,
   ) => {
     if (quantity < 1) {

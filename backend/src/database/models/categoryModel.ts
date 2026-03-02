@@ -19,7 +19,27 @@ class Category extends Model {
     unique: true,
   })
   declare name: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: false,
+    unique: true,
+  })
+  declare slug: string;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+  })
+  declare needsSize: boolean;
+
+  @Column({
+    type: DataType.ENUM("clothing", "shoe"),
+    allowNull: true,
+    defaultValue: null,
+  })
+  declare sizeType: "clothing" | "shoe" | null;
 }
 
 export default Category;
-

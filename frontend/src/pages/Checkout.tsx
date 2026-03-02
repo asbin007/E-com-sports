@@ -92,22 +92,16 @@ const Checkout = () => {
     setError("");
 
     try {
-      const items = cart
-        .filter(
-          (item) =>
-            item.variantId &&
-            item.variantId !== "mock-id" &&
-            item.variantId !== "default-variant-id",
-        )
-        .map((item) => ({
-          variantId: item.variantId,
-          quantity: item.quantity,
-        }));
+      // Map cart to productId + size — all cart items are valid by definition
+      const items = cart.map((item) => ({
+        productId: item.id,
+        size: item.selectedSize,    // null for gear/accessories
+        quantity: item.quantity,
+        price: item.price,          // snapshot price for backend use
+      }));
 
       if (items.length === 0) {
-        setError(
-          "Your cart contains invalid items. Please clear your cart and try again.",
-        );
+        setError("Your cart is empty.");
         setLoading(false);
         return;
       }

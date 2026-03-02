@@ -1,6 +1,6 @@
 import { Table, Column, Model, DataType, ForeignKey, BelongsTo } from "sequelize-typescript";
 import Order from "./orderModel.js";
-import Variant from "./variantModel.js";
+import Product from "./productModel.js";
 
 @Table({
   tableName: "order_items",
@@ -22,12 +22,12 @@ class OrderItem extends Model {
   })
   declare orderId: string;
 
-  @ForeignKey(() => Variant)
+  @ForeignKey(() => Product)
   @Column({
     type: DataType.UUID,
-    allowNull: false,
+    allowNull: true,
   })
-  declare variantId: string;
+  declare productId: string | null;
 
   @Column({
     type: DataType.STRING,
@@ -37,9 +37,9 @@ class OrderItem extends Model {
 
   @Column({
     type: DataType.STRING,
-    allowNull: false,
+    allowNull: true, // no per-size SKU in new schema
   })
-  declare sku: string;
+  declare sku: string | null;
 
   @Column({
     type: DataType.STRING,
@@ -74,8 +74,8 @@ class OrderItem extends Model {
   @BelongsTo(() => Order)
   declare Order: Order;
 
-  @BelongsTo(() => Variant)
-  declare Variant: Variant;
+  @BelongsTo(() => Product)
+  declare Product: Product;
 }
 
 export default OrderItem;

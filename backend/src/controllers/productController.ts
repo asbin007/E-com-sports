@@ -45,7 +45,7 @@ class ProductController {
         include: [
           {
             model: Category,
-            attributes: ["id", "name"],
+            attributes: ["id", "name", "needsSize", "sizeType", "slug"],
             where: Object.keys(categoryWhere).length > 0 ? categoryWhere : undefined,
           },
           {
@@ -88,7 +88,7 @@ class ProductController {
         include: [
           {
             model: Category,
-            attributes: ["id", "name"],
+            attributes: ["id", "name", "needsSize", "sizeType", "slug"],
           },
           {
             model: Brand,
@@ -142,8 +142,20 @@ class ProductController {
         colors,
         isNew,
         features,
+        sport,
+        attributes,
         // sku,
       } = (req.body || {}) as any;
+
+      // Parse attributes if sent as JSON string
+      let parsedAttributes: Record<string, any> = {};
+      if (attributes) {
+        try {
+          parsedAttributes = typeof attributes === "string" ? JSON.parse(attributes) : attributes;
+        } catch (_) {
+          parsedAttributes = {};
+        }
+      }
 
       if (!name || !categoryId || !brandId || !productTypeId) {
         res.status(400).json({
@@ -164,15 +176,16 @@ class ProductController {
         categoryId,
         productTypeId,
         gender,
+        sport: sport || null,
         price: price ? parseFloat(price) : 0,
         discount: discount ? parseInt(discount) : 0,
         originalPrice: originalPrice ? parseFloat(originalPrice) : 0,
         stock: stock ? parseInt(stock) : 0,
-        sizes: sizes ? sizes.split(",") : [],
-        colors: colors ? colors.split(",") : [],
-        features: features ? features.split("\n") : [],
+        sizes: sizes ? sizes.split(",").map((s: string) => s.trim()).filter(Boolean) : [],
+        colors: colors ? colors.split(",").map((s: string) => s.trim()).filter(Boolean) : [],
+        features: features ? features.split(",").map((s: string) => s.trim()).filter(Boolean) : [],
         isNew: isNew === "true" || isNew === true,
-
+        attributes: parsedAttributes,
         images,
         isActive: true,
       });
@@ -209,8 +222,20 @@ class ProductController {
         colors,
         isNew,
         features,
+        sport,
+        attributes,
         // sku,
       } = req.body;
+
+      // Parse attributes if sent as JSON string
+      let parsedAttributes: Record<string, any> | undefined;
+      if (attributes !== undefined) {
+        try {
+          parsedAttributes = typeof attributes === "string" ? JSON.parse(attributes) : attributes;
+        } catch (_) {
+          parsedAttributes = {};
+        }
+      }
 
       const product = await Product.findByPk(id);
       if (!product) {
@@ -241,6 +266,8 @@ class ProductController {
         productTypeId: productTypeId || product.productTypeId,
         isActive: isActive !== undefined ? isActive : product.isActive,
         gender: gender || product.gender,
+        sport: sport !== undefined ? sport : product.sport,
+        attributes: parsedAttributes !== undefined ? parsedAttributes : product.attributes,
         
         // Use helper to avoid NaN. If undefined, use existing product value.
         price: parseOrUndefined(price) ?? product.price,
@@ -248,9 +275,9 @@ class ProductController {
         originalPrice: parseOrUndefined(originalPrice) ?? product.originalPrice,
         stock: parseOrUndefined(stock) ?? product.stock,
 
-        sizes: sizes ? sizes.split(",") : product.sizes,
-        colors: colors ? colors.split(",") : product.colors,
-        features: features ? features.split("\n") : product.features,
+        sizes: sizes ? sizes.split(",").map((s: string) => s.trim()).filter(Boolean) : product.sizes,
+        colors: colors ? colors.split(",").map((s: string) => s.trim()).filter(Boolean) : product.colors,
+        features: features ? features.split(",").map((s: string) => s.trim()).filter(Boolean) : product.features,
         isNew: isNew !== undefined ? (isNew === "true" || isNew === true) : product.isNew,
         
         images: images,

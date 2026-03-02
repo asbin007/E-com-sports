@@ -86,6 +86,18 @@ class Product extends Model {
   })
   declare gender: string;
 
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare sport: string; // e.g. "football", "cricket", "basketball", "general"
+
+  @Column({
+    type: DataType.JSONB,
+    defaultValue: {},
+  })
+  declare attributes: Record<string, any>; // category-specific extras
+
   @ForeignKey(() => Category)
   @Column({
     type: DataType.UUID,

@@ -8,6 +8,7 @@ const router = Router();
 
 router.get("/", errorHandler(categoryController.getAllCategories.bind(categoryController)));
 router.get("/:id", errorHandler(categoryController.getCategoryById.bind(categoryController)));
+router.post("/reseed", userMiddleware.isUserLoggedIn, requireAdmin, errorHandler(categoryController.reseedCategories.bind(categoryController)));
 router.post("/", userMiddleware.isUserLoggedIn, requireAdmin, errorHandler(categoryController.createCategory.bind(categoryController)));
 router.put("/:id", userMiddleware.isUserLoggedIn, requireAdmin, errorHandler(categoryController.updateCategory.bind(categoryController)));
 router.delete("/:id", userMiddleware.isUserLoggedIn, requireAdmin, errorHandler(categoryController.deleteCategory.bind(categoryController)));

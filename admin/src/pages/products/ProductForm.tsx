@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -7,6 +7,7 @@ import {
   Check,
   ChevronRight,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import api from "../../api";
 
@@ -15,12 +16,101 @@ interface Option {
   name: string;
 }
 
+interface CategoryOption extends Option {
+  sizeType: "clothing" | "shoe" | null;
+  slug: string;
+  needsSize: boolean;
+}
+
 const STEPS = [
   { id: 1, title: "Basic Info", description: "Name, brand, and category" },
   { id: 2, title: "Attributes", description: "Sizes, colors, and features" },
   { id: 3, title: "Pricing & Inventory", description: "Price, SKU, and stock" },
   { id: 4, title: "Media", description: "Product images" },
 ];
+
+// ── Tag Input Component ─────────────────────────────────────────────────────
+interface TagInputProps {
+  label: string;
+  tags: string[];
+  onAdd: (tag: string) => void;
+  onRemove: (index: number) => void;
+  placeholder?: string;
+  colorDots?: boolean;
+}
+
+const TagInput = ({
+  label,
+  tags,
+  onAdd,
+  onRemove,
+  placeholder = "Type and press Enter…",
+  colorDots = false,
+}: TagInputProps) => {
+  const [inputValue, setInputValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const trimmed = inputValue.trim();
+      if (trimmed && !tags.includes(trimmed)) {
+        onAdd(trimmed);
+        setInputValue("");
+      }
+    }
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label}
+      </label>
+      <div
+        className="min-h-[44px] w-full px-3 py-2 rounded-lg border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-stone-950/10 focus-within:border-stone-950 transition-all flex flex-wrap gap-2 cursor-text"
+        onClick={() => inputRef.current?.focus()}
+      >
+        {tags.map((tag, idx) => (
+          <span
+            key={idx}
+            className="inline-flex items-center gap-1.5 bg-stone-100 text-stone-800 text-sm font-medium px-2.5 py-1 rounded-md"
+          >
+            {colorDots && (
+              <span
+                className="w-3 h-3 rounded-full border border-stone-300 flex-shrink-0"
+                style={{ backgroundColor: tag.toLowerCase() }}
+              />
+            )}
+            {tag}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(idx);
+              }}
+              className="text-stone-400 hover:text-stone-700 transition-colors"
+            >
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={tags.length === 0 ? placeholder : ""}
+          className="flex-1 min-w-[160px] outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400 py-0.5"
+        />
+      </div>
+      <p className="text-xs text-gray-400 mt-1">
+        Press <kbd className="bg-gray-100 border border-gray-200 rounded px-1 py-0.5 font-mono text-[10px]">Enter</kbd> to add each item
+      </p>
+    </div>
+  );
+};
+// ───────────────────────────────────────────────────────────────────────────
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -32,7 +122,7 @@ const ProductForm = () => {
   const [initialLoading, setInitialLoading] = useState(isEditMode);
 
   // Data Options
-  const [categories, setCategories] = useState<Option[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [brands, setBrands] = useState<Option[]>([]);
   const [productTypes, setProductTypes] = useState<Option[]>([]);
 
@@ -44,17 +134,24 @@ const ProductForm = () => {
     discount: "",
     originalPrice: "",
     stock: "",
-    sizes: "",
-    colors: "",
-    features: "",
+    sizes: [] as string[],
+    colors: [] as string[],
+    features: [] as string[],
     isNew: false,
     categoryId: "",
     brandId: "",
     productTypeId: "",
     gender: "Unisex",
+    sport: "",
     sku: "",
     images: [] as File[],
+    attributes: {} as Record<string, string | boolean>,
   });
+
+  // Derive selected category metadata
+  const selectedCategory = categories.find((c) => c.id === formData.categoryId);
+  const sizeType = selectedCategory?.sizeType ?? null;
+  const catSlug  = selectedCategory?.slug ?? "";
 
   useEffect(() => {
     const fetchOptions = async () => {
@@ -92,18 +189,20 @@ const ProductForm = () => {
             discount: product.discount ? product.discount.toString() : "",
             sizes:
               product.sizes && Array.isArray(product.sizes)
-                ? product.sizes.join(", ")
-                : "",
+                ? product.sizes
+                : [],
             colors:
               product.colors && Array.isArray(product.colors)
-                ? product.colors.join(", ")
-                : "",
+                ? product.colors
+                : [],
             features:
               product.features && Array.isArray(product.features)
-                ? product.features.join("\n")
-                : "",
+                ? product.features
+                : [],
             isNew: product.isNew || false,
             sku: product.sku || "",
+            sport: product.sport || "",
+            attributes: product.attributes || {},
             images: [],
           });
         } catch (error) {
@@ -119,7 +218,6 @@ const ProductForm = () => {
   // Calculations Logic: Listen to changes in formData
   const handlePriceCalculation = (name: string, value: string) => {
     if (name === "originalPrice" || name === "price") {
-      // If MRP or Selling Price changes -> Calculate Discount
       const mrp =
         name === "originalPrice"
           ? parseFloat(value)
@@ -132,7 +230,6 @@ const ProductForm = () => {
         return { discount: discountPercent.toString() };
       }
     } else if (name === "discount") {
-      // If Discount changes -> Calculate Selling Price
       const discount = parseFloat(value);
       const mrp = parseFloat(formData.originalPrice);
 
@@ -153,7 +250,6 @@ const ProductForm = () => {
     const checked =
       type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
 
-    // Auto Calculate
     let updates = {};
     if (name === "price" || name === "originalPrice" || name === "discount") {
       updates = handlePriceCalculation(name, value);
@@ -166,6 +262,14 @@ const ProductForm = () => {
     }));
   };
 
+  // Attribute field handler
+  const handleAttrChange = (key: string, value: string | boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      attributes: { ...prev.attributes, [key]: value },
+    }));
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFormData((prev) => ({
@@ -174,6 +278,22 @@ const ProductForm = () => {
       }));
     }
   };
+
+  // Tag handlers
+  const addTag = (field: "sizes" | "colors" | "features") => (tag: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: [...prev[field], tag],
+    }));
+  };
+
+  const removeTag =
+    (field: "sizes" | "colors" | "features") => (index: number) => {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: prev[field].filter((_, i) => i !== index),
+      }));
+    };
 
   const validateStep = (step: number) => {
     switch (step) {
@@ -184,7 +304,7 @@ const ProductForm = () => {
         if (!formData.productTypeId) return "Product Type is required";
         return null;
       case 2:
-        return null; // Attributes optional
+        return null;
       case 3:
         if (!formData.price) return "Selling Price is required";
         if (!formData.stock) return "Stock is required";
@@ -214,6 +334,10 @@ const ProductForm = () => {
       Object.entries(formData).forEach(([key, value]) => {
         if (key === "images") {
           formData.images.forEach((file) => data.append("images", file));
+        } else if (Array.isArray(value)) {
+          data.append(key, value.join(", "));
+        } else if (key === "attributes") {
+          data.append(key, JSON.stringify(value));
         } else {
           data.append(key, String(value));
         }
@@ -419,6 +543,27 @@ const ProductForm = () => {
                         <option value="Kids">Kids</option>
                       </select>
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Sport
+                      </label>
+                      <select
+                        name="sport"
+                        value={formData.sport}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-stone-950/10 focus:border-stone-950 bg-white"
+                      >
+                        <option value="">Select Sport</option>
+                        <option value="football">Football</option>
+                        <option value="cricket">Cricket</option>
+                        <option value="basketball">Basketball</option>
+                        <option value="running">Running</option>
+                        <option value="tennis">Tennis</option>
+                        <option value="badminton">Badminton</option>
+                        <option value="general">General / Multi-sport</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               )}
@@ -453,47 +598,127 @@ const ProductForm = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Available Sizes
-                    </label>
-                    <input
-                      type="text"
-                      name="sizes"
-                      value={formData.sizes}
-                      onChange={handleChange}
-                      placeholder="e.g. 40, 41, 42, 43"
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-stone-950/10 focus:border-stone-950"
-                    />
-                  </div>
+                  {/* Sizes Tag Input */}
+                  <TagInput
+                    label="Available Sizes"
+                    tags={formData.sizes}
+                    onAdd={addTag("sizes")}
+                    onRemove={removeTag("sizes")}
+                    placeholder="e.g. 40, 41, XL… press Enter to add"
+                  />
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Available Colors
-                    </label>
-                    <input
-                      type="text"
-                      name="colors"
-                      value={formData.colors}
-                      onChange={handleChange}
-                      placeholder="e.g. Red, Blue, Obsidian Black"
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-stone-950/10 focus:border-stone-950"
-                    />
-                  </div>
+                  {/* Colors Tag Input */}
+                  <TagInput
+                    label="Available Colors"
+                    tags={formData.colors}
+                    onAdd={addTag("colors")}
+                    onRemove={removeTag("colors")}
+                    placeholder="e.g. Red, Obsidian Black… press Enter to add"
+                    colorDots
+                  />
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Key Features
-                    </label>
-                    <textarea
-                      name="features"
-                      value={formData.features}
-                      onChange={handleChange}
-                      rows={6}
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-stone-950/10 focus:border-stone-950 font-mono text-sm"
-                      placeholder="- Durable Rubber Sole&#10;- Breathable Mesh Upper"
-                    />
-                  </div>
+                  {/* Features Tag Input */}
+                  <TagInput
+                    label="Key Features"
+                    tags={formData.features}
+                    onAdd={addTag("features")}
+                    onRemove={removeTag("features")}
+                    placeholder="e.g. Breathable Mesh Upper… press Enter to add"
+                  />
+
+                  {/* Dynamic Category Attributes */}
+                  {selectedCategory && (
+                    <div className="border border-gray-100 rounded-xl p-5 bg-gray-50/50">
+                      <h4 className="text-sm font-bold text-gray-800 uppercase tracking-widest mb-4">
+                        {selectedCategory.name} Specifics
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        {catSlug === "jersey" && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Team</label>
+                              <input type="text" placeholder="e.g. Man Utd" value={(formData.attributes.team as string) || ""} onChange={(e) => handleAttrChange("team", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Player</label>
+                              <input type="text" placeholder="e.g. Ronaldo" value={(formData.attributes.player as string) || ""} onChange={(e) => handleAttrChange("player", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Season</label>
+                              <input type="text" placeholder="e.g. 2024/25" value={(formData.attributes.season as string) || ""} onChange={(e) => handleAttrChange("season", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
+                            </div>
+                            <div className="flex items-center gap-2 pt-5">
+                              <input type="checkbox" id="isAuthentic" checked={(formData.attributes.isAuthentic as boolean) || false} onChange={(e) => handleAttrChange("isAuthentic", e.target.checked)} className="w-4 h-4 rounded" />
+                              <label htmlFor="isAuthentic" className="text-sm font-medium text-gray-700">Official / Authentic</label>
+                            </div>
+                          </>
+                        )}
+                        {sizeType === "shoe" && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Shoe Type</label>
+                              <select value={(formData.attributes.shoeType as string) || ""} onChange={(e) => handleAttrChange("shoeType", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none">
+                                <option value="">Select Type</option>
+                                <option value="Cleat">Cleat</option>
+                                <option value="Trainer">Trainer</option>
+                                <option value="Running">Running</option>
+                                <option value="Court">Court</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Surface</label>
+                              <select value={(formData.attributes.surface as string) || ""} onChange={(e) => handleAttrChange("surface", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none">
+                                <option value="">Select Surface</option>
+                                <option value="Grass">Grass</option>
+                                <option value="Artificial Grass">Artificial Grass</option>
+                                <option value="Indoor">Indoor</option>
+                                <option value="Multi-Ground">Multi-Ground</option>
+                              </select>
+                            </div>
+                          </>
+                        )}
+                        {catSlug === "socks" && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Length</label>
+                              <select value={(formData.attributes.length as string) || ""} onChange={(e) => handleAttrChange("length", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none">
+                                <option value="">Select Length</option>
+                                <option value="No-Show">No-Show</option>
+                                <option value="Ankle">Ankle</option>
+                                <option value="Crew">Crew</option>
+                                <option value="Knee-High">Knee-High</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
+                              <input type="text" placeholder="e.g. Cotton" value={(formData.attributes.material as string) || ""} onChange={(e) => handleAttrChange("material", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
+                            </div>
+                          </>
+                        )}
+                        {catSlug === "gear" && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Equipment Type</label>
+                              <input type="text" placeholder="e.g. Football, Gloves" value={(formData.attributes.equipmentType as string) || ""} onChange={(e) => handleAttrChange("equipmentType", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Age Group</label>
+                              <select value={(formData.attributes.ageGroup as string) || ""} onChange={(e) => handleAttrChange("ageGroup", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none">
+                                <option value="">Select Age Group</option>
+                                <option value="Adult">Adult</option>
+                                <option value="Youth">Youth</option>
+                                <option value="Kids">Kids</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Weight / Size</label>
+                              <input type="text" placeholder="e.g. Size 5, 500g" value={(formData.attributes.weight as string) || ""} onChange={(e) => handleAttrChange("weight", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

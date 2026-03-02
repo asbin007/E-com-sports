@@ -12,7 +12,7 @@ export interface Product {
   images?: string[];
   ProductImages?: { id: string; url: string; isPrimary: boolean }[];
   Variants?: { id: string; size: string; color: string; price: number; salePrice?: number; stock: number }[];
-  Category?: { id: string; name: string };
+  Category?: { id: string; name: string; needsSize: boolean; sizeType: "clothing" | "shoe" | null; slug: string };
   Brand?: { id: string; name: string };
   ProductType?: { id: string; name: string; description?: string };
   createdAt: string;
@@ -24,6 +24,27 @@ export interface Product {
   features?: string[];
   isNew?: boolean;
   sku?: string;
+  sport?: string;
+
+  // Category-specific attributes
+  attributes?: {
+    // Jersey
+    team?: string;
+    player?: string;
+    season?: string;
+    isAuthentic?: boolean;
+    // Shoes
+    surface?: string;
+    shoeType?: string;
+    sole?: string;
+    // Socks
+    length?: string;
+    material?: string;
+    // Other / Gear / Accessory
+    equipmentType?: string;
+    ageGroup?: string;
+    weight?: string;
+  };
 }
 
 export interface ProductsResponse {

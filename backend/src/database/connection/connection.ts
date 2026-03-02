@@ -101,13 +101,13 @@ Product.hasMany(Variant, { foreignKey: "productId", onDelete: "CASCADE" });
 Inventory.belongsTo(Variant, { foreignKey: "variantId" });
 Variant.hasOne(Inventory, { foreignKey: "variantId", onDelete: "CASCADE" });
 
-// Variant x CartItem
-CartItem.belongsTo(Variant, { foreignKey: "variantId" });
-Variant.hasMany(CartItem, { foreignKey: "variantId" });
+// Product x CartItem (new: productId + size instead of variantId)
+CartItem.belongsTo(Product, { foreignKey: "productId" });
+Product.hasMany(CartItem, { foreignKey: "productId" });
 
-// Variant x OrderItem
-OrderItem.belongsTo(Variant, { foreignKey: "variantId" });
-Variant.hasMany(OrderItem, { foreignKey: "variantId" });
+// Product x OrderItem (new: productId instead of variantId)
+OrderItem.belongsTo(Product, { foreignKey: "productId" });
+Product.hasMany(OrderItem, { foreignKey: "productId", onDelete: "CASCADE" });
 
 // Order x OrderItem
 OrderItem.belongsTo(Order, { foreignKey: "orderId" });
@@ -155,6 +155,39 @@ export const connectDB = async () => {
   try {
     await sequelize.authenticate();
     console.log("✅ Database connected successfully");
+
+    // ── Schema migration: update order_items to use productId instead of variantId ──
+    try {
+      const qi = sequelize.getQueryInterface();
+
+      // 1. Add product_id column if it doesn't exist
+      const orderItemsDesc = await qi.describeTable("order_items");
+      if (!orderItemsDesc["product_id"]) {
+        await sequelize.query(
+          `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS product_id UUID REFERENCES products(id) ON DELETE SET NULL`
+        );
+        console.log("✅ order_items: added product_id column");
+      }
+
+      // 2. Drop NOT NULL constraint on variant_id if it still applies
+      if (orderItemsDesc["variant_id"]) {
+        await sequelize.query(
+          `ALTER TABLE order_items ALTER COLUMN variant_id DROP NOT NULL`
+        ).catch(() => { /* already nullable, ignore */ });
+        console.log("✅ order_items: variant_id made nullable");
+      }
+
+      // 3. Make sku nullable if not already
+      if (orderItemsDesc["sku"]) {
+        await sequelize.query(
+          `ALTER TABLE order_items ALTER COLUMN sku DROP NOT NULL`
+        ).catch(() => { /* already nullable, ignore */ });
+      }
+    } catch (migrationError) {
+      console.warn("⚠️  order_items migration skipped:", (migrationError as Error).message);
+    }
+    // ─────────────────────────────────────────────────────────────────────────────
+
   } catch (error) {
     console.error("❌ Database connection failed:", error);
     process.exit(1);
