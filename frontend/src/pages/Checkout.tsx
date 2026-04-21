@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { gsap } from "gsap";
 import api from "../services/api";
+import { getImageUrl } from "../utils/imageUrl";
 
 const Checkout = () => {
   const { cart, cartTotal, clearCart } = useCart();
@@ -92,12 +93,14 @@ const Checkout = () => {
     setError("");
 
     try {
-      // Map cart to productId + size — all cart items are valid by definition
+      // Map cart to productId + variantId + size + color
       const items = cart.map((item) => ({
         productId: item.id,
-        size: item.selectedSize,    // null for gear/accessories
+        variantId: item.variantId,
+        size: item.selectedSize, // null for gear/accessories
+        color: item.selectedColor,
         quantity: item.quantity,
-        price: item.price,          // snapshot price for backend use
+        price: item.variantPrice || item.price, // snapshot price for backend use
       }));
 
       if (items.length === 0) {
@@ -116,7 +119,7 @@ const Checkout = () => {
       if (formData.paymentMethod === "khalti") {
         try {
           // Initiate Khalti Payment
-          const paymentResponse = await api.post("/khalti/initialize", {
+          const paymentResponse = await api.post("/payments/khalti/initialize", {
             orderId: response.data.id, // Response structure is { message, data: { ... } } based on controller
             amount: cartTotal,
           });
@@ -563,11 +566,8 @@ const Checkout = () => {
                       <div className="w-20 h-24 bg-white rounded-[1.5rem] border border-gray-100 overflow-hidden shrink-0 shadow-sm relative">
                         <img
                           src={
-                            item.images && item.images[0]
-                              ? item.images[0].startsWith("http")
-                                ? item.images[0]
-                                : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${item.images[0].replace("/uploads/", "")}`
-                              : "https://via.placeholder.com/100"
+                            getImageUrl(item.images?.[0] as any) ??
+                            "https://via.placeholder.com/100"
                           }
                           className="w-full h-full object-cover transition-transform group-hover:scale-110"
                         />

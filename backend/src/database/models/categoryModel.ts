@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType } from "sequelize-typescript";
+import { Table, Column, Model, DataType, ForeignKey, BelongsTo } from "sequelize-typescript";
 
 @Table({
   tableName: "categories",
@@ -40,6 +40,22 @@ class Category extends Model {
     defaultValue: null,
   })
   declare sizeType: "clothing" | "shoe" | null;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: true,
+  })
+  declare isActive: boolean;
+
+  @ForeignKey(() => Category)
+  @Column({
+    type: DataType.UUID,
+    allowNull: true,
+  })
+  declare parentId: string;
+
+  @BelongsTo(() => Category, "parentId")
+  declare parentCategory: Category;
 }
 
 export default Category;

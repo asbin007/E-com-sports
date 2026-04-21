@@ -24,6 +24,8 @@ import Wishlist from "../models/wishlistModel.js";
 import ProductReview from "../models/productReviewModel.js";
 import Chat from "../models/chatModel.js";
 import Message from "../models/messageModel.js";
+import Sport from "../models/sportModel.js";
+import ProductAttribute from "../models/productAttributeModel.js";
 
 const sequelize = new Sequelize(( envConfig.databaseUrl as string), {
   models: [
@@ -46,6 +48,8 @@ const sequelize = new Sequelize(( envConfig.databaseUrl as string), {
     ProductReview,
     Chat,
     Message,
+    Sport,
+    ProductAttribute,
   ],
   dialect: "postgres",
   dialectOptions: {
@@ -81,13 +85,24 @@ User.hasMany(Order, { foreignKey: "userId", onDelete: "CASCADE" });
 Product.belongsTo(Category, { foreignKey: "categoryId" });
 Category.hasMany(Product, { foreignKey: "categoryId" });
 
+// Category Self-Referencing (Hierarchy) - handled by @BelongsTo decorator in categoryModel.ts
+// Do NOT add manual belongsTo/hasMany here with the same alias or Sequelize will throw a duplicate alias error.
+
 // Brand x Product
 Product.belongsTo(Brand, { foreignKey: "brandId" });
 Brand.hasMany(Product, { foreignKey: "brandId" });
 
+// Sport x Product
+Product.belongsTo(Sport, { foreignKey: "sportId" });
+Sport.hasMany(Product, { foreignKey: "sportId" });
+
 // ProductType x Product
 Product.belongsTo(ProductType, { foreignKey: "productTypeId" });
 ProductType.hasMany(Product, { foreignKey: "productTypeId" });
+
+// ProductType x Category
+ProductType.belongsTo(Category, { foreignKey: "categoryId" });
+Category.hasMany(ProductType, { foreignKey: "categoryId" });
 
 // Product x ProductImage
 ProductImage.belongsTo(Product, { foreignKey: "productId" });
@@ -96,6 +111,10 @@ Product.hasMany(ProductImage, { foreignKey: "productId", onDelete: "CASCADE" });
 // Product x Variant
 Variant.belongsTo(Product, { foreignKey: "productId" });
 Product.hasMany(Variant, { foreignKey: "productId", onDelete: "CASCADE" });
+
+// Product x ProductAttribute
+ProductAttribute.belongsTo(Product, { foreignKey: "productId" });
+Product.hasMany(ProductAttribute, { foreignKey: "productId", onDelete: "CASCADE" });
 
 // Variant x Inventory
 Inventory.belongsTo(Variant, { foreignKey: "variantId" });
@@ -156,10 +175,10 @@ export const connectDB = async () => {
     await sequelize.authenticate();
     console.log("✅ Database connected successfully");
 
+    const qi = sequelize.getQueryInterface();
+
     // ── Schema migration: update order_items to use productId instead of variantId ──
     try {
-      const qi = sequelize.getQueryInterface();
-
       // 1. Add product_id column if it doesn't exist
       const orderItemsDesc = await qi.describeTable("order_items");
       if (!orderItemsDesc["product_id"]) {
@@ -187,6 +206,76 @@ export const connectDB = async () => {
       console.warn("⚠️  order_items migration skipped:", (migrationError as Error).message);
     }
     // ─────────────────────────────────────────────────────────────────────────────
+
+      // ── Schema migration: drop variants.sku ──
+      try {
+        const variantsDesc = await qi.describeTable("variants");
+        if (variantsDesc["sku"]) {
+          try {
+            await sequelize.query(
+              `ALTER TABLE variants DROP COLUMN IF EXISTS "sku"`
+            );
+            console.log("✅ variants: sku column dropped");
+          } catch {
+            // If dropping fails (e.g. constraint/index), at least make it nullable
+            // so inserts/creates without sku don't break.
+            await sequelize.query(
+              `ALTER TABLE variants ALTER COLUMN sku DROP NOT NULL`
+            ).catch(() => {
+              /* ignore to avoid blocking dev */
+            });
+          }
+        }
+
+        // Ensure variants.salePrice exists (some controllers/seeders use it).
+        if (!variantsDesc["salePrice"]) {
+          await sequelize.query(
+            `ALTER TABLE variants ADD COLUMN IF NOT EXISTS "salePrice" FLOAT NULL DEFAULT NULL`
+          );
+          console.log("✅ variants: salePrice column added");
+        }
+      } catch (migrationError) {
+        console.warn(
+          "⚠️ variants sku drop skipped:",
+          (migrationError as Error).message
+        );
+      }
+
+      // ── Schema migration: ensure category columns exist ──
+      try {
+        const categoriesDesc = await qi.describeTable("categories");
+
+        if (!categoriesDesc["name"]) {
+          await sequelize.query(
+            `ALTER TABLE categories ADD COLUMN IF NOT EXISTS name VARCHAR(255) NOT NULL DEFAULT ''`
+          );
+        }
+        if (!categoriesDesc["slug"]) {
+          await sequelize.query(
+            `ALTER TABLE categories ADD COLUMN IF NOT EXISTS slug VARCHAR(255) NOT NULL DEFAULT ''`
+          );
+        }
+        if (!categoriesDesc["needsSize"]) {
+          await sequelize.query(
+            `ALTER TABLE categories ADD COLUMN IF NOT EXISTS "needsSize" BOOLEAN NOT NULL DEFAULT true`
+          );
+        }
+        if (!categoriesDesc["sizeType"]) {
+          await sequelize.query(
+            `ALTER TABLE categories ADD COLUMN IF NOT EXISTS "sizeType" VARCHAR(50) NULL DEFAULT NULL`
+          );
+        }
+        if (!categoriesDesc["isActive"]) {
+          await sequelize.query(
+            `ALTER TABLE categories ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT true`
+          );
+        }
+      } catch (migrationError) {
+        console.warn(
+          "⚠️ categories schema migration skipped:",
+          (migrationError as Error).message
+        );
+      }
 
   } catch (error) {
     console.error("❌ Database connection failed:", error);

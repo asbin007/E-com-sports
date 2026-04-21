@@ -19,11 +19,11 @@ export const orderService = {
 
   async getMyOrders() {
       const response = await api.get('/orders');
-      return response.data;
+      return response.data.data;
   },
 
   async getOrderById(id: string) {
       const response = await api.get(`/orders/${id}`);
-      return response.data;
+      return response.data.data;
   }
 };

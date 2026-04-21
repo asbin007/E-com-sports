@@ -89,9 +89,13 @@ const Navbar = () => {
             <div className="hidden sm:flex items-center">
               {isAuthenticated ? (
                 <div className="flex items-center gap-4">
-                  <span className="text-[10px] font-black text-white uppercase tracking-wider hidden lg:block">
+                  <Link 
+                    to="/dashboard/profile"
+                    className="text-[10px] font-black text-white uppercase tracking-wider hidden lg:block hover:text-orange-500 transition-colors cursor-pointer"
+                    title="Profile Settings"
+                  >
                     {user?.username}
-                  </span>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
@@ -155,14 +159,37 @@ const Navbar = () => {
                 </Link>
               ))}
               <hr className="border-white/5" />
-              <Link
-                to="/login"
-                className="flex items-center justify-center gap-2 w-full bg-orange-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <User className="w-5 h-5" />
-                Login / Register
-              </Link>
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    to="/dashboard/profile"
+                    className="flex items-center justify-center gap-2 w-full bg-stone-800 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-stone-700"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <User className="w-5 h-5" />
+                    Profile Settings
+                  </Link>
+                  <button
+                    onClick={() => {
+                        handleLogout();
+                        setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center justify-center gap-2 w-full bg-red-600/10 text-red-500 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-red-600/20"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  className="flex items-center justify-center gap-2 w-full bg-orange-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-orange-700"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <User className="w-5 h-5" />
+                  Login / Register
+                </Link>
+              )}
             </div>
           </motion.div>
         )}

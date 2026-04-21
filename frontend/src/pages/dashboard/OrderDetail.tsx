@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { orderService } from "../../services/orderService";
 import { motion } from "framer-motion";
+import { getImageUrl } from "../../utils/imageUrl";
 
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -179,11 +180,12 @@ const OrderDetail = () => {
                       <img
                         src={(() => {
                           const product = item.Variant?.Product;
-                          const imageUrl = product?.images?.[0];
-                          if (!imageUrl) return "/placeholder-product.png";
-                          return imageUrl.startsWith("http")
-                            ? imageUrl
-                            : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${imageUrl.replace("/uploads/", "")}`;
+                          const firstImage = product?.images?.[0];
+                          if (!firstImage) return "/placeholder-product.png";
+                          return (
+                            getImageUrl(firstImage as any) ??
+                            "/placeholder-product.png"
+                          );
                         })()}
                         alt={item.Variant?.Product?.name || "Product"}
                         className="w-full h-full object-cover rounded-xl transition-transform group-hover:scale-110"
@@ -292,6 +294,14 @@ const OrderDetail = () => {
             <button className="w-full bg-gray-50 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-950 hover:text-white transition-all italic flex items-center justify-center gap-2">
               Download Protocol Receipt <ArrowUpRight className="w-4 h-4" />
             </button>
+            <a 
+              href={`https://wa.me/1234567890?text=${encodeURIComponent(`Hello, I need help with my Order/Mission #${order.id.slice(-8).toUpperCase()}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full bg-[#25D366]/10 text-[#25D366] py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#25D366] hover:text-white transition-all italic flex items-center justify-center gap-2"
+            >
+              Contact Support via WhatsApp
+            </a>
             <button className="w-full bg-red-50 text-red-600 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all italic">
               Request Mission Abortion
             </button>

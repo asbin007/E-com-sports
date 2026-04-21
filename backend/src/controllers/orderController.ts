@@ -6,6 +6,7 @@ import Payment from "../database/models/paymentModel.js";
 import CartItem from "../database/models/cartItemModel.js";
 import Product from "../database/models/productModel.js";
 import Category from "../database/models/categoryModel.js";
+import Variant from "../database/models/variantModel.js";
 
 class OrderController {
   async createOrder(req: Request, res: Response): Promise<void> {
@@ -49,7 +50,10 @@ class OrderController {
         // ── Path 1: items sent from frontend (productId + size) ──────────────
         for (const item of items) {
           const product = await Product.findByPk(item.productId, {
-            include: [{ model: Category, attributes: ["needsSize"] }],
+            include: [
+              { model: Category, attributes: ["needsSize"] },
+              { model: Variant, as: "Variants" }
+            ],
           });
 
           if (!product) {
@@ -64,25 +68,48 @@ class OrderController {
             return;
           }
 
-          // Stock check
-          if (product.stock < item.quantity) {
+          // Stock & Price check via Variant
+          let targetVariant: any = null;
+
+          if (item.variantId) {
+            targetVariant = (product as any).Variants?.find(
+              (v: any) => v.id === item.variantId,
+            );
+          } else if (needsSize && item.size) {
+            // Fallback to size if variantId not provided
+            targetVariant = (product as any).Variants?.find(
+              (v: any) =>
+                v.size === item.size && (!item.color || v.color === item.color),
+            );
+          } else {
+            targetVariant = (product as any).Variants?.[0];
+          }
+
+          if (!targetVariant) {
+             res.status(400).json({ message: `Config for ${product.name} not available` });
+             return;
+          }
+
+          if (targetVariant.stock < item.quantity) {
             res.status(400).json({
-              message: `Insufficient stock for ${product.name}. Only ${product.stock} left.`,
+              message: `Insufficient stock for ${product.name}. Only ${targetVariant.stock} left.`,
             });
             return;
           }
 
-          const price = product.price;
+          const price = targetVariant.price;
           const itemTotal = price * item.quantity;
           totalPrice += itemTotal;
 
           orderItemsData.push({
             productId: product.id,
             productName: product.name,
-            sku: (product as any).sku || null,
+            sku: null,
             size: item.size || null,
-            color: null,
+            color: targetVariant.color || null,
             quantity: item.quantity,
+            variantId: targetVariant.id, // For stock decrement later
+
             price,
             totalPrice: itemTotal,
           });
@@ -94,7 +121,10 @@ class OrderController {
           include: [
             {
               model: Product,
-              include: [{ model: Category, attributes: ["needsSize"] }],
+              include: [
+                { model: Category, attributes: ["needsSize"] },
+                { model: Variant, as: "Variants" }
+              ],
             },
           ],
         });
@@ -108,24 +138,37 @@ class OrderController {
           const product = (cartItem as any).Product as Product;
           if (!product) continue;
 
-          if (product.stock < cartItem.quantity) {
+          const needsSize = (product as any).Category?.needsSize ?? true;
+          let targetVariant: any = null;
+          
+          if (needsSize && cartItem.size) {
+            targetVariant = (product as any).Variants?.find((v: any) => v.size === cartItem.size);
+          } else {
+            targetVariant = (product as any).Variants?.[0];
+          }
+
+          if (!targetVariant) continue;
+
+          if (targetVariant.stock < cartItem.quantity) {
             res.status(400).json({
-              message: `Insufficient stock for ${product.name}. Only ${product.stock} left.`,
+              message: `Insufficient stock for ${product.name}. Only ${targetVariant.stock} left.`,
             });
             return;
           }
 
-          const price = product.price;
+          const price = targetVariant.price;
           const itemTotal = price * cartItem.quantity;
           totalPrice += itemTotal;
 
           orderItemsData.push({
             productId: product.id,
             productName: product.name,
-            sku: product.sku || null,
+            sku: null,
             size: cartItem.size || null,
-            color: null,
+            color: targetVariant.color || null,
             quantity: cartItem.quantity,
+            variantId: targetVariant.id,
+
             price,
             totalPrice: itemTotal,
           });
@@ -156,11 +199,11 @@ class OrderController {
       for (const itemData of orderItemsData) {
         await OrderItem.create({ orderId: order.id, ...itemData });
 
-        // Decrement stock immediately on COD (reserved on Khalti after payment confirmation)
-        if (paymentMethod === PaymentMethod.COD) {
-          await Product.decrement("stock", {
+        // Decrement stock immediately on COD from the Variant
+        if (paymentMethod === PaymentMethod.COD && itemData.variantId) {
+          await Variant.decrement("stock", {
             by: itemData.quantity,
-            where: { id: itemData.productId },
+            where: { id: itemData.variantId },
           });
         }
       }

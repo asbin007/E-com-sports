@@ -59,11 +59,11 @@ class AdminController {
   }
   async createVariant(req: Request, res: Response): Promise<void> {
     try {
-      const { productId, size, color, sku, price, salePrice } = req.body;
+      const { productId, size, color, price, salePrice } = req.body;
 
-      if (!productId || !sku || !price) {
+      if (!productId || price === undefined || price === null) {
         res.status(400).json({
-          message: "productId, sku, and price are required",
+          message: "productId and price are required",
         });
         return;
       }
@@ -78,7 +78,6 @@ class AdminController {
         productId,
         size,
         color,
-        sku,
         price,
         salePrice,
       });
@@ -116,7 +115,7 @@ class AdminController {
   async updateVariant(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params as { id: string };
-      const { size, color, sku, price, salePrice } = req.body;
+      const { size, color, price, salePrice } = req.body;
 
       const variant = await Variant.findByPk(id);
       if (!variant) {
@@ -127,7 +126,6 @@ class AdminController {
       await variant.update({
         size: size !== undefined ? size : variant.size,
         color: color !== undefined ? color : variant.color,
-        sku: sku || variant.sku,
         price: price !== undefined ? price : variant.price,
         salePrice: salePrice !== undefined ? salePrice : variant.salePrice,
       });
@@ -264,7 +262,9 @@ class AdminController {
         });
 
         for (const item of orderItems) {
-          await inventoryService.releaseStock(item.variantId, item.quantity);
+          if (item.variantId) {
+            await inventoryService.releaseStock(item.variantId, item.quantity);
+          }
         }
       }
 

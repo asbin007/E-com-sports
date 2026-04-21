@@ -21,6 +21,7 @@ import {
 import { productService, type Product } from "../services/productService";
 import { useCart } from "../context/CartContext";
 import { cn } from "../utils/cn";
+import { getImageUrl } from "../utils/imageUrl";
 import Recommendations from "../components/home/Recommendations";
 
 // Helper to sort sizes
@@ -49,6 +50,7 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [selectedColor, setSelectedColor] = useState<string>("");
+  const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
 
@@ -64,11 +66,26 @@ const ProductDetail = () => {
         setProduct(data);
 
         // Auto-select size if it's "One Size" (Accessories)
-        if (
-          data.Category?.name.toLowerCase().includes("accessory") ||
-          data.Category?.name.toLowerCase().includes("gear")
-        ) {
+        const isAccessory = data.Category?.needsSize === false;
+        if (isAccessory) {
           setSelectedSize("One Size");
+        }
+
+        // Auto-select if there is only one option for size or color
+        if (data.Variants && data.Variants.length > 0) {
+          const uniqueSizes = Array.from(
+            new Set(data.Variants.map((v) => v.size).filter(Boolean)),
+          );
+          const uniqueColors = Array.from(
+            new Set(data.Variants.map((v) => v.color).filter(Boolean)),
+          );
+
+          if (uniqueSizes.length === 1) {
+            setSelectedSize(uniqueSizes[0] as string);
+          }
+          if (uniqueColors.length === 1) {
+            setSelectedColor(uniqueColors[0] as string);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch product", error);
@@ -104,67 +121,91 @@ const ProductDetail = () => {
     }
   }, [product, selectedSize]);
 
-  // Derived values
-  const rawImages = product?.images || [];
-  const images = rawImages.map((img) =>
-    img.startsWith("http")
-      ? img
-      : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${img.replace("/uploads/", "")}`,
-  );
-  // Category-driven UI flags from backend metadata
+  // Find matching variant whenever selection changes
+  useEffect(() => {
+    if (product?.Variants) {
+      const variant = product.Variants.find(
+        (v) =>
+          (!selectedSize || v.size === selectedSize) &&
+          (!selectedColor || v.color === selectedColor),
+      );
+      setSelectedVariant(variant || null);
+    }
+  }, [selectedSize, selectedColor, product]);
+
+  const images = (product?.ProductImages || [])
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((img) => img.url);
+
   const categoryMeta = product?.Category;
-  const needsSize   = categoryMeta?.needsSize ?? true;
-  const sizeType    = categoryMeta?.sizeType ?? null;   // "shoe" | "clothing" | null
+  const needsSize = categoryMeta?.needsSize ?? true;
+  const sizeType = categoryMeta?.sizeType ?? null;
 
-  const isShoes    = sizeType === "shoe";
-  const isJersey   = categoryMeta?.slug === "jersey";
-  const isSocks    = categoryMeta?.slug === "socks";
-  const isAccessory = !needsSize; // Gear, accessories
-  const isOther    = needsSize && !isShoes && !isJersey && !isSocks;
+  const isShoes = sizeType === "shoe";
+  const isJersey = categoryMeta?.slug === "jersey";
+  const isSocks = categoryMeta?.slug === "socks";
+  const isAccessory = !needsSize;
 
-  // Derived available sizes — trim any whitespace artifacts from backend split
-  const availableSizes =
-    product?.sizes && product.sizes.length > 0
-      ? product.sizes.map((s) => s.trim()).filter(Boolean)
-      : product?.Variants
-        ? sortSizes(product.Variants.map((v) => v.size))
-        : [];
+  // Derive "isNew" from createdAt (last 7 days)
+  const isNew = product?.createdAt 
+    ? (new Date().getTime() - new Date(product.createdAt).getTime()) < 7 * 24 * 60 * 60 * 1000
+    : false;
 
-  // Show size selector whenever sizes exist (any category)
+  // Derived available sizes from variants
+  const availableSizes = product?.Variants
+    ? sortSizes(
+        Array.from(new Set(product.Variants.map((v) => v.size).filter(Boolean))),
+      )
+    : [];
+
+  // Derived available colors from variants
+  const availableColors = product?.Variants
+    ? Array.from(new Set(product.Variants.map((v) => v.color).filter(Boolean)))
+    : [];
+
   const hasSizes = availableSizes.length > 0;
-
-  // Available colors — trim whitespace artifacts
-  const availableColors =
-    product?.colors && product.colors.length > 0
-      ? product.colors.map((c) => c.trim()).filter(Boolean)
-      : [];
-
-  // Fallback if no variants (should ideally not happen in production with valid data)
-  // If no variants, we can't really sell it with the current backend logic requiring variantId.
-  // We'll show empty or handle gracefully.
+  const hasColors = availableColors.length > 0;
 
   const handleAddToCart = () => {
     if (!product) return;
 
-    // Gear / accessories — no size needed
-    if (isAccessory || !hasSizes) {
-      addToCart(product, null);
-      return;
-    }
-
-    // All other categories need a size selected
-    if (!selectedSize) {
+    // Check if we need a selection
+    if (hasSizes && !selectedSize) {
       alert(
-        isShoes
-          ? "Please select a shoe size"
-          : isJersey
-            ? "Please select a jersey size"
-            : "Please select a size",
+        `Please select a ${isShoes ? "shoe size" : isJersey ? "jersey size" : "size"}`,
       );
       return;
     }
 
-    addToCart(product, selectedSize);
+    if (hasColors && !selectedColor) {
+      alert("Please select a color");
+      return;
+    }
+
+    // Find the specific variant to get the correct price and stock
+    const variant = product.Variants?.find(
+      (v) =>
+        (!selectedSize || v.size === selectedSize) &&
+        (!selectedColor || v.color === selectedColor),
+    );
+
+    if (product.Variants && product.Variants.length > 0 && !variant) {
+      alert("This combination is currently unavailable");
+      return;
+    }
+
+    if (variant && variant.stock <= 0) {
+      alert("This item is out of stock");
+      return;
+    }
+
+    addToCart(
+      product,
+      variant?.id || null,
+      selectedSize || null,
+      selectedColor || null,
+      variant?.price || product.price || 0,
+    );
   };
 
   if (loading || !product) {
@@ -278,14 +319,23 @@ const ProductDetail = () => {
               <span className="bg-stone-950 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] italic">
                 {product.ProductType?.name || "Training"}
               </span>
+              {product.Sport && (
+                <span className="bg-orange-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] italic flex items-center gap-1.5">
+                  {product.Sport.iconUrl && <img src={product.Sport.iconUrl} className="w-3 h-3 invert" alt="" />}
+                  {product.Sport.name}
+                </span>
+              )}
               {product.gender && (
                 <span className="bg-gray-100 text-stone-950 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] italic border border-gray-200">
                   {product.gender}
                 </span>
               )}
-              <span className="text-orange-600 text-xs font-black uppercase tracking-widest">
-                {product.Brand?.name || "Global Elite"}
-              </span>
+              <div className="flex items-center gap-2 ml-auto">
+                {product.Brand?.logo && <img src={product.Brand.logo} className="w-6 h-6 object-contain" alt="" />}
+                <span className="text-orange-600 text-xs font-black uppercase tracking-widest">
+                  {product.Brand?.name || "Global Elite"}
+                </span>
+              </div>
             </div>
 
             {/* Title & Price */}
@@ -295,20 +345,31 @@ const ProductDetail = () => {
 
             <div className="flex items-center gap-4 mb-8">
               <span className="text-3xl font-black text-stone-950 italic">
-                Rs {product.price?.toLocaleString()}
+                Rs {(selectedVariant?.price || product.price)?.toLocaleString()}
               </span>
-              {product.originalPrice &&
-                product.originalPrice > (product.price || 0) && (
+              {(selectedVariant?.originalPrice || product.originalPrice) &&
+                (selectedVariant?.originalPrice || product.originalPrice) >
+                  (selectedVariant?.price || product.price || 0) && (
                   <>
                     <span className="text-lg text-gray-400 line-through italic">
-                      Rs {product.originalPrice.toLocaleString()}
+                      Rs {(
+                        selectedVariant?.originalPrice || product.originalPrice
+                      ).toLocaleString()}
                     </span>
                     <div className="px-3 py-1 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-wider rounded-lg flex items-center gap-1.5">
-                      {product.discount}% OFF
+                      {Math.round(
+                        (((selectedVariant?.originalPrice ||
+                          product.originalPrice) -
+                          (selectedVariant?.price || product.price || 0)) /
+                          (selectedVariant?.originalPrice ||
+                            product.originalPrice)) *
+                          100,
+                      )}
+                      % OFF
                     </div>
                   </>
                 )}
-              {product.isNew && (
+              {isNew && (
                 <div className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase tracking-wider rounded-lg flex items-center gap-1.5">
                   <Zap className="w-3 h-3 fill-current" />
                   New Drop
@@ -328,115 +389,133 @@ const ProductDetail = () => {
               </span>
             </div>
 
-            {/* Size Selector — Category Aware */}
-            {hasSizes && !isAccessory && (
-              <div className="mb-10">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-sm font-black text-stone-950 uppercase tracking-widest">
-                    {isShoes
-                      ? "Select Shoe Size"
-                      : isJersey
-                        ? "Select Jersey Size"
-                        : isSocks
-                          ? "Select Sock Size"
-                          : "Select Size"}
-                  </h3>
-                  {(isShoes || isJersey) && (
-                    <button className="flex items-center text-xs font-bold text-orange-600 hover:underline">
-                      <Ruler className="w-4 h-4 mr-1.5" /> Size Guide
-                    </button>
-                  )}
+            {/* Variant Selection Group */}
+            <div className="space-y-8 mb-12">
+              {/* Size/Variant Selector — Compact & Professional */}
+              {hasSizes && (availableSizes.length > 1 || !isAccessory) && (
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                      {isShoes
+                        ? "Shoe Size (UK)"
+                        : isJersey
+                          ? "Jersey Size"
+                          : isSocks
+                            ? "Sock Size"
+                            : categoryMeta?.name.toLowerCase().includes("bat")
+                              ? "Weight / Size"
+                              : isAccessory
+                                ? "Option"
+                                : "Size"}
+                    </h3>
+                    {(isShoes || isJersey) && (
+                      <button className="flex items-center text-[10px] font-black text-orange-600 uppercase tracking-widest hover:opacity-70 transition-opacity">
+                        <Ruler className="w-3.5 h-3.5 mr-1.5" /> Size Guide
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {availableSizes.map((size) => {
+                      const isAvailable = product.Variants?.some(
+                        (v) =>
+                          v.size === size &&
+                          (!selectedColor || v.color === selectedColor) &&
+                          v.stock > 0,
+                      );
+                      return (
+                        <button
+                          key={size}
+                          disabled={!isAvailable}
+                          onClick={() => setSelectedSize(size)}
+                          className={cn(
+                            "min-w-[54px] h-10 px-3 rounded-xl font-black text-[11px] transition-all duration-300 border-2 uppercase italic tracking-tighter",
+                            selectedSize === size
+                              ? "bg-stone-950 border-stone-950 text-white shadow-lg"
+                              : isAvailable
+                                ? "bg-white border-gray-100 text-stone-950 hover:border-stone-950"
+                                : "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed opacity-50",
+                          )}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {availableSizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={cn(
-                        "py-3.5 rounded-2xl font-black text-xs transition-all duration-300 border-2",
-                        selectedSize === size
-                          ? "bg-stone-950 border-stone-950 text-white shadow-xl scale-105"
-                          : "bg-white border-gray-100 text-stone-950 hover:border-stone-950",
-                      )}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                  {isShoes && "UK Sizing — Half sizes not available"}
-                  {isJersey && "Refer to size guide for team fit vs slim fit"}
-                  {isSocks && "S fits UK 4–7 · M fits UK 7–10 · L fits UK 10+"}
-                </p>
-              </div>
-            )}
+              )}
 
-            {/* Color Selector */}
-            {availableColors.length > 0 && (
-              <div className="mb-10">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-sm font-black text-stone-950 uppercase tracking-widest">
-                    Select Color
-                  </h3>
-                  {selectedColor && (
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                      {selectedColor}
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {availableColors.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setSelectedColor(color)}
-                      title={color}
-                      className={cn(
-                        "group relative w-10 h-10 rounded-full border-2 transition-all duration-300 flex items-center justify-center",
-                        selectedColor === color
-                          ? "border-stone-950 scale-110 shadow-lg"
-                          : "border-gray-200 hover:border-stone-400 hover:scale-105",
-                      )}
-                    >
-                      <span
-                        className="w-6 h-6 rounded-full block border border-black/10"
-                        style={{
-                          backgroundColor:
-                            CSS.supports("color", color.toLowerCase())
+              {/* Color Selector — Compact Dots */}
+              {availableColors.length > 1 && (
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                      Select Color
+                    </h3>
+                    {selectedColor && (
+                      <span className="text-[10px] font-black text-stone-950 uppercase tracking-widest italic">
+                        {selectedColor}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {availableColors.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        title={color}
+                        className={cn(
+                          "group relative w-8 h-8 rounded-full border-2 transition-all duration-300 flex items-center justify-center",
+                          selectedColor === color
+                            ? "border-stone-950 scale-110 shadow-md"
+                            : "border-gray-100 hover:border-stone-300",
+                        )}
+                      >
+                        <span
+                          className="w-5 h-5 rounded-full block border border-black/5"
+                          style={{
+                            backgroundColor: CSS.supports(
+                              "color",
+                              color.toLowerCase(),
+                            )
                               ? color.toLowerCase()
                               : "transparent",
-                          backgroundImage:
-                            !CSS.supports("color", color.toLowerCase())
+                            backgroundImage: !CSS.supports(
+                              "color",
+                              color.toLowerCase(),
+                            )
                               ? "linear-gradient(135deg, #e0e0e0 25%, #bdbdbd 25%, #bdbdbd 50%, #e0e0e0 50%, #e0e0e0 75%, #bdbdbd 75%)"
                               : undefined,
-                        }}
-                      />
-                      {selectedColor === color && (
-                        <span className="absolute inset-0 rounded-full ring-2 ring-offset-2 ring-stone-950" />
-                      )}
-                    </button>
-                  ))}
+                          }}
+                        />
+                        {selectedColor === color && (
+                          <span className="absolute -inset-[3px] rounded-full border border-stone-950/20" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <p className="mt-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                  {selectedColor
-                    ? `Selected: ${selectedColor}`
-                    : "Tap a color to select"}
-                </p>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* CTA */}
             <div className="flex flex-col gap-4 mb-12">
               <button
                 onClick={handleAddToCart}
+                disabled={selectedVariant?.stock <= 0}
                 className={cn(
                   "w-full py-5 rounded-2xl font-black uppercase tracking-widest transition-all shadow-2xl active:scale-[0.98] flex items-center justify-center gap-3 text-sm italic",
-                  selectedSize
+                  (selectedVariant || !product.Variants?.length) &&
+                    (selectedVariant?.stock > 0 || !product.Variants?.length)
                     ? "bg-orange-600 text-white hover:bg-orange-700 shadow-orange-600/20"
                     : "bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-dashed border-gray-200",
                 )}
               >
                 <ShoppingBag className="w-5 h-5" />
-                {selectedSize ? "Unlock Greatness" : "Select Your Fit First"}
+                {selectedVariant?.stock <= 0
+                  ? "Out of Stock"
+                  : (hasSizes && !selectedSize) || (hasColors && !selectedColor)
+                    ? "Select Your Fit First"
+                    : "Unlock Greatness"}
               </button>
 
               <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -453,141 +532,43 @@ const ProductDetail = () => {
                   Elite Specifications
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {/* Features List */}
-                  {product.features && product.features.length > 0 ? (
-                    <div className="col-span-full space-y-4">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                        Key Features
-                      </p>
-                      <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {product.features.map((feature, idx) => (
-                          <li
-                            key={idx}
-                            className="flex items-start gap-2 text-xs font-bold text-stone-950"
-                          >
-                            <div className="w-1.5 h-1.5 bg-orange-600 rounded-full mt-1.5 flex-shrink-0" />
-                            {feature}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {/* ── JERSEY specific ── */}
-                  {isJersey && (
-                    <>
-                      {product.attributes?.team && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Team</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.team}</p>
-                        </div>
-                      )}
-                      {product.attributes?.player && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Player</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.player}</p>
-                        </div>
-                      )}
-                      {product.attributes?.season && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Season</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.season}</p>
-                        </div>
-                      )}
-                      {product.attributes?.isAuthentic !== undefined && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Authenticity</p>
-                          <p className="text-xs font-bold text-stone-950">
-                            {product.attributes.isAuthentic ? "✅ Official Licensed" : "Replica"}
-                          </p>
-                        </div>
-                      )}
-                    </>
+                  {/* Dynamic Product Attributes from Backend */}
+                  {product.ProductAttributes && product.ProductAttributes.length > 0 ? (
+                    product.ProductAttributes.map((attr) => (
+                      <div key={attr.id} className="space-y-1">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                          {attr.attributeName}
+                        </p>
+                        <p className="text-xs font-bold text-stone-950">
+                          {attr.attributeValue}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[10px] font-bold text-gray-400 uppercase italic col-span-full">
+                      Detailed specifications loading from the vault...
+                    </p>
                   )}
 
-                  {/* ── SHOES specific ── */}
-                  {isShoes && (
-                    <>
-                      {product.attributes?.surface && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Surface</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.surface}</p>
-                        </div>
-                      )}
-                      {product.attributes?.shoeType && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Type</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.shoeType}</p>
-                        </div>
-                      )}
-                      {product.attributes?.sole && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sole</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.sole}</p>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* ── SOCKS specific ── */}
-                  {isSocks && (
-                    <>
-                      {product.attributes?.length && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Length</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.length}</p>
-                        </div>
-                      )}
-                      {product.attributes?.material && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Material</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.material}</p>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* ── OTHER / GEAR specific ── */}
-                  {(isAccessory || isOther) && (
-                    <>
-                      {product.attributes?.equipmentType && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Equipment Type</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.equipmentType}</p>
-                        </div>
-                      )}
-                      {product.attributes?.ageGroup && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Age Group</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.ageGroup}</p>
-                        </div>
-                      )}
-                      {product.attributes?.weight && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Weight</p>
-                          <p className="text-xs font-bold text-stone-950">{product.attributes.weight}</p>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* ── SHARED fields (all categories) ── */}
+                  {/* Shared fields (all categories) */}
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Colors</p>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Available Colors</p>
                     <p className="text-xs font-bold text-stone-950">
-                      {product.colors && product.colors.length > 0
-                        ? product.colors.join(", ")
+                      {availableColors.length > 0
+                        ? availableColors.join(", ")
                         : "Multi-Color"}
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">SKU</p>
-                    <p className="text-xs font-bold text-stone-950">{product.sku || "N/A"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Gender</p>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Target Gender</p>
                     <p className="text-xs font-bold text-stone-950">{product.gender || "Unisex"}</p>
                   </div>
+                  {product.ProductType && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Equipment Class</p>
+                      <p className="text-xs font-bold text-stone-950">{product.ProductType.name}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -1,6 +1,7 @@
 import sequelize from "./database/connection/connection.js";
 import Category from "./database/models/categoryModel.js";
 import Brand from "./database/models/brandModel.js";
+import { slugify } from "./utils/slugify.js";
 import ProductType from "./database/models/productTypeModel.js";
 import Product from "./database/models/productModel.js";
 import Variant from "./database/models/variantModel.js";
@@ -82,7 +83,11 @@ const seed = async () => {
         // Create Brands
         const brandMap: { [key: string]: string } = {};
         for (const brandName of brands) {
-            const [brand] = await Brand.findOrCreate({ where: { name: brandName }, defaults: { name: brandName } });
+            const slug = slugify(brandName);
+            const [brand] = await Brand.findOrCreate({
+                where: { slug },
+                defaults: { name: brandName, slug },
+            });
             brandMap[brandName] = brand.id;
         }
         console.log("Brands seeded");
@@ -138,7 +143,6 @@ const seed = async () => {
                         productId: product.id,
                         size,
                         color: randomColor || "Black",
-                        sku: `${p.name.substring(0, 3).toUpperCase()}-${size.replace(' ', '')}-${(randomColor || "Black").substring(0, 1)}`,
                         price: p.price,
                         salePrice: p.price > 25000 ? p.price - 3000 : null
                     });

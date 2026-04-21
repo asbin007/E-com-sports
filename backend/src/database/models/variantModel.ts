@@ -34,13 +34,6 @@ class Variant extends Model {
   declare color: string;
 
   @Column({
-    type: DataType.STRING,
-    allowNull: false,
-    unique: true,
-  })
-  declare sku: string;
-
-  @Column({
     type: DataType.FLOAT,
     allowNull: false,
   })
@@ -50,7 +43,32 @@ class Variant extends Model {
     type: DataType.FLOAT,
     allowNull: true,
   })
-  declare salePrice: number;
+  declare salePrice: number | null;
+
+  @Column({
+    type: DataType.FLOAT,
+    allowNull: true,
+  })
+  declare originalPrice: number;
+
+  @Column({
+    type: DataType.FLOAT,
+    allowNull: true,
+  })
+  declare costPrice: number;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+  })
+  declare stock: number;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: true,
+  })
+  declare isActive: boolean;
 
   @BelongsTo(() => Product)
   declare Product: Product;

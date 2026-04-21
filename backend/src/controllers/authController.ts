@@ -113,7 +113,7 @@ class AuthController {
         return;
       }
 
-      await user.update({ isVerified: true, otp: null, otpExpiration: null });
+      await user.update({ isVerified: true, otp: null as any, otpExpiration: null as any });
 
       const token = jwtService.generateAccessToken({
         userId: user.id,

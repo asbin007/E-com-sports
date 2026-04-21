@@ -10,6 +10,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { productService } from "../../services/productService";
 import type { Product } from "../../services/productService";
+import { getFirstImageUrl } from "../../utils/imageUrl";
 
 interface SpecialOffersProps {
   title?: string;
@@ -137,7 +138,12 @@ const SpecialOffers = ({
 
                   <div className="flex items-center gap-8 mb-12">
                     <div className="bg-orange-600 text-stone-950 px-8 py-4 rounded-xl font-black text-2xl italic tracking-tighter shadow-[0_0_20px_rgba(234,88,12,0.3)]">
-                      Rs. {products[currentIdx].price}
+                      Rs.{" "}
+                      {(
+                        products[currentIdx].price ||
+                        products[currentIdx].Variants?.[0]?.price ||
+                        0
+                      ).toLocaleString()}
                     </div>
                     <div className="flex items-center gap-1 text-orange-500">
                       {[...Array(5)].map((_, i) => (
@@ -169,11 +175,8 @@ const SpecialOffers = ({
                     animate={{ rotate: 0, scale: 1.15 }}
                     whileHover={{ scale: 1.25, rotate: -3 }}
                     src={
-                      products[currentIdx].images &&
-                      products[currentIdx].images[0]
-                        ? products[currentIdx].images[0].startsWith("http")
-                          ? products[currentIdx].images[0]
-                          : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${products[currentIdx].images[0].replace("/uploads/", "")}`
+                      (products[currentIdx]?.ProductImages && products[currentIdx].ProductImages.length > 0)
+                        ? products[currentIdx].ProductImages.find(img => img.isThumbnail)?.url || products[currentIdx].ProductImages[0].url
                         : "https://via.placeholder.com/600"
                     }
                     alt={products[currentIdx].name}

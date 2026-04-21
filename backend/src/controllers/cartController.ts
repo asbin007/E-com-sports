@@ -3,6 +3,7 @@ import CartItem from "../database/models/cartItemModel.js";
 import Product from "../database/models/productModel.js";
 import Brand from "../database/models/brandModel.js";
 import Category from "../database/models/categoryModel.js";
+import Variant from "../database/models/variantModel.js";
 
 class CartController {
   async addToCart(req: Request, res: Response): Promise<void> {
@@ -21,7 +22,10 @@ class CartController {
       }
 
       const product = await Product.findByPk(productId, {
-        include: [{ model: Category, attributes: ["id", "name", "needsSize", "sizeType"] }],
+        include: [
+          { model: Category, attributes: ["id", "name", "needsSize", "sizeType"] },
+          { model: Variant, as: "Variants" }
+        ],
       });
 
       if (!product) {
@@ -43,8 +47,30 @@ class CartController {
         return;
       }
 
-      // Stock check
-      if (product.stock < quantity) {
+      // Stock and Price check via Variant
+      let variantPrice = 0;
+      let targetStock = 0;
+
+      if (needsSize) {
+        const variant = (product as any).Variants?.find((v: any) => v.size === size);
+        if (!variant) {
+          res.status(400).json({ message: `Size ${size} is not available` });
+          return;
+        }
+        targetStock = variant.stock;
+        variantPrice = variant.price;
+      } else {
+        // Find default variant if no size needed
+        const variant = (product as any).Variants?.[0];
+        if (!variant) {
+          res.status(400).json({ message: "No active variant found" });
+          return;
+        }
+        targetStock = variant.stock;
+        variantPrice = variant.price;
+      }
+
+      if (targetStock < quantity) {
         res.status(400).json({ message: "Insufficient stock available" });
         return;
       }
@@ -60,7 +86,7 @@ class CartController {
 
       if (existingItem) {
         const newQty = existingItem.quantity + quantity;
-        if (product.stock < newQty) {
+        if (targetStock < newQty) {
           res.status(400).json({ message: "Insufficient stock for requested quantity" });
           return;
         }
@@ -71,7 +97,7 @@ class CartController {
           productId,
           size: needsSize ? size : null,
           quantity,
-          priceAtAdd: product.price,
+          priceAtAdd: variantPrice,
         });
       }
 
@@ -116,10 +142,20 @@ class CartController {
       if (!userId) { res.status(401).json({ message: "Unauthorized" }); return; }
       if (!quantity || quantity < 1) { res.status(400).json({ message: "Quantity must be at least 1" }); return; }
 
-      const cartItem = await CartItem.findOne({ where: { id, userId }, include: [{ model: Product }] });
+      const cartItem = await CartItem.findOne({ 
+        where: { id, userId }, 
+        include: [{ 
+          model: Product,
+          include: [{ model: Variant, as: "Variants" }] 
+        }] 
+      });
       if (!cartItem) { res.status(404).json({ message: "Cart item not found" }); return; }
 
-      if ((cartItem.Product as any).stock < quantity) {
+      const product = cartItem.Product as any;
+      const variant = product.Variants?.find((v: any) => v.size === cartItem.size) || product.Variants?.[0];
+      const targetStock = variant ? variant.stock : 0;
+
+      if (targetStock < quantity) {
         res.status(400).json({ message: "Insufficient stock available" });
         return;
       }
@@ -156,8 +192,11 @@ class CartController {
       include: [
         {
           model: Product,
-          attributes: ["id", "name", "price", "originalPrice", "discount", "images", "stock"],
-          include: [{ model: Brand, attributes: ["id", "name"] }],
+          attributes: ["id", "name", "slug"],
+          include: [
+            { model: Brand, attributes: ["id", "name"] },
+            { model: Variant, as: "Variants", attributes: ["price", "originalPrice", "stock", "size", "color"] }
+          ],
         },
       ],
     });

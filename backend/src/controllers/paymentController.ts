@@ -12,12 +12,25 @@ class PaymentController {
         res.status(400).json({ message: "Order ID and Amount are required" });
         return;
       }
-      
+
       const order = await Order.findByPk(orderId);
-      if(!order){
-          res.status(404).json({ message: "Order not found" });
-          return;
+      if (!order) {
+        res.status(404).json({ message: "Order not found" });
+        return;
       }
+
+      // --- DUMMY MODE FOR TESTING ---
+      if (process.env.NODE_ENV === "development") {
+        console.log("DEBUG: Using Dummy Payment for Order #", orderId);
+        await order.update({ paymentMethod: "Khalti" });
+        res.status(200).json({
+          message: "Payment initiated successfully (DUMMY MODE)",
+          payment_url: `${process.env.FRONTEND_URL}/payment/success?orderId=${orderId}&pidx=DUMMY_ORDER_${orderId}_${Date.now()}`,
+          pidx: `DUMMY_ORDER_${orderId}_${Date.now()}`,
+        });
+        return;
+      }
+      // --- END DUMMY MODE ---
 
       const payload = {
         return_url: `${process.env.FRONTEND_URL}/payment/success`,
@@ -67,6 +80,21 @@ class PaymentController {
         res.status(400).json({ message: "PIDX is required" });
         return;
       }
+
+      // --- DUMMY MODE FOR TESTING ---
+      if (pidx.startsWith("DUMMY_")) {
+        const orderId = req.body.orderId || pidx.split("_")[2]; // fallback if orderId not sent directly
+        const order = await Order.findByPk(orderId);
+        if (order) {
+          await order.update({ paymentStatus: "paid", paymentPid: pidx });
+          res.status(200).json({
+            message: "Payment verified (DUMMY MODE)",
+            data: { status: "Completed", purchase_order_id: orderId },
+          });
+          return;
+        }
+      }
+      // --- END DUMMY MODE ---
 
       const response = await axios.post(
         "https://a.khalti.com/api/v2/epayment/lookup/",

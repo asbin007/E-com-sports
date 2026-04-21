@@ -13,7 +13,7 @@ class JwtService {
       console.error("CRITICAL: jwtSecret is missing in JwtService!");
     }
     return jwt.sign(payload, envConfig.jwtSecret as string, {
-      expiresIn: envConfig.jwtExpiration || "24h",
+      expiresIn: (envConfig.jwtExpiration || "24h") as any,
     });
   }
 

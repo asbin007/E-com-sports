@@ -1,7 +1,11 @@
-import { Table, Column, Model, DataType, ForeignKey, BelongsTo } from "sequelize-typescript";
+import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany } from "sequelize-typescript";
 import Category from "./categoryModel.js";
 import Brand from "./brandModel.js";
 import ProductType from "./productTypeModel.js";
+import Sport from "./sportModel.js";
+import Variant from "./variantModel.js";
+import ProductImage from "./productImageModel.js";
+import ProductAttribute from "./productAttributeModel.js";
 
 @Table({
   tableName: "products",
@@ -23,80 +27,23 @@ class Product extends Model {
   declare name: string;
 
   @Column({
+    type: DataType.STRING,
+    allowNull: false,
+    unique: true,
+  })
+  declare slug: string;
+
+  @Column({
     type: DataType.TEXT,
     allowNull: true,
   })
   declare description: string;
 
   @Column({
-    type: DataType.FLOAT,
-    allowNull: false,
-    defaultValue: 0,
-  })
-  declare price: number; // Selling Price
-
-  @Column({
-    type: DataType.FLOAT,
-    allowNull: false,
-    defaultValue: 0,
-  })
-  declare originalPrice: number; // MRP
-
-  @Column({
-    type: DataType.FLOAT,
-    allowNull: false,
-    defaultValue: 0,
-  })
-  declare costPrice: number;
-
-  @Column({
-    type: DataType.INTEGER,
-    defaultValue: 0,
-  })
-  declare discount: number;
-
-  @Column({
-    type: DataType.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-  })
-  declare stock: number;
-
-  @Column({
-    type: DataType.ARRAY(DataType.STRING),
-    defaultValue: [],
-  })
-  declare sizes: string[];
-
-  @Column({
-    type: DataType.ARRAY(DataType.STRING),
-    defaultValue: [],
-  })
-  declare colors: string[];
-
-  @Column({
-    type: DataType.ARRAY(DataType.STRING),
-    defaultValue: [],
-  })
-  declare images: string[];
-
-  @Column({
     type: DataType.ENUM("Men", "Women", "Kids", "Unisex"),
     allowNull: true,
   })
   declare gender: string;
-
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-  })
-  declare sport: string; // e.g. "football", "cricket", "basketball", "general"
-
-  @Column({
-    type: DataType.JSONB,
-    defaultValue: {},
-  })
-  declare attributes: Record<string, any>; // category-specific extras
 
   @ForeignKey(() => Category)
   @Column({
@@ -119,6 +66,13 @@ class Product extends Model {
   })
   declare productTypeId: string;
 
+  @ForeignKey(() => Sport)
+  @Column({
+    type: DataType.UUID,
+    allowNull: true,
+  })
+  declare sportId: string;
+
   @Column({
     type: DataType.BOOLEAN,
     defaultValue: true,
@@ -133,6 +87,18 @@ class Product extends Model {
 
   @BelongsTo(() => ProductType)
   declare ProductType: ProductType;
+
+  @BelongsTo(() => Sport)
+  declare Sport: Sport;
+
+  @HasMany(() => Variant)
+  declare variants: Variant[];
+
+  @HasMany(() => ProductImage)
+  declare images: ProductImage[];
+
+  @HasMany(() => ProductAttribute)
+  declare attributes: ProductAttribute[];
 }
 
 export default Product;

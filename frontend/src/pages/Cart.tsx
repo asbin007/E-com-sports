@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { gsap } from "gsap";
+import { getImageUrl } from "../utils/imageUrl";
 
 const Cart = () => {
   const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
@@ -95,7 +96,7 @@ const Cart = () => {
             <AnimatePresence mode="popLayout">
               {cart.map((item) => (
                 <motion.div
-                  key={`${item.id}-${item.selectedSize}`}
+                  key={item.variantId || item.id}
                   layout
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -104,16 +105,9 @@ const Cart = () => {
                 >
                   {/* Item Image */}
                   <div className="w-full sm:w-44 h-48 bg-stone-50 rounded-[1.5rem] overflow-hidden flex-shrink-0 relative group-hover:bg-white transition-colors duration-500">
-                    {item.images && item.images[0] ? (
+                    {item.ProductImages && item.ProductImages.length > 0 ? (
                       <img
-                        src={
-                          item.images[0].startsWith("http")
-                            ? item.images[0]
-                            : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${item.images[0].replace(
-                                "/uploads/",
-                                "",
-                              )}`
-                        }
+                        src={item.ProductImages.find(img => img.isThumbnail)?.url || item.ProductImages[0].url}
                         alt={item.name}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       />
@@ -122,11 +116,6 @@ const Cart = () => {
                         No Data
                       </div>
                     )}
-                    <div className="absolute top-4 left-4">
-                      <div className="bg-stone-950/80 backdrop-blur text-white p-2 rounded-lg scale-0 group-hover:scale-100 transition-transform">
-                        <ShoppingBag className="w-4 h-4" />
-                      </div>
-                    </div>
                   </div>
 
                   {/* Item Details */}
@@ -143,7 +132,7 @@ const Cart = () => {
                         </div>
                         <button
                           onClick={() =>
-                            removeFromCart(item.id, item.selectedSize)
+                            removeFromCart(item.id, item.variantId)
                           }
                           className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
                           title="Eject unit"
@@ -153,14 +142,26 @@ const Cart = () => {
                       </div>
 
                       <div className="flex flex-wrap gap-4 mt-2">
-                        <div className="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100 flex items-center gap-2">
-                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                            Dimension
-                          </span>
-                          <span className="text-[11px] font-black text-stone-950 uppercase">
-                            {item.selectedSize}
-                          </span>
-                        </div>
+                        {item.selectedSize && (
+                          <div className="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100 flex items-center gap-2">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                              Dimension
+                            </span>
+                            <span className="text-[11px] font-black text-stone-950 uppercase">
+                              {item.selectedSize}
+                            </span>
+                          </div>
+                        )}
+                        {item.selectedColor && (
+                          <div className="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100 flex items-center gap-2">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                              Color
+                            </span>
+                            <span className="text-[11px] font-black text-stone-950 uppercase">
+                              {item.selectedColor}
+                            </span>
+                          </div>
+                        )}
                         <div className="px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100 flex items-center gap-2">
                           <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                             Status
@@ -178,7 +179,7 @@ const Cart = () => {
                           onClick={() =>
                             updateQuantity(
                               item.id,
-                              item.selectedSize,
+                              item.variantId,
                               item.quantity - 1,
                             )
                           }
@@ -194,7 +195,7 @@ const Cart = () => {
                           onClick={() =>
                             updateQuantity(
                               item.id,
-                              item.selectedSize,
+                              item.variantId,
                               item.quantity + 1,
                             )
                           }
@@ -203,17 +204,12 @@ const Cart = () => {
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 italic">
-                          Subtotal
-                        </p>
-                        <p className="text-3xl font-black text-stone-950 italic tracking-tighter">
-                          Rs{" "}
-                          {(
-                            (item.price || 5999) * item.quantity
-                          ).toLocaleString()}
-                        </p>
-                      </div>
+                      <p className="text-3xl font-black text-stone-950 italic tracking-tighter">
+                        Rs{" "}
+                        {(
+                          (item.variantPrice || item.price || 0) * item.quantity
+                        ).toLocaleString()}
+                      </p>
                     </div>
                   </div>
                 </motion.div>

@@ -80,16 +80,16 @@ const CartDrawer = () => {
               ) : (
                 cart.map((item) => (
                   <motion.div
-                    key={`${item.id}-${item.selectedSize}`}
+                    key={item.variantId || item.id}
                     layout
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className="bg-white/5 rounded-2xl p-4 border border-white/5 flex gap-4 group"
                   >
                     <div className="w-20 h-24 bg-stone-900 rounded-xl overflow-hidden shrink-0">
-                      {item.ProductImages?.[0] ? (
+                      {item.ProductImages && item.ProductImages.length > 0 ? (
                         <img
-                          src={item.ProductImages[0].url}
+                          src={item.ProductImages.find(img => img.isThumbnail)?.url || item.ProductImages[0].url}
                           alt={item.name}
                           className="w-full h-full object-cover transition-transform group-hover:scale-110"
                         />
@@ -109,16 +109,28 @@ const CartDrawer = () => {
                           <h4 className="font-black text-sm uppercase tracking-tighter italic line-clamp-1">
                             {item.name}
                           </h4>
-                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
-                            Size:{" "}
-                            <span className="text-white">
-                              {item.selectedSize}
-                            </span>
-                          </p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {item.selectedSize && (
+                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                Size:{" "}
+                                <span className="text-white">
+                                  {item.selectedSize}
+                                </span>
+                              </p>
+                            )}
+                            {item.selectedColor && (
+                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                Color:{" "}
+                                <span className="text-white">
+                                  {item.selectedColor}
+                                </span>
+                              </p>
+                            )}
+                          </div>
                         </div>
                         <button
                           onClick={() =>
-                            removeFromCart(item.id, item.selectedSize)
+                            removeFromCart(item.id, item.variantId)
                           }
                           className="p-1.5 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
                         >
@@ -132,7 +144,7 @@ const CartDrawer = () => {
                             onClick={() =>
                               updateQuantity(
                                 item.id,
-                                item.selectedSize,
+                                item.variantId,
                                 item.quantity - 1,
                               )
                             }
@@ -147,7 +159,7 @@ const CartDrawer = () => {
                             onClick={() =>
                               updateQuantity(
                                 item.id,
-                                item.selectedSize,
+                                item.variantId,
                                 item.quantity + 1,
                               )
                             }
@@ -159,7 +171,8 @@ const CartDrawer = () => {
                         <p className="font-black text-sm text-white italic">
                           Rs{" "}
                           {(
-                            (item.price || 5999) * item.quantity
+                            (item.variantPrice || item.price || 0) *
+                            item.quantity
                           ).toLocaleString()}
                         </p>
                       </div>

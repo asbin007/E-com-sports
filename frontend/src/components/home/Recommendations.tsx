@@ -4,6 +4,7 @@ import { ShoppingBag, ArrowRight, Star, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { productService } from "../../services/productService";
 import type { Product } from "../../services/productService";
+import { getFirstImageUrl } from "../../utils/imageUrl";
 
 interface RecommendationsProps {
   title: string;
@@ -103,10 +104,8 @@ const Recommendations = ({ title, subtitle, filter }: RecommendationsProps) => {
               <div className="relative aspect-square mb-6 overflow-hidden rounded-[2rem] bg-gradient-to-br from-stone-50 to-stone-100 flex items-center justify-center p-8 group-hover:bg-white transition-colors duration-500">
                 <img
                   src={
-                    product.images && product.images[0]
-                      ? product.images[0].startsWith("http")
-                        ? product.images[0]
-                        : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${product.images[0].replace("/uploads/", "")}`
+                    (product.ProductImages && product.ProductImages.length > 0)
+                      ? product.ProductImages.find(img => img.isThumbnail)?.url || product.ProductImages[0].url
                       : "https://via.placeholder.com/300"
                   }
                   alt={product.name}
@@ -136,7 +135,12 @@ const Recommendations = ({ title, subtitle, filter }: RecommendationsProps) => {
                 </p>
                 <div className="flex items-center justify-between pt-4 border-t border-stone-100">
                   <span className="text-2xl font-black text-stone-950 italic tracking-tighter">
-                    Rs. {product.price || "TBD"}
+                    Rs.{" "}
+                    {(
+                      product.price ||
+                      product.Variants?.[0]?.price ||
+                      0
+                    ).toLocaleString()}
                   </span>
                   <button
                     onClick={() => navigate(`/product/${product.id}`)}

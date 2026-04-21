@@ -7,6 +7,32 @@ import categoryController from "./src/controllers/categoryController.js";
 import brandController from "./src/controllers/brandController.js";
 import productTypeController from "./src/controllers/productTypeController.js";
 
+async function ensureBrandNameColumn(): Promise<void> {
+  // Your `Brand` model expects `brands.name`, but some existing DBs only have
+  // `brands.slug`. Add `name` (nullable first), backfill from `slug`, then
+  // enforce NOT NULL + uniqueness.
+  await sequelize.query(`
+    ALTER TABLE "brands"
+    ADD COLUMN IF NOT EXISTS "name" VARCHAR(255);
+  `);
+
+  await sequelize.query(`
+    UPDATE "brands"
+    SET "name" = "slug"
+    WHERE "name" IS NULL;
+  `);
+
+  await sequelize.query(`
+    ALTER TABLE "brands"
+    ALTER COLUMN "name" SET NOT NULL;
+  `);
+
+  await sequelize.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS "brands_name_uidx"
+    ON "brands" ("name");
+  `);
+}
+
 function startServer() {
   const host = process.env.HOST || "0.0.0.0";
   const port = envConfig.port || 1000;
@@ -27,7 +53,9 @@ function startServer() {
           await connectDB();
 
           if (process.env.NODE_ENV !== "production") {
-            await sequelize.sync({ force: false, alter: true });
+            await ensureBrandNameColumn();
+            // Keep sync minimal to avoid long/locking schema-alter runs.
+            await sequelize.sync({ force: false, alter: false });
             console.log(
               "✅ Database synchronized successfully (alter enabled)"
             );

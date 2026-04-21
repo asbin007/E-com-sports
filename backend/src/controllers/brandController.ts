@@ -1,17 +1,12 @@
 import type { Request, Response } from "express";
 import Brand from "../database/models/brandModel.js";
+import { slugify } from "../utils/slugify.js";
 
 class BrandController {
   brandData = [
-    {
-      name: "Nike",
-    },
-    {
-      name: "Adidas",
-    },
-    {
-      name: "Puma",
-    },
+    { name: "Nike", slug: "nike" },
+    { name: "Adidas", slug: "adidas" },
+    { name: "Puma", slug: "puma" },
   ];
 
   async seedBrand(): Promise<void> {
@@ -57,6 +52,7 @@ class BrandController {
     }
     const brand = await Brand.create({
       name,
+      slug: slugify(name),
     });
     res.status(200).json({
       message: "Brand created successfully",
@@ -116,6 +112,7 @@ class BrandController {
       await Brand.update(
         {
           name: name,
+          slug: slugify(name),
         },
         {
           where: {

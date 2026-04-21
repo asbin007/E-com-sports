@@ -10,6 +10,7 @@ import {
 import { Link } from "react-router-dom";
 import { orderService } from "../../services/orderService";
 import { motion, AnimatePresence } from "framer-motion";
+import { getImageUrl } from "../../utils/imageUrl";
 
 const Orders = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -125,11 +126,11 @@ const Orders = () => {
                         <div className="flex -space-x-2">
                           {order.OrderItems?.slice(0, 3).map((item: any) => {
                             const product = item.Variant?.Product;
-                            const imageUrl = product?.images?.[0]
-                              ? product.images[0].startsWith("http")
-                                ? product.images[0]
-                                : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${product.images[0].replace("/uploads/", "")}`
-                              : "/placeholder-product.png";
+                            const imageUrl =
+                              product?.images?.[0]
+                                ? getImageUrl(product.images[0] as any) ??
+                                  "/placeholder-product.png"
+                                : "/placeholder-product.png";
                             return (
                               <div
                                 key={item.id}

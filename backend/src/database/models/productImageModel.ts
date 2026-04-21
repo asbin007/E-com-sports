@@ -34,16 +34,22 @@ class ProductImage extends Model {
   declare publicId: string;
 
   @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare altText: string;
+
+  @Column({
     type: DataType.INTEGER,
     defaultValue: 0,
   })
-  declare order: number;
+  declare sortOrder: number;
 
   @Column({
     type: DataType.BOOLEAN,
     defaultValue: false,
   })
-  declare isPrimary: boolean;
+  declare isThumbnail: boolean;
 
   @BelongsTo(() => Product)
   declare Product: Product;

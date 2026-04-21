@@ -19,6 +19,7 @@ import {
   type ProductType,
 } from "../services/filterService";
 import { cn } from "../utils/cn";
+import { getImageUrl } from "../utils/imageUrl";
 
 const ProductListing = () => {
   const { category: urlCategory } = useParams<{ category: string }>();
@@ -428,15 +429,11 @@ const ProductListing = () => {
                     >
                       <Link to={`/product/${product.id}`}>
                         <div className="relative aspect-[4/5] bg-gray-100 rounded-3xl overflow-hidden mb-6 border border-gray-100 shadow-sm group-hover:shadow-2xl transition-all duration-500">
-                          {product.images && product.images[0] ? (
+                          {product.ProductImages && product.ProductImages.length > 0 ? (
                             <img
                               src={
-                                product.images[0].startsWith("http")
-                                  ? product.images[0]
-                                  : `https://res.cloudinary.com/dxpe7jikz/image/upload/v1/${product.images[0].replace(
-                                      "/uploads/",
-                                      "",
-                                    )}`
+                                product.ProductImages.find(img => img.isThumbnail)?.url || 
+                                product.ProductImages[0].url
                               }
                               alt={product.name}
                               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
@@ -489,15 +486,30 @@ const ProductListing = () => {
                               {product.Brand?.name || "Premium Gear"}
                             </p>
                             <div className="flex flex-col items-end">
-                              {product.originalPrice &&
-                                product.originalPrice >
-                                  (product.price || 0) && (
+                              {(product.originalPrice ||
+                                product.Variants?.[0]?.originalPrice) &&
+                                (product.originalPrice ||
+                                  product.Variants?.[0]?.originalPrice ||
+                                  0) >
+                                  (product.price ||
+                                    product.Variants?.[0]?.price ||
+                                    0) && (
                                   <span className="text-xs text-gray-400 line-through font-medium">
-                                    Rs {product.originalPrice.toLocaleString()}
+                                    Rs{" "}
+                                    {(
+                                      product.originalPrice ||
+                                      product.Variants?.[0]?.originalPrice ||
+                                      0
+                                    ).toLocaleString()}
                                   </span>
                                 )}
                               <p className="text-sm font-black text-stone-950 italic">
-                                Rs {product.price?.toLocaleString() || "5,999"}
+                                Rs{" "}
+                                {(
+                                  product.price ||
+                                  product.Variants?.[0]?.price ||
+                                  0
+                                ).toLocaleString()}
                               </p>
                             </div>
                           </div>
