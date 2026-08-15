@@ -1,200 +1,367 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Package,
   Search,
-  Filter,
-  ExternalLink,
   Inbox,
   ChevronRight,
+  MessageCircle,
+  AlertTriangle,
+  RefreshCw,
+  Clock,
+  CheckCircle2,
+  RotateCcw,
+  Wallet,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { orderService } from "../../services/orderService";
-import { motion, AnimatePresence } from "framer-motion";
-import { getImageUrl } from "../../utils/imageUrl";
+import { motion } from "framer-motion";
+import { OrderListSkeleton } from "../../components/ui/Skeleton";
+
+// Mirrors the backend OrderStatus enum (backend/src/services/types.ts).
+const STATUS_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "pending", label: "Pending" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "processing", label: "Processing" },
+  { value: "preparation", label: "Preparation" },
+  { value: "shipped", label: "Shipped" },
+  { value: "ontheway", label: "On the way" },
+  { value: "delivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "returned", label: "Returned" },
+];
+
+type PaymentState = {
+  label: string;
+  className: string;
+  icon: typeof Clock;
+  urgent: boolean;
+};
+
+/**
+ * Payment is verified by hand, so an order sits in "awaiting verification" for a
+ * while and a rejected payment is the only state that requires the customer to act.
+ */
+type OrderLike = {
+  Payment?: { paymentStatus?: string | null } | null;
+  paymentStatus?: string | null;
+  paymentMethod?: string | null;
+};
+
+const getPaymentState = (order: OrderLike): PaymentState => {
+  const status = String(
+    order?.Payment?.paymentStatus || order?.paymentStatus || "pending"
+  ).toLowerCase();
+  const isCod = String(order?.paymentMethod || "").toLowerCase() === "cod";
+
+  if (status === "failed") {
+    return {
+      label: "Payment rejected",
+      className: "bg-red-500/10 text-red-600 border-red-500/30",
+      icon: AlertTriangle,
+      urgent: true,
+    };
+  }
+  if (status === "paid") {
+    return {
+      label: "Payment verified",
+      className: "bg-green-500/10 text-green-600 border-green-500/20",
+      icon: CheckCircle2,
+      urgent: false,
+    };
+  }
+  if (status === "refunded") {
+    return {
+      label: "Refunded",
+      className: "bg-secondary text-secondary border-border-primary",
+      icon: RotateCcw,
+      urgent: false,
+    };
+  }
+  if (isCod) {
+    return {
+      label: "Pay on delivery",
+      className: "bg-secondary text-secondary border-border-primary",
+      icon: Wallet,
+      urgent: false,
+    };
+  }
+  return {
+    label: "Awaiting verification",
+    className: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+    icon: Clock,
+    urgent: false,
+  };
+};
 
 const Orders = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const data = await orderService.getMyOrders();
-        setOrders(data);
-      } catch (error) {
-        console.error("Failed to fetch order history:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchOrders();
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await orderService.getMyOrders();
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to fetch order history:", err);
+      setOrders([]);
+      setError("We couldn't load your orders. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "delivered":
-        return "bg-green-100 text-green-600";
-      case "processing":
-        return "bg-orange-100 text-orange-600";
-      case "shipped":
-        return "bg-blue-100 text-blue-600";
-      case "cancelled":
-        return "bg-red-100 text-red-600";
-      default:
-        return "bg-stone-100 text-stone-600";
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  const getStatusColor = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case "delivered": return "bg-green-500/10 text-green-600 border-green-500/20";
+      case "processing": case "preparation": return "bg-blue-500/10 text-blue-600 border-blue-500/20";
+      case "shipped": case "ontheway": return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+      case "cancelled": return "bg-red-500/10 text-red-600 border-red-500/20";
+      default: return "bg-secondary text-secondary border-border-primary";
     }
   };
 
+  const hasFilters = Boolean(search) || statusFilter !== "all";
+
+  const filteredOrders = orders
+    .filter((order) => {
+      if (statusFilter !== "all") {
+        if (String(order.orderStatus || "").toLowerCase() !== statusFilter) return false;
+      }
+      if (!search) return true;
+      const q = search.toLowerCase().trim();
+      return (
+        // orderNumber is the identifier actually printed on the card below.
+        String(order.orderNumber || "").toLowerCase().includes(q) ||
+        order.id?.toLowerCase().includes(q) ||
+        order.orderStatus?.toLowerCase().includes(q) ||
+        order.firstName?.toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
   return (
-    <div className="space-y-12">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-4">
-          <h1 className="text-5xl font-black text-stone-950 uppercase italic tracking-tighter leading-none">
-            Deployment <span className="text-orange-600">History</span>
-          </h1>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-[0.2em]">
-            Track every elite gear mission ever initiated.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-primary">My Orders</h1>
+          <p className="text-sm text-tertiary mt-1">Track and manage your orders</p>
         </div>
 
-        {/* Search/Filter Bar */}
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Find Deployment..."
-              className="pl-12 pr-6 py-3 bg-white border border-gray-100 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-orange-600/10 transition-all w-64"
-            />
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div className="w-full sm:w-44">
+            <label htmlFor="order-status-filter" className="sr-only">
+              Filter orders by status
+            </label>
+            <select
+              id="order-status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-3 py-2.5 bg-secondary border border-border-primary rounded-xl text-sm text-primary font-medium focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
-          <button className="p-3 bg-white border border-gray-100 rounded-xl text-stone-950 hover:bg-stone-950 hover:text-white transition-all">
-            <Filter className="w-4 h-4" />
-          </button>
+
+          <div className="w-full sm:w-64">
+            <label htmlFor="order-search" className="sr-only">
+              Search orders by order number, status or name
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <input
+                id="order-search"
+                type="text"
+                placeholder="Search orders..."
+                className="w-full pl-9 pr-4 py-2.5 bg-secondary border border-border-primary rounded-xl text-sm text-primary font-medium focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-muted"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* Orders List */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="h-32 bg-white/50 animate-pulse rounded-[2.5rem]"
-            />
-          ))}
+        <OrderListSkeleton />
+      ) : error ? (
+        <div
+          role="alert"
+          className="bg-card p-16 rounded-xl border border-red-500/20 text-center"
+        >
+          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-lg font-bold text-primary">Couldn't load your orders</h2>
+          <p className="text-sm text-tertiary mt-1 max-w-sm mx-auto">{error}</p>
+          <p className="text-xs text-muted mt-2 max-w-sm mx-auto">
+            Any order you've placed is safe — this is only a problem loading the list.
+          </p>
+          <button
+            type="button"
+            onClick={fetchOrders}
+            className="inline-flex items-center gap-2 mt-6 px-6 py-2.5 bg-accent text-white rounded-xl text-sm font-bold hover:bg-accent-hover transition-all"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </button>
         </div>
-      ) : orders.length > 0 ? (
-        <div className="grid grid-cols-1 gap-6">
-          <AnimatePresence>
-            {orders.map((order, idx) => (
+      ) : filteredOrders.length > 0 ? (
+        <div className="space-y-3">
+          {filteredOrders.map((order, idx) => {
+            const payment = getPaymentState(order);
+            const PaymentIcon = payment.icon;
+            return (
               <motion.div
                 key={order.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-orange-600/20 transition-all group overflow-hidden relative"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
               >
-                <div className="absolute top-0 right-0 w-48 h-48 bg-gray-50 rounded-full translate-x-1/2 -translate-y-1/2 transition-all group-hover:scale-110" />
-
-                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                  <div className="flex items-center gap-6">
-                    <div className="w-16 h-20 bg-stone-950 text-white rounded-2xl flex items-center justify-center relative overflow-hidden shrink-0">
-                      <Package className="w-8 h-8 relative z-10" />
-                      <div className="absolute inset-0 bg-gradient-to-br from-orange-600 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                          Protocol Reference
-                        </span>
-                        <span className="bg-stone-100 text-stone-950 px-3 py-1 rounded-full text-[9px] font-black">
-                          #{order.id.slice(-8).toUpperCase()}
-                        </span>
+                <Link
+                  to={`/dashboard/orders/${order.id}`}
+                  className={`block p-4 sm:p-5 bg-card rounded-xl border transition-all group ${
+                    payment.urgent
+                      ? "border-red-500/40 hover:border-red-500/60 hover:shadow-sm"
+                      : "border-border-primary hover:border-accent/30 hover:shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div
+                        className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors flex-shrink-0 ${
+                          payment.urgent
+                            ? "bg-red-500/10"
+                            : "bg-secondary group-hover:bg-accent/10"
+                        }`}
+                      >
+                        <Package
+                          className={`w-5 h-5 transition-colors ${
+                            payment.urgent
+                              ? "text-red-500"
+                              : "text-muted group-hover:text-accent"
+                          }`}
+                        />
                       </div>
-                      <h3 className="text-xl font-black text-stone-950 uppercase italic tracking-tighter leading-tight">
-                        Deployment Initiated:{" "}
-                        <span className="text-orange-600">
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </span>
-                      </h3>
-                      <div className="flex items-center gap-4 mt-2">
-                        <span
-                          className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] italic ${getStatusColor(order.status)}`}
-                        >
-                          {order.status}
-                        </span>
-                        <div className="flex -space-x-2">
-                          {order.OrderItems?.slice(0, 3).map((item: any) => {
-                            const product = item.Variant?.Product;
-                            const imageUrl =
-                              product?.images?.[0]
-                                ? getImageUrl(product.images[0] as any) ??
-                                  "/placeholder-product.png"
-                                : "/placeholder-product.png";
-                            return (
-                              <div
-                                key={item.id}
-                                className="w-8 h-8 rounded-full border-2 border-white bg-gray-100 overflow-hidden shadow-sm"
-                              >
-                                <img
-                                  src={imageUrl}
-                                  alt={product?.name || "Product"}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            );
-                          })}
-                          {order.OrderItems?.length > 3 && (
-                            <div className="w-8 h-8 rounded-full border-2 border-white bg-stone-950 text-white flex items-center justify-center text-[8px] font-black">
-                              +{order.OrderItems.length - 3}
-                            </div>
-                          )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-primary">
+                          Order #{order.orderNumber || order.id.slice(-8).toUpperCase()}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs text-muted">
+                            {new Date(order.createdAt).toLocaleDateString("en-US", {
+                              year: "numeric", month: "short", day: "numeric"
+                            })}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${getStatusColor(order.orderStatus)}`}>
+                            {order.orderStatus}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${payment.className}`}
+                          >
+                            <PaymentIcon className="w-3 h-3" />
+                            {payment.label}
+                          </span>
                         </div>
                       </div>
                     </div>
+
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right hidden sm:block">
+                        <p className="text-sm font-bold text-primary">
+                          Rs {order.totalPrice?.toLocaleString()}
+                        </p>
+                        <p className="text-[10px] text-muted">
+                          {order.OrderItems?.length || "—"} items
+                        </p>
+                      </div>
+                      <ChevronRight
+                        className={`w-4 h-4 transition-colors ${
+                          payment.urgent ? "text-red-500" : "text-muted group-hover:text-accent"
+                        }`}
+                      />
+                    </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-8 lg:gap-16">
-                    <div className="text-right">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
-                        Payload Value
-                      </p>
-                      <p className="text-2xl font-black text-stone-950 italic tracking-tighter">
-                        Rs {order.totalAmount?.toLocaleString()}
+                  {/* A rejected payment is the one state the customer must act on —
+                      point them at the order detail, where the re-upload form lives. */}
+                  {payment.urgent && (
+                    <div className="mt-3 pt-3 border-t border-red-500/20 flex items-center gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                      <p className="text-xs font-semibold text-red-600">
+                        Action needed — your payment proof was rejected.{" "}
+                        <span className="underline">Upload a new one</span>
                       </p>
                     </div>
-                    <Link
-                      to={`/dashboard/orders/${order.id}`}
-                      className="flex items-center gap-3 bg-stone-950 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all active:scale-95 shadow-xl shadow-stone-950/10 italic"
-                    >
-                      Track Mission <ChevronRight className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </div>
+                  )}
+                </Link>
               </motion.div>
-            ))}
-          </AnimatePresence>
+            );
+          })}
         </div>
       ) : (
-        <div className="bg-white p-24 rounded-[3rem] border border-gray-100 text-center space-y-8">
-          <div className="w-32 h-32 bg-stone-50 rounded-[2.5rem] flex items-center justify-center mx-auto relative group-hover:rotate-12 transition-transform">
-            <Inbox className="w-16 h-16 text-gray-300" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-3xl font-black text-stone-950 uppercase italic tracking-tighter">
-              No Past Deployments
-            </h2>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest leading-loose">
-              The mission log is currently empty. Begin your legacy by
-              commissioning gear from the shop.
+        <div className="bg-card p-16 rounded-xl border border-border-primary text-center">
+          <Inbox className="w-12 h-12 text-muted mx-auto mb-4" />
+          <h2 className="text-lg font-bold text-primary">
+            {hasFilters ? "No orders found" : "No orders yet"}
+          </h2>
+          <p className="text-sm text-tertiary mt-1 max-w-sm mx-auto">
+            {hasFilters
+              ? "No orders match your search or filter. Try a different keyword or status."
+              : "You haven't placed any orders yet. Start shopping to see your orders here."}
+          </p>
+          {hasFilters ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("all");
+              }}
+              className="inline-block mt-6 px-6 py-2.5 bg-secondary text-primary border border-border-primary rounded-xl text-sm font-bold hover:bg-surface-hover transition-all"
+            >
+              Clear filters
+            </button>
+          ) : (
+            <Link
+              to="/shop"
+              className="inline-block mt-6 px-6 py-2.5 bg-accent text-white rounded-xl text-sm font-bold hover:bg-accent-hover transition-all"
+            >
+              Browse Products
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* WhatsApp Support */}
+      {!error && orders.length > 0 && (
+        <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <MessageCircle className="w-5 h-5 text-accent" />
+            <p className="text-sm text-primary font-medium">
+              Need help with an order?
             </p>
           </div>
-          <Link
-            to="/shop"
-            className="inline-flex items-center gap-3 bg-stone-950 text-white px-10 py-5 rounded-full font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all active:scale-95 italic"
+          <a
+            href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER || "9779748477628"}?text=Hi!%20I%20need%20help%20with%20my%20order.`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-accent text-white rounded-lg text-xs font-bold hover:bg-accent-hover transition-all flex-shrink-0"
           >
-            Go To HQ Store <ExternalLink className="w-4 h-4" />
-          </Link>
+            WhatsApp Us
+          </a>
         </div>
       )}
     </div>

@@ -1,9 +1,7 @@
 import type { Request, Response } from "express";
-import otpGenerator from "otp-generator";
 import bcrypt from "bcrypt";
 import User from "../database/models/userModel.js";
 import { sendOtp as sendResendOtp } from "../services/resendMail.js";
-import checkOtpExpiration from "../services/optExpiration.js";
 import jwtService from "../services/jwtService.js";
 
 class AuthController {
@@ -36,13 +34,14 @@ class AuthController {
       const hashedPassword = await bcrypt.hash(password, 10);
       
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const hashedOtp = await bcrypt.hash(otp, 6);
       const otpExpiration = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
       const newUser = await User.create({
         username,
         email,
         password: hashedPassword,
-        otp,
+        otp: hashedOtp,
         otpExpiration,
         isVerified: false,
       });
@@ -74,8 +73,7 @@ class AuthController {
       if (error.parent) console.error("- DB Error Details:", error.parent.detail || error.parent);
       
       res.status(500).json({
-        message: "Internal server error during registration protocol",
-        error: error.message,
+        message: "Internal server error during registration",
       });
     }
   }
@@ -106,7 +104,8 @@ class AuthController {
         return;
       }
 
-      if (user.otp !== otp || (user.otpExpiration && user.otpExpiration < new Date())) {
+      const isValidOtp = user.otp ? await bcrypt.compare(otp, user.otp) : false;
+      if (!isValidOtp || (user.otpExpiration && user.otpExpiration < new Date())) {
         res.status(400).json({
           message: "Invalid or expired OTP",
         });
@@ -136,7 +135,6 @@ class AuthController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -168,9 +166,10 @@ class AuthController {
       }
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const hashedOtp = await bcrypt.hash(otp, 6);
       const otpExpiration = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-      await user.update({ otp, otpExpiration });
+      await user.update({ otp: hashedOtp, otpExpiration });
 
       try {
         await sendResendOtp(email, otp);
@@ -187,7 +186,6 @@ class AuthController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -218,13 +216,36 @@ class AuthController {
         return;
       }
 
+      if (user.lockedUntil && user.lockedUntil > new Date()) {
+        res.status(423).json({
+          message: "Account locked. Try again later.",
+        });
+        return;
+      }
+
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
+        const failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+
+        if (failedLoginAttempts >= 5) {
+          await user.update({
+            failedLoginAttempts: 0,
+            lockedUntil: new Date(Date.now() + 30 * 60 * 1000),
+          });
+          res.status(423).json({
+            message: "Account locked. Try again later.",
+          });
+          return;
+        }
+
+        await user.update({ failedLoginAttempts });
         res.status(401).json({
           message: "Invalid email or password",
         });
         return;
       }
+
+      await user.update({ failedLoginAttempts: 0, lockedUntil: null as any });
 
       const token = jwtService.generateAccessToken({
         userId: user.id,
@@ -254,7 +275,6 @@ class AuthController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -271,7 +291,7 @@ class AuthController {
       }
 
       try {
-        const decoded = jwtService.verifyToken(refreshToken);
+        const decoded = jwtService.verifyRefreshToken(refreshToken);
         const user = await User.findByPk(decoded.userId);
 
         if (!user) {
@@ -300,24 +320,19 @@ class AuthController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
 
   async googleCallback(req: Request, res: Response): Promise<void> {
     try {
-      console.log("AuthController: googleCallback handling request");
       const user = req.user as any;
-      console.log("AuthController: User from req:", user?.id);
 
       if (!user) {
-        console.error("AuthController: No user found in request");
         res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}/login?error=auth_failed`);
         return;
       }
 
-      console.log("AuthController: Generating tokens");
       const token = jwtService.generateAccessToken({
         userId: user.id,
         email: user.email,
@@ -330,7 +345,6 @@ class AuthController {
         role: user.role,
       });
 
-      // Redirect to frontend with token
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       res.redirect(`${frontendUrl}/auth/callback?token=${token}&refreshToken=${refreshToken}`);
     } catch (error) {
@@ -366,7 +380,6 @@ class AuthController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }

@@ -10,16 +10,16 @@ interface TokenPayload {
 class JwtService {
   generateAccessToken(payload: TokenPayload): string {
     if (!envConfig.jwtSecret) {
-      console.error("CRITICAL: jwtSecret is missing in JwtService!");
+      throw new Error("CRITICAL: jwtSecret is missing!");
     }
     return jwt.sign(payload, envConfig.jwtSecret as string, {
-      expiresIn: (envConfig.jwtExpiration || "24h") as any,
+      expiresIn: (envConfig.jwtExpiration || "15m") as any,
     });
   }
 
   generateRefreshToken(payload: TokenPayload): string {
-    return jwt.sign(payload, envConfig.jwtSecret as string, {
-      expiresIn: "7d",
+    return jwt.sign(payload, envConfig.jwtRefreshSecret as string, {
+      expiresIn: (envConfig.jwtRefreshExpiration || "7d") as any,
     });
   }
 
@@ -27,6 +27,13 @@ class JwtService {
     return jwt.verify(
       token,
       envConfig.jwtSecret as string
+    ) as TokenPayload;
+  }
+
+  verifyRefreshToken(token: string): TokenPayload {
+    return jwt.verify(
+      token,
+      envConfig.jwtRefreshSecret as string
     ) as TokenPayload;
   }
 }

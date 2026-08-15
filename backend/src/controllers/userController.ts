@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import bcrypt from "bcrypt";
+import { Op } from "sequelize";
 import User from "../database/models/userModel.js";
 import Address from "../database/models/addressModel.js";
 import Order from "../database/models/orderModel.js";
@@ -37,7 +38,6 @@ class UserController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -80,7 +80,6 @@ class UserController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -128,7 +127,6 @@ class UserController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -143,7 +141,7 @@ class UserController {
       if (role) where.role = role;
       if (isActive !== undefined) where.isActive = isActive === "true";
       if (search) {
-        where.username = { $iLike: `%${search}%` };
+        where.username = { [Op.iLike]: `%${search}%` };
       }
 
       const offset = (Number(page) - 1) * Number(limit);
@@ -170,7 +168,6 @@ class UserController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -207,7 +204,6 @@ class UserController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -245,7 +241,6 @@ class UserController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -276,7 +271,6 @@ class UserController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -303,7 +297,6 @@ class UserController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }

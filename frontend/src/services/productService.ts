@@ -17,29 +17,39 @@ export interface Product {
   sportId?: string;
   gender?: string;
   isActive: boolean;
-  
+  isFeatured?: boolean;
+
   // Relations
   Category?: { id: string; name: string; needsSize: boolean; sizeType: "clothing" | "shoe" | null; slug: string };
   Brand?: { id: string; name: string; slug: string; logo?: string };
   ProductType?: { id: string; name: string; description?: string; slug: string };
   Sport?: { id: string; name: string; slug: string; iconUrl?: string };
-  Variants?: { 
-    id: string; 
-    size: string; 
-    color: string; 
-    price: number; 
+  variants?: {
+    id: string;
+    size: string;
+    color: string;
+    price: number;
     originalPrice?: number;
-    salePrice?: number; 
+    salePrice?: number;
     stock: number;
     isActive: boolean;
   }[];
-  ProductImages?: { id: string; url: string; altText?: string; isThumbnail: boolean; sortOrder: number }[];
+  images?: Array<
+    | string
+    | {
+        id?: string;
+        url?: string | null;
+        altText?: string;
+        isThumbnail?: boolean;
+        sortOrder?: number;
+      }
+  >;
   ProductAttributes?: ProductAttribute[];
+  attributes?: ProductAttribute[];
 
-  // Legacy/Derived (kept for compatibility or if used in frontend logic)
+  // Legacy/Derived
   price?: number;
   originalPrice?: number;
-  images?: Array<string | { url?: string | null }>;
   createdAt: string;
 }
 

@@ -62,7 +62,7 @@ class Product extends Model {
   @ForeignKey(() => ProductType)
   @Column({
     type: DataType.UUID,
-    allowNull: false,
+    allowNull: true,
   })
   declare productTypeId: string;
 
@@ -78,6 +78,25 @@ class Product extends Model {
     defaultValue: true,
   })
   declare isActive: boolean;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: false,
+  })
+  declare isFeatured: boolean;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: false,
+  })
+  declare allowCustomization: boolean;
+
+  @Column({
+    type: DataType.ARRAY(DataType.STRING),
+    allowNull: true,
+    defaultValue: [],
+  })
+  declare tags: string[];
 
   @BelongsTo(() => Category)
   declare Category: Category;
@@ -95,10 +114,10 @@ class Product extends Model {
   declare variants: Variant[];
 
   @HasMany(() => ProductImage)
-  declare images: ProductImage[];
+  declare ProductImages: ProductImage[];
 
   @HasMany(() => ProductAttribute)
-  declare attributes: ProductAttribute[];
+  declare ProductAttributes: ProductAttribute[];
 }
 
 export default Product;

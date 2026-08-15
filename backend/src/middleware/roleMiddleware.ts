@@ -6,6 +6,7 @@ import User from "../database/models/userModel.js";
 export enum Role {
   Admin = "admin",
   Customer = "customer",
+  Delivery = "delivery",
 }
 
 export const requireRole = (allowedRoles: Role[]) => {
@@ -69,3 +70,4 @@ export const requireRole = (allowedRoles: Role[]) => {
 
 export const requireCustomer = requireRole([Role.Customer]);
 export const requireAdmin = requireRole([Role.Admin]);
+export const requireDelivery = requireRole([Role.Delivery]);

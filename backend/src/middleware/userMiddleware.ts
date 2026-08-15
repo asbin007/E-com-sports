@@ -6,6 +6,7 @@ import User from "../database/models/userModel.js";
 export enum Role {
   Admin = "admin",
   Customer = "customer",
+  Delivery = "delivery",
 }
 
 declare global {
@@ -70,7 +71,9 @@ class UserMiddleware {
 
       next();
     } catch (error: any) {
-      console.error("JWT verification error:", error);
+      if (error.name !== "TokenExpiredError") {
+        console.error("JWT verification error:", error);
+      }
 
       if (error.name === "JsonWebTokenError") {
         res.status(401).json({

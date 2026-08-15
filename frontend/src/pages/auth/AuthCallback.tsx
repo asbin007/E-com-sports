@@ -11,38 +11,30 @@ const AuthCallback = () => {
   const refreshToken = searchParams.get("refreshToken");
 
   useEffect(() => {
-    if (token) {
-      // We need to decode token or just call /me to get user details
-      // For now, we assume login takes just token, or we can fetch user profile
-      // Check if context login supports just token or needs user object
-      // If it needs user object, we should fetch it.
-
-      // Let's quickly fetch user profile using the token
-      const fetchUser = async () => {
-        try {
-          const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/auth/me`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
-          if (response.ok) {
-            const data = await response.json();
-            login(token, data.user);
-            navigate("/");
-          } else {
-            navigate("/login?error=validation_failed");
-          }
-        } catch (e) {
-          navigate("/login?error=connection_failed");
-        }
-      };
-      fetchUser();
-    } else {
+    if (!token) {
       navigate("/login?error=no_token");
+      return;
     }
+
+    const fetchUser = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL || "http://localhost:1000/api/v1"}/auth/me`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          login(token, data.user, refreshToken || undefined);
+          navigate("/");
+        } else {
+          navigate("/login?error=validation_failed");
+        }
+      } catch {
+        navigate("/login?error=connection_failed");
+      }
+    };
+
+    fetchUser();
   }, [token, refreshToken, navigate, login]);
 
   return (

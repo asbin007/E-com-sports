@@ -5,30 +5,16 @@ import { slugify } from "../utils/slugify.js";
 
 class ProductTypeController {
   productTypeData = [
-    {
-      name: "Shoes",
-      description: "Footwear for sports and casual wear",
-    },
-    {
-      name: "Jersey",
-      description: "Sports jerseys and team wear",
-    },
-    {
-      name: "Accessories",
-      description: "Sports accessories and gear",
-    },
-    {
-      name: "Shorts",
-      description: "Athletic shorts and bottoms",
-    },
-    {
-      name: "Socks",
-      description: "Sports socks and footwear accessories",
-    },
-    {
-      name: "Bags",
-      description: "Sports bags and backpacks",
-    },
+    { name: "Shoes", description: "Sports footwear for training and competition" },
+    { name: "Jersey", description: "Sports jerseys and team wear" },
+    { name: "Shorts", description: "Athletic shorts and bottoms" },
+    { name: "Tracksuit", description: "Full tracksuits and training wear" },
+    { name: "Equipment", description: "Sports equipment (balls, bats, rackets)" },
+    { name: "Protective Gear", description: "Guards, pads, helmets and safety gear" },
+    { name: "Bags", description: "Sports bags, kit bags and backpacks" },
+    { name: "Socks", description: "Sports socks and compression wear" },
+    { name: "Gloves", description: "Sports gloves (batting, keeping, gym)" },
+    { name: "Accessories", description: "Bottles, bands, caps and other accessories" },
   ];
 
   async seedProductType(): Promise<void> {
@@ -41,23 +27,24 @@ class ProductTypeController {
     const categories = await Category.findAll();
     const fallbackCategoryId = categories[0]?.id;
 
-    // product_types are related to Category via `categoryId` (NOT NULL),
-    // but product type "Shoes/Jersey/..." doesn't inherently map 1:1 to sport categories.
-    // We use a sensible mapping so seeding works and the DB constraints are satisfied.
     const categoryNameByProductTypeName: Record<string, string> = {
       Shoes: "Running",
       Jersey: "Football",
-      Accessories: "Gym & Fitness",
       Shorts: "Basketball",
-      Socks: "Cricket",
+      Tracksuit: "Gym & Fitness",
+      Equipment: "Cricket",
+      "Protective Gear": "Cricket",
       Bags: "Outdoor",
+      Socks: "Running",
+      Gloves: "Cricket",
+      Accessories: "Accessories",
     };
 
     const categoryByName = new Map(categories.map((c) => [c.name, c.id]));
 
     const rows = this.productTypeData.map((d) => {
       const categoryName =
-        categoryNameByProductTypeName[d.name] ?? "Running";
+        categoryNameByProductTypeName[d.name] ?? "Football";
       const categoryId = categoryByName.get(categoryName) ?? fallbackCategoryId;
       return {
         name: d.name,

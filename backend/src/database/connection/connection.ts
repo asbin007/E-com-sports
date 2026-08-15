@@ -26,6 +26,7 @@ import Chat from "../models/chatModel.js";
 import Message from "../models/messageModel.js";
 import Sport from "../models/sportModel.js";
 import ProductAttribute from "../models/productAttributeModel.js";
+import StatusHistory from "../models/statusHistoryModel.js";
 
 const sequelize = new Sequelize(( envConfig.databaseUrl as string), {
   models: [
@@ -50,6 +51,7 @@ const sequelize = new Sequelize(( envConfig.databaseUrl as string), {
     Message,
     Sport,
     ProductAttribute,
+    StatusHistory,
   ],
   dialect: "postgres",
   dialectOptions: {
@@ -170,6 +172,10 @@ Message.belongsTo(User, { foreignKey: "senderId", as: "Sender" });
 Chat.hasMany(Message, { foreignKey: "chatId", onDelete: "CASCADE" });
 User.hasMany(Message, { foreignKey: "senderId", as: "SentMessages" });
 
+// StatusHistory relationships
+StatusHistory.belongsTo(Order, { foreignKey: "orderId" });
+Order.hasMany(StatusHistory, { foreignKey: "orderId", onDelete: "CASCADE" });
+
 export const connectDB = async () => {
   try {
     await sequelize.authenticate();
@@ -226,14 +232,6 @@ export const connectDB = async () => {
             });
           }
         }
-
-        // Ensure variants.salePrice exists (some controllers/seeders use it).
-        if (!variantsDesc["salePrice"]) {
-          await sequelize.query(
-            `ALTER TABLE variants ADD COLUMN IF NOT EXISTS "salePrice" FLOAT NULL DEFAULT NULL`
-          );
-          console.log("✅ variants: salePrice column added");
-        }
       } catch (migrationError) {
         console.warn(
           "⚠️ variants sku drop skipped:",
@@ -275,6 +273,149 @@ export const connectDB = async () => {
           "⚠️ categories schema migration skipped:",
           (migrationError as Error).message
         );
+      }
+
+      // ── Schema migration: ensure user role supports 'delivery' ──
+      try {
+        await sequelize.query(
+          `ALTER TYPE "enum_users_role" ADD VALUE IF NOT EXISTS 'delivery'`
+        ).catch(() => {});
+      } catch (migrationError) {
+        try {
+          await sequelize.query(
+            `ALTER TABLE "users" ALTER COLUMN "role" TYPE VARCHAR(50) USING "role"::VARCHAR(50)`
+          );
+          await sequelize.query(
+            `ALTER TABLE "users" ALTER COLUMN "role" SET DEFAULT 'customer'`
+          );
+          console.log("✅ users.role converted to VARCHAR");
+        } catch {
+          console.warn("⚠️ users.role migration skipped");
+        }
+      }
+
+      // ── Schema migration: add account lockout columns to users ──
+      try {
+        const usersDesc = await qi.describeTable("users");
+        if (!usersDesc["failed_login_attempts"]) {
+          await sequelize.query(
+            `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "failed_login_attempts" INTEGER NOT NULL DEFAULT 0`
+          );
+          console.log("✅ users: failed_login_attempts column added");
+        }
+        if (!usersDesc["locked_until"]) {
+          await sequelize.query(
+            `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "locked_until" TIMESTAMP WITH TIME ZONE NULL`
+          );
+          console.log("✅ users: locked_until column added");
+        }
+      } catch (migrationError) {
+        console.warn("⚠️ users lockout columns migration skipped:", (migrationError as Error).message);
+      }
+
+      // ── Schema migration: add deliveryBoyId to orders ──
+      try {
+        const ordersDesc = await qi.describeTable("orders");
+        if (!ordersDesc["deliveryBoyId"]) {
+          await sequelize.query(
+            `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "deliveryBoyId" UUID NULL REFERENCES "users"("id") ON DELETE SET NULL`
+          );
+          console.log("✅ orders: deliveryBoyId column added");
+        }
+      } catch (migrationError) {
+        console.warn("⚠️ orders.deliveryBoyId migration skipped:", (migrationError as Error).message);
+      }
+
+      // ── Schema migration: ensure order columns exist ──
+      try {
+        const ordersDesc2 = await qi.describeTable("orders");
+        const orderColumns: Record<string, string> = {
+          orderNumber: `"orderNumber" VARCHAR(255) UNIQUE`,
+          subtotal: `"subtotal" FLOAT`,
+          deliveryCharge: `"deliveryCharge" FLOAT DEFAULT 0`,
+          customerNote: `"customerNote" TEXT`,
+          whatsappConfirmed: `"whatsappConfirmed" BOOLEAN DEFAULT FALSE`,
+          paymentMethod: `"paymentMethod" VARCHAR(255)`,
+          paymentPid: `"paymentPid" VARCHAR(255)`,
+          paymentScreenshot: `"paymentScreenshot" VARCHAR(500)`,
+        };
+        for (const [col, definition] of Object.entries(orderColumns)) {
+          if (!ordersDesc2[col]) {
+            await sequelize.query(
+              `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS ${definition}`
+            );
+            console.log(`✅ orders: ${col} column added`);
+          }
+        }
+        // paymentStatus — add as VARCHAR to avoid ENUM migration issues
+        if (!ordersDesc2["paymentStatus"]) {
+          await sequelize.query(
+            `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "paymentStatus" VARCHAR(20) DEFAULT 'pending'`
+          );
+          console.log("✅ orders: paymentStatus column added");
+        }
+      } catch (migrationError) {
+        console.warn("⚠️ orders columns migration skipped:", (migrationError as Error).message);
+      }
+
+      // ── Schema migration: add payment_rejection_reason to orders ──
+      try {
+        const ordersDesc3 = await qi.describeTable("orders");
+        if (!ordersDesc3["payment_rejection_reason"]) {
+          await sequelize.query(
+            `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "payment_rejection_reason" TEXT NULL`
+          );
+          console.log("✅ orders: payment_rejection_reason column added");
+        }
+      } catch (migrationError) {
+        console.warn("⚠️ orders.payment_rejection_reason migration skipped:", (migrationError as Error).message);
+      }
+
+      // ── Fix: delete broken ProductType with null categoryId ──
+      try {
+        await sequelize.query(`DELETE FROM "product_types" WHERE "categoryId" IS NULL`);
+      } catch { /* ignore */ }
+
+      // ── Schema migration: add allowCustomization and tags to products ──
+      try {
+        const productsDesc = await qi.describeTable("products");
+        if (!productsDesc["allowCustomization"]) {
+          await sequelize.query(
+            `ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "allowCustomization" BOOLEAN NOT NULL DEFAULT FALSE`
+          );
+          console.log("✅ products: allowCustomization column added");
+        }
+        if (!productsDesc["tags"]) {
+          await sequelize.query(
+            `ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "tags" TEXT[] DEFAULT '{}'`
+          );
+          console.log("✅ products: tags column added");
+        }
+      } catch (migrationError) {
+        console.warn("⚠️ products schema migration skipped:", (migrationError as Error).message);
+      }
+
+      // ── Add performance indexes ──
+      try {
+        await sequelize.query(`
+          CREATE INDEX IF NOT EXISTS idx_cart_items_user_id ON cart_items("userId");
+          CREATE INDEX IF NOT EXISTS idx_cart_items_product_id ON cart_items("productId");
+          CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items("orderId");
+          CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items("productId");
+          CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders("userId");
+          CREATE INDEX IF NOT EXISTS idx_orders_status ON orders("orderStatus");
+          CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders("createdAt");
+          CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images("productId");
+          CREATE INDEX IF NOT EXISTS idx_variants_product_id ON variants("productId");
+          CREATE INDEX IF NOT EXISTS idx_product_reviews_product_id ON product_reviews("productId");
+          CREATE INDEX IF NOT EXISTS idx_product_reviews_user_id ON product_reviews("userId");
+          CREATE INDEX IF NOT EXISTS idx_wishlist_user_id ON wishlist("userId");
+          CREATE INDEX IF NOT EXISTS idx_wishlist_product_id ON wishlist("productId");
+          CREATE INDEX IF NOT EXISTS idx_payments_status ON payments("paymentStatus");
+        `);
+        console.log("✅ Performance indexes created");
+      } catch (indexError) {
+        console.warn("⚠️ Index creation skipped:", (indexError as Error).message);
       }
 
   } catch (error) {

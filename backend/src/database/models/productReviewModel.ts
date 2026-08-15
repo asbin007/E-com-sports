@@ -1,4 +1,4 @@
-import { Table, Column, Model, DataType, ForeignKey } from "sequelize-typescript";
+import { Table, Column, Model, DataType, ForeignKey, BelongsTo } from "sequelize-typescript";
 import User from "./userModel.js";
 import Product from "./productModel.js";
 
@@ -68,6 +68,12 @@ class ProductReview extends Model {
     defaultValue: true,
   })
   declare isVisible: boolean;
+
+  @BelongsTo(() => User)
+  User?: User;
+
+  @BelongsTo(() => Product)
+  Product?: Product;
 }
 
 export default ProductReview;

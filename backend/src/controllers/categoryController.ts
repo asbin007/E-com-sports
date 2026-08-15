@@ -1,13 +1,17 @@
 import type { Request, Response } from "express";
 import Category from "../database/models/categoryModel.js";
+import Product from "../database/models/productModel.js";
 
 class CategoryController {
   categoryData = [
-    { name: "Jersey",       slug: "jersey",       needsSize: true,  sizeType: "clothing" },
-    { name: "Shoes",        slug: "shoes",         needsSize: true,  sizeType: "shoe"     },
-    { name: "Shoe Variety", slug: "shoe-variety",  needsSize: true,  sizeType: "shoe"     },
-    { name: "Socks",        slug: "socks",         needsSize: true,  sizeType: "clothing" },
-    { name: "Gear",         slug: "gear",          needsSize: false, sizeType: null       },
+    { name: "Football",      slug: "football",      needsSize: true,  sizeType: "clothing" },
+    { name: "Cricket",       slug: "cricket",       needsSize: true,  sizeType: "weight"   },
+    { name: "Basketball",    slug: "basketball",    needsSize: true,  sizeType: "clothing" },
+    { name: "Running",       slug: "running",       needsSize: true,  sizeType: "shoe"     },
+    { name: "Gym & Fitness", slug: "gym-fitness",   needsSize: true,  sizeType: "clothing" },
+    { name: "Outdoor",       slug: "outdoor",       needsSize: true,  sizeType: "shoe"     },
+    { name: "Equipment",     slug: "equipment",     needsSize: false, sizeType: "equipment"},
+    { name: "Accessories",   slug: "accessories",   needsSize: false, sizeType: null       },
   ];
 
   async seedCategory(): Promise<void> {
@@ -31,7 +35,7 @@ class CategoryController {
       });
     } catch (error: any) {
       console.error(error);
-      res.status(500).json({ message: "Internal server error", error: error.message });
+      res.status(500).json({ message: "Internal server error" });
     }
   }
 
@@ -73,6 +77,18 @@ class CategoryController {
     if (!data) {
       res.status(404).json({ message: "No category with that id" });
     } else {
+      // Category.hasMany(Product, { foreignKey: "categoryId" }) has no onDelete,
+      // and Product.categoryId is NOT NULL — so Sequelize would CASCADE and wipe
+      // every product in this category (plus its images, variants, inventory,
+      // order items and reviews). Refuse instead of silently destroying them.
+      const productCount = await Product.count({ where: { categoryId: id } });
+      if (productCount > 0) {
+        res.status(409).json({
+          message: `Cannot delete this category: ${productCount} product${productCount === 1 ? " is" : "s are"} still assigned to it. Reassign or remove ${productCount === 1 ? "it" : "them"} first.`,
+          productCount,
+        });
+        return;
+      }
       await Category.destroy({ where: { id } });
       res.status(200).json({ message: "Category deleted successfully" });
     }

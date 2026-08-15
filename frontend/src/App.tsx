@@ -16,40 +16,44 @@ import Profile from "./pages/dashboard/Profile";
 import Orders from "./pages/dashboard/Orders";
 import OrderDetail from "./pages/dashboard/OrderDetail";
 import { AuthProvider } from "./context/AuthContext";
-
 import { CartProvider } from "./context/CartContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Home />} />
-              <Route path="login" element={<Login />} />
-              <Route path="register" element={<Register />} />
-              <Route path="verify-email" element={<VerifyEmail />} />
-              <Route path="auth/callback" element={<AuthCallback />} />
-              <Route path="payment/success" element={<PaymentSuccess />} />
-              <Route path="shop" element={<ProductListing />} />
-              <Route path="/:category" element={<ProductListing />} />
-              <Route path="/product/:id" element={<ProductDetail />} />
-              <Route path="cart" element={<Cart />} />
-              <Route path="checkout" element={<Checkout />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <CartProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Home />} />
+                <Route path="login" element={<Login />} />
+                <Route path="register" element={<Register />} />
+                <Route path="verify-email" element={<VerifyEmail />} />
+                <Route path="auth/callback" element={<AuthCallback />} />
+                <Route path="payment/success" element={<PaymentSuccess />} />
+                <Route path="shop" element={<ProductListing />} />
+                <Route path="cart" element={<Cart />} />
+                <Route path="checkout" element={<Checkout />} />
+                <Route path="product/:id" element={<ProductDetail />} />
 
-              {/* Dashboard Routes */}
-              <Route path="dashboard" element={<DashboardLayout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="profile" element={<Profile />} />
-                <Route path="orders" element={<Orders />} />
-                <Route path="orders/:id" element={<OrderDetail />} />
+                {/* Dashboard Routes */}
+                <Route path="dashboard" element={<DashboardLayout />}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="profile" element={<Profile />} />
+                  <Route path="orders" element={<Orders />} />
+                  <Route path="orders/:id" element={<OrderDetail />} />
+                </Route>
+
+                {/* Category route — must be LAST since it's a catch-all */}
+                <Route path=":category" element={<ProductListing />} />
               </Route>
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </CartProvider>
-    </AuthProvider>
+            </Routes>
+          </BrowserRouter>
+        </CartProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

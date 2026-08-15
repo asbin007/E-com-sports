@@ -43,6 +43,7 @@ class ReviewController {
 
       // Check if user has purchased this product
       const hasPurchased = await OrderItem.findOne({
+        where: { productId },
         include: [
           {
             model: Order,
@@ -78,7 +79,6 @@ class ReviewController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -140,7 +140,6 @@ class ReviewController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -187,7 +186,6 @@ class ReviewController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -224,7 +222,6 @@ class ReviewController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -257,7 +254,6 @@ class ReviewController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }

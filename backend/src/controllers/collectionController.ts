@@ -40,7 +40,6 @@ class CollectionController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -67,7 +66,6 @@ class CollectionController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -95,7 +93,7 @@ class CollectionController {
             include: [
               {
                 model: ProductImage,
-                attributes: ["id", "url", "isPrimary"],
+                attributes: ["id", "url", "isThumbnail"],
                 limit: 1,
               },
               {
@@ -108,7 +106,7 @@ class CollectionController {
               },
               {
                 model: Variant,
-                attributes: ["id", "price", "salePrice", "size", "color"],
+                attributes: ["id", "price", "originalPrice", "size", "color"],
                 limit: 1,
               },
             ],
@@ -142,7 +140,6 @@ class CollectionController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -185,7 +182,6 @@ class CollectionController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -211,7 +207,6 @@ class CollectionController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -259,7 +254,6 @@ class CollectionController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -286,7 +280,6 @@ class CollectionController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import Brand from "../database/models/brandModel.js";
+import Product from "../database/models/productModel.js";
 import { slugify } from "../utils/slugify.js";
 
 class BrandController {
@@ -7,6 +8,11 @@ class BrandController {
     { name: "Nike", slug: "nike" },
     { name: "Adidas", slug: "adidas" },
     { name: "Puma", slug: "puma" },
+    { name: "Under Armour", slug: "under-armour" },
+    { name: "Yonex", slug: "yonex" },
+    { name: "Kookaburra", slug: "kookaburra" },
+    { name: "New Balance", slug: "new-balance" },
+    { name: "Asics", slug: "asics" },
   ];
 
   async seedBrand(): Promise<void> {
@@ -78,6 +84,22 @@ class BrandController {
         message: "No brand with that id",
       });
     } else {
+      // Brand.hasMany(Product, { foreignKey: "brandId" }) has no onDelete, and
+      // Product.brandId is NOT NULL — so Sequelize would CASCADE and wipe every
+      // product of this brand (plus its images, variants, inventory, order items
+      // and reviews). Refuse instead of silently destroying them.
+      const productCount = await Product.count({
+        where: {
+          brandId: id,
+        },
+      });
+      if (productCount > 0) {
+        res.status(409).json({
+          message: `Cannot delete this brand: ${productCount} product${productCount === 1 ? " is" : "s are"} still assigned to it. Reassign or remove ${productCount === 1 ? "it" : "them"} first.`,
+          productCount,
+        });
+        return;
+      }
       await Brand.destroy({
         where: {
           id,

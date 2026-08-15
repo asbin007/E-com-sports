@@ -20,9 +20,11 @@ class RecommendationController {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+      // Orders reference products directly (variantId is legacy after the
+      // productId+size migration), so aggregate on OrderItem.productId.
       const trendingProductIds = await OrderItem.findAll({
         attributes: [
-          "variantId",
+          "productId",
           [Sequelize.fn("SUM", Sequelize.col("quantity")), "totalQty"],
         ],
         include: [
@@ -34,27 +36,23 @@ class RecommendationController {
             },
             required: true,
           },
-          {
-            model: Variant,
-            attributes: ["productId"],
-            required: true,
-          },
         ],
-        group: ["OrderItem.variantId", "Variant.id", "Variant.productId"],
+        where: { productId: { [Op.ne]: null } },
+        group: ["OrderItem.productId"],
         order: [[Sequelize.literal('"totalQty"'), "DESC"]],
         limit: Number(limit),
         raw: true,
       });
 
-      const productIds = [...new Set(trendingProductIds.map((item: any) => item["Variant.productId"]))];
+      const productIds = [...new Set(trendingProductIds.map((item: any) => item.productId))];
 
       const products = await Product.findAll({
         where: { id: { [Op.in]: productIds }, isActive: true },
         include: [
-          { model: ProductImage, attributes: ["id", "url", "isPrimary"], limit: 1 },
+          { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
           { model: Category, attributes: ["id", "name"] },
-          { model: Variant, attributes: ["id", "price", "salePrice", "size", "color"], limit: 1 },
+          { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color"], limit: 1 },
         ],
       });
 
@@ -66,7 +64,6 @@ class RecommendationController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -85,10 +82,10 @@ class RecommendationController {
           createdAt: { [Op.gte]: daysAgo },
         },
         include: [
-          { model: ProductImage, attributes: ["id", "url", "isPrimary"], limit: 1 },
+          { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
           { model: Category, attributes: ["id", "name"] },
-          { model: Variant, attributes: ["id", "price", "salePrice", "size", "color"], limit: 1 },
+          { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color"], limit: 1 },
         ],
         order: [["createdAt", "DESC"]],
         limit: Number(limit),
@@ -102,7 +99,6 @@ class RecommendationController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -112,32 +108,28 @@ class RecommendationController {
     try {
       const { limit = 12 } = req.query;
 
+      // Aggregate on OrderItem.productId directly (variantId is legacy).
       const bestSellerIds = await OrderItem.findAll({
         attributes: [
+          "productId",
           [Sequelize.fn("SUM", Sequelize.col("quantity")), "totalQty"],
         ],
-        include: [
-          {
-            model: Variant,
-            attributes: ["productId"],
-            required: true,
-          },
-        ],
-        group: ["Variant.id", "Variant.productId"],
+        where: { productId: { [Op.ne]: null } },
+        group: ["OrderItem.productId"],
         order: [[Sequelize.literal('"totalQty"'), "DESC"]],
         limit: Number(limit),
         raw: true,
       });
 
-      const productIds = [...new Set(bestSellerIds.map((item: any) => item["Variant.productId"]))];
+      const productIds = [...new Set(bestSellerIds.map((item: any) => item.productId))];
 
       const products = await Product.findAll({
         where: { id: { [Op.in]: productIds }, isActive: true },
         include: [
-          { model: ProductImage, attributes: ["id", "url", "isPrimary"], limit: 1 },
+          { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
           { model: Category, attributes: ["id", "name"] },
-          { model: Variant, attributes: ["id", "price", "salePrice", "size", "color"], limit: 1 },
+          { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color"], limit: 1 },
         ],
       });
 
@@ -149,19 +141,19 @@ class RecommendationController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
 
-  // Get products on sale (with salePrice set)
+  // Get products on sale (with originalPrice > price)
   async getOnSaleProducts(req: Request, res: Response): Promise<void> {
     try {
       const { limit = 12 } = req.query;
 
       const variantsOnSale = await Variant.findAll({
         where: {
-          salePrice: { [Op.ne]: null },
+          originalPrice: { [Op.ne]: null },
+          [Op.and]: literal('"originalPrice" > "price"'),
         },
         attributes: ["productId"],
         group: ["productId"],
@@ -173,13 +165,13 @@ class RecommendationController {
       const products = await Product.findAll({
         where: { id: { [Op.in]: productIds }, isActive: true },
         include: [
-          { model: ProductImage, attributes: ["id", "url", "isPrimary"], limit: 1 },
+          { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
           { model: Category, attributes: ["id", "name"] },
           {
             model: Variant,
-            where: { salePrice: { [Op.ne]: null } },
-            attributes: ["id", "price", "salePrice", "size", "color"],
+            where: { originalPrice: { [Op.ne]: null } },
+            attributes: ["id", "price", "originalPrice", "size", "color"],
             limit: 1,
           },
         ],
@@ -194,7 +186,6 @@ class RecommendationController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -216,17 +207,20 @@ class RecommendationController {
           createdAt: { [Op.gte]: thirtyDaysAgo },
         },
         include: [
-          { model: ProductImage, attributes: ["id", "url", "isPrimary"], limit: 1 },
+          { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
-          { model: Variant, attributes: ["id", "price", "salePrice"], limit: 1 },
+          { model: Variant, attributes: ["id", "price", "originalPrice"], limit: 1 },
         ],
         order: [["createdAt", "DESC"]],
         limit: limitNum,
       });
 
-      // On sale
+      // On sale (originalPrice > price)
       const variantsOnSale = await Variant.findAll({
-        where: { salePrice: { [Op.ne]: null } },
+        where: {
+          originalPrice: { [Op.ne]: null },
+          [Op.and]: literal('"originalPrice" > "price"'),
+        },
         attributes: ["productId"],
         group: ["productId"],
         limit: limitNum,
@@ -237,9 +231,9 @@ class RecommendationController {
       const onSale = await Product.findAll({
         where: { id: { [Op.in]: saleProductIds }, isActive: true },
         include: [
-          { model: ProductImage, attributes: ["id", "url", "isPrimary"], limit: 1 },
+          { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
-          { model: Variant, where: { salePrice: { [Op.ne]: null } }, attributes: ["id", "price", "salePrice"], limit: 1 },
+          { model: Variant, where: { originalPrice: { [Op.ne]: null } }, attributes: ["id", "price", "originalPrice"], limit: 1 },
         ],
         limit: limitNum,
       });
@@ -248,9 +242,9 @@ class RecommendationController {
       const featured = await Product.findAll({
         where: { isActive: true },
         include: [
-          { model: ProductImage, attributes: ["id", "url", "isPrimary"], limit: 1 },
+          { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
-          { model: Variant, attributes: ["id", "price", "salePrice"], limit: 1 },
+          { model: Variant, attributes: ["id", "price", "originalPrice"], limit: 1 },
         ],
         order: Sequelize.literal("RANDOM()"),
         limit: limitNum,
@@ -268,7 +262,6 @@ class RecommendationController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -324,10 +317,10 @@ class RecommendationController {
               ],
             },
             include: [
-              { model: ProductImage, attributes: ["id", "url", "isPrimary"], limit: 1 },
+              { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
               { model: Brand, attributes: ["id", "name"] },
               { model: Category, attributes: ["id", "name"] },
-              { model: Variant, attributes: ["id", "price", "salePrice"], limit: 1 },
+              { model: Variant, attributes: ["id", "price", "originalPrice"], limit: 1 },
             ],
             order: Sequelize.literal("RANDOM()"),
             limit: Number(limit),
@@ -340,10 +333,10 @@ class RecommendationController {
         recommendedProducts = await Product.findAll({
           where: { isActive: true },
           include: [
-            { model: ProductImage, attributes: ["id", "url", "isPrimary"], limit: 1 },
+            { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
             { model: Brand, attributes: ["id", "name"] },
             { model: Category, attributes: ["id", "name"] },
-            { model: Variant, attributes: ["id", "price", "salePrice"], limit: 1 },
+            { model: Variant, attributes: ["id", "price", "originalPrice"], limit: 1 },
           ],
           order: Sequelize.literal("RANDOM()"),
           limit: Number(limit),
@@ -359,7 +352,6 @@ class RecommendationController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }

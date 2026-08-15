@@ -1,7 +1,11 @@
 import express from "express";
+import path from "path";
 import cors from "cors";
+import helmet from "helmet";
 import passport from "./config/passport.js";
 import "./database/connection/connection.js";
+import { rateLimiter, authRateLimiter } from "./middleware/rateLimiter.js";
+import { sanitizeInput } from "./middleware/validation.js";
 import authRoute from "./routes/authRoute.js";
 import categoryRoute from "./routes/categoryRoute.js";
 import brandRoute from "./routes/brandRoute.js";
@@ -15,20 +19,35 @@ import reviewRoute from "./routes/reviewRoute.js";
 import wishlistRoute from "./routes/wishlistRoute.js";
 import collectionRoute from "./routes/collectionRoute.js";
 import recommendationRoute from "./routes/recommendationRoute.js";
+import deliveryRoute from "./routes/deliveryRoute.js";
 import userRoute from "./routes/userRoute.js";
 import dashboardRoute from "./routes/dashboardRoute.js";
+import sportRoute from "./routes/sportRoute.js";
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP — managed by frontend/reverse proxy in production
+  crossOriginEmbedderPolicy: false,
+}));
+
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(sanitizeInput);
 
 const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:2000",
+  "http://localhost:5173",  // Frontend
+  "http://localhost:2000",  // Frontend alternate
+  "http://localhost:3000",  // Admin panel
 ];
 
 if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+if (process.env.ADMIN_URL) {
+  allowedOrigins.push(process.env.ADMIN_URL);
 }
 
 const corsOptions = {
@@ -39,14 +58,12 @@ const corsOptions = {
     if (!origin) return callback(null, true);
 
     if (
-      allowedOrigins.includes(origin) ||
-      origin.includes("vercel.app") ||
-      origin.includes("localhost")
+      allowedOrigins.includes(origin)
     ) {
       return callback(null, true);
     }
 
-    return callback(null, true);
+    return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -54,54 +71,18 @@ const corsOptions = {
     "Content-Type",
     "Authorization",
     "x-auth-token",
-    "Access-Control-Allow-Origin",
   ],
   optionsSuccessStatus: 200,
-  preflightContinue: false,
 };
 
 app.use(cors(corsOptions));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use(passport.initialize());
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (
-    origin &&
-    (allowedOrigins.includes(origin) ||
-      origin.includes("vercel.app") ||
-      origin.includes("localhost"))
-  ) {
-    res.header("Access-Control-Allow-Origin", origin);
-  } else if (!origin) {
-    res.header("Access-Control-Allow-Origin", "*");
-  } else {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
-
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-  );
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-auth-token"
-  );
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  if (req.method === "OPTIONS") {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
-    message: "Brothers Shoe Backend is running successfully!",
+    message: "Brothers Sports House Backend is running successfully!",
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
     version: "1.0.0",
   });
 });
@@ -115,52 +96,34 @@ app.get("/api/ping", (req, res) => {
 
 app.get("/", (req, res) => {
   res.status(200).json({
-    message: "Welcome to Brothers Shoe Backend API!",
+    message: "Brothers Sports House Backend API",
     version: "1.0.0",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
-    endpoints: {
-      health: "/api/health",
-      auth: "/api/v1/auth",
-      products: "/api/v1/products",
-      categories: "/api/v1/categories",
-      brands: "/api/v1/brands",
-      productTypes: "/api/v1/product-types",
-      cart: "/api/v1/cart",
-      orders: "/api/v1/orders",
-      payments: "/api/v1/payments",
-      admin: "/api/v1/admin",
-      reviews: "/api/v1/reviews",
-      wishlist: "/api/v1/wishlist",
-      collections: "/api/v1/collections",
-      recommendations: "/api/v1/recommendations",
-      users: "/api/v1/users",
-      dashboard: "/api/v1/dashboard",
-    },
   });
 });
 
 app.use("/api/v1/auth", authRoute);
-app.use("/api/v1/categories", categoryRoute);
-app.use("/api/v1/brands", brandRoute);
-app.use("/api/v1/product-types", productTypeRoute);
-app.use("/api/v1/products", productRoute);
-app.use("/api/v1/cart", cartRoute);
-app.use("/api/v1/orders", orderRoute);
-app.use("/api/v1/payments", paymentRoute);
-app.use("/api/v1/admin", adminRoute);
-app.use("/api/v1/reviews", reviewRoute);
-app.use("/api/v1/wishlist", wishlistRoute);
-app.use("/api/v1/collections", collectionRoute);
-app.use("/api/v1/recommendations", recommendationRoute);
-app.use("/api/v1/users", userRoute);
-app.use("/api/v1/dashboard", dashboardRoute);
+app.use("/api/v1/categories", rateLimiter, categoryRoute);
+app.use("/api/v1/brands", rateLimiter, brandRoute);
+app.use("/api/v1/product-types", rateLimiter, productTypeRoute);
+app.use("/api/v1/products", rateLimiter, productRoute);
+app.use("/api/v1/cart", rateLimiter, cartRoute);
+app.use("/api/v1/orders", rateLimiter, orderRoute);
+app.use("/api/v1/payments", rateLimiter, paymentRoute);
+app.use("/api/v1/admin", rateLimiter, adminRoute);
+app.use("/api/v1/reviews", rateLimiter, reviewRoute);
+app.use("/api/v1/wishlist", rateLimiter, wishlistRoute);
+app.use("/api/v1/collections", rateLimiter, collectionRoute);
+app.use("/api/v1/recommendations", rateLimiter, recommendationRoute);
+app.use("/api/v1/users", rateLimiter, userRoute);
+app.use("/api/v1/delivery", rateLimiter, deliveryRoute);
+app.use("/api/v1/dashboard", rateLimiter, dashboardRoute);
+app.use("/api/v1/sports", rateLimiter, sportRoute);
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("Error:", err);
   res.status(err.status || 500).json({
-    message: err.message || "Internal server error",
-    error: process.env.NODE_ENV === "development" ? err : {},
+    message: process.env.NODE_ENV === "production" ? "Internal server error" : (err.message || "Internal server error"),
+    ...(process.env.NODE_ENV === "development" && { error: err.message, stack: err.stack }),
   });
 });
 

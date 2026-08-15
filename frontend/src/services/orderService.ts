@@ -11,19 +11,44 @@ export const orderService = {
     state: string;
     zipcode: string;
     paymentMethod: string;
-    items: { productId: string; size: string | null; quantity: number; price?: number }[];
+    transactionId?: string;
+    paymentPid?: string;
+    items: {
+      productId: string;
+      variantId?: string | null;
+      size: string | null;
+      color?: string | null;
+      quantity: number;
+      price?: number;
+    }[];
   }) {
     const response = await api.post('/orders', data);
     return response.data;
   },
 
+  async uploadPaymentProof(orderId: string, transactionId: string, screenshot?: File) {
+    const formData = new FormData();
+    if (transactionId) formData.append('transactionId', transactionId);
+    if (screenshot) formData.append('screenshot', screenshot);
+
+    const response = await api.post(`/payments/${orderId}/proof`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
   async getMyOrders() {
-      const response = await api.get('/orders');
-      return response.data.data;
+    const response = await api.get('/orders');
+    return response.data.data;
   },
 
   async getOrderById(id: string) {
-      const response = await api.get(`/orders/${id}`);
-      return response.data.data;
-  }
+    const response = await api.get(`/orders/${id}`);
+    return response.data.data;
+  },
+
+  async getPaymentStatus(orderId: string) {
+    const response = await api.get(`/payments/${orderId}/status`);
+    return response.data.data;
+  },
 };

@@ -1,8 +1,8 @@
 import { Table, Column, Model, DataType, ForeignKey, BelongsTo, HasMany } from "sequelize-typescript";
-import { OrderStatus } from "../../services/types.js";
 import User from "./userModel.js";
 import Payment from "./paymentModel.js";
 import OrderItem from "./orderItemModel.js";
+import StatusHistory from "./statusHistoryModel.js";
 
 @Table({
   tableName: "orders",
@@ -16,6 +16,13 @@ class Order extends Model {
     defaultValue: DataType.UUIDV4,
   })
   declare id: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    unique: true,
+  })
+  declare orderNumber: string;
 
   @ForeignKey(() => User)
   @Column({
@@ -73,24 +80,41 @@ class Order extends Model {
   declare zipcode: string;
 
   @Column({
-    type: DataType.ENUM(
-      OrderStatus.Pending,
-      OrderStatus.Confirmed,
-      OrderStatus.Processing,
-      OrderStatus.Shipped,
-      OrderStatus.Delivered,
-      OrderStatus.Cancelled,
-      OrderStatus.Returned
-    ),
-    defaultValue: OrderStatus.Pending,
+    type: DataType.STRING,
+    defaultValue: "pending",
   })
-  declare orderStatus: OrderStatus;
+  declare orderStatus: string;
 
   @Column({
     type: DataType.FLOAT,
     allowNull: false,
   })
   declare totalPrice: number;
+
+  @Column({
+    type: DataType.FLOAT,
+    allowNull: true,
+  })
+  declare subtotal: number;
+
+  @Column({
+    type: DataType.FLOAT,
+    allowNull: true,
+    defaultValue: 0,
+  })
+  declare deliveryCharge: number;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+  })
+  declare customerNote: string;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: false,
+  })
+  declare whatsappConfirmed: boolean;
 
   @ForeignKey(() => Payment)
   @Column({
@@ -106,7 +130,7 @@ class Order extends Model {
   declare paymentMethod: string;
 
   @Column({
-    type: DataType.ENUM("pending", "paid", "failed"),
+    type: DataType.STRING,
     defaultValue: "pending",
   })
   declare paymentStatus: string;
@@ -117,6 +141,25 @@ class Order extends Model {
   })
   declare paymentPid: string;
 
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  declare paymentScreenshot: string;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    field: "payment_rejection_reason",
+  })
+  declare paymentRejectionReason: string | null;
+
+  @Column({
+    type: DataType.UUID,
+    allowNull: true,
+  })
+  declare deliveryBoyId: string;
+
   @BelongsTo(() => User)
   declare User: User;
 
@@ -125,7 +168,9 @@ class Order extends Model {
 
   @HasMany(() => OrderItem)
   declare OrderItems: OrderItem[];
+
+  @HasMany(() => StatusHistory)
+  declare StatusHistories: StatusHistory[];
 }
 
 export default Order;
-

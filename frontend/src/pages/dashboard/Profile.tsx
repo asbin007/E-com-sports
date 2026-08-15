@@ -1,13 +1,47 @@
 import { useState } from "react";
-import { User, Mail, Shield, Save, Loader2, Lock } from "lucide-react";
+import { User, Mail, Shield, Save, Loader2, Lock, Eye, EyeOff } from "lucide-react";
 import { userService } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
 import { motion } from "framer-motion";
 
+type FormMessage = { type: "" | "success" | "error"; text: string };
+
+const EMPTY_MESSAGE: FormMessage = { type: "", text: "" };
+
+/** Announced banner, rendered inside the card whose form produced it. */
+const StatusBanner = ({ msg }: { msg: FormMessage }) => {
+  if (!msg.text) return null;
+  const isError = msg.type === "error";
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      role={isError ? "alert" : "status"}
+      aria-live={isError ? "assertive" : "polite"}
+      className={`mb-4 p-3 rounded-xl border flex items-center gap-3 ${
+        isError
+          ? "bg-red-500/10 border-red-500/20 text-red-500"
+          : "bg-green-500/10 border-green-500/20 text-green-600"
+      }`}
+    >
+      <Shield className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+      <p className="text-sm font-medium">{msg.text}</p>
+    </motion.div>
+  );
+};
+
 const Profile = () => {
-  const { user } = useAuth(); // We might need a way to refresh user context
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState({ type: "", text: "" });
+  const { user } = useAuth();
+
+  // Each form owns its own loading + message state, so one form's request never
+  // disables the other's button and an error always renders next to its own form.
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<FormMessage>(EMPTY_MESSAGE);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState<FormMessage>(EMPTY_MESSAGE);
+
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const [profileData, setProfileData] = useState({
     username: user?.username || "",
@@ -22,235 +56,218 @@ const Profile = () => {
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setProfileLoading(true);
+    setProfileMsg(EMPTY_MESSAGE);
     try {
       await userService.updateProfile(profileData);
-      setMsg({
-        type: "success",
-        text: "Protocol Updated: Profile Synchronized",
-      });
+      setProfileMsg({ type: "success", text: "Profile updated successfully!" });
     } catch (error: any) {
-      setMsg({
+      setProfileMsg({
         type: "error",
-        text: error.response?.data?.message || "Synchronization Failure",
+        text: error.response?.data?.message || "Failed to update profile",
       });
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
     }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setMsg({
-        type: "error",
-        text: "Protocol Mismatch: Passwords do not align",
-      });
+      setPasswordMsg({ type: "error", text: "New passwords don't match" });
       return;
     }
-    setLoading(true);
+    if (passwordData.newPassword.length < 6) {
+      setPasswordMsg({ type: "error", text: "Password must be at least 6 characters" });
+      return;
+    }
+    setPasswordLoading(true);
+    setPasswordMsg(EMPTY_MESSAGE);
     try {
       await userService.changePassword({
         oldPassword: passwordData.oldPassword,
         newPassword: passwordData.newPassword,
       });
-      setMsg({ type: "success", text: "Security Protocol Updated" });
-      setPasswordData({
-        oldPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
+      setPasswordMsg({ type: "success", text: "Password changed successfully!" });
+      setPasswordData({ oldPassword: "", newPassword: "", confirmPassword: "" });
     } catch (error: any) {
-      setMsg({
+      setPasswordMsg({
         type: "error",
-        text: error.response?.data?.message || "Security Update Failed",
+        text: error.response?.data?.message || "Failed to change password",
       });
     } finally {
-      setLoading(false);
+      setPasswordLoading(false);
     }
   };
 
   return (
-    <div className="space-y-16">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="space-y-4">
-        <h1 className="text-5xl font-black text-stone-950 uppercase italic tracking-tighter leading-none">
-          Identity <span className="text-orange-600">Protocol</span>
-        </h1>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-[0.2em]">
-          Manage your elite credentials and secure comm paths.
-        </p>
+      <div>
+        <h1 className="text-2xl font-bold text-primary">Profile Settings</h1>
+        <p className="text-sm text-tertiary mt-1">Manage your account information and security</p>
       </div>
 
-      {msg.text && (
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className={`p-6 rounded-2xl border ${msg.type === "success" ? "bg-green-50 border-green-100 text-green-600" : "bg-red-50 border-red-100 text-red-600"} flex items-center gap-4`}
-        >
-          <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${msg.type === "success" ? "bg-green-100" : "bg-red-100"}`}
-          >
-            {msg.type === "success" ? (
-              <Shield className="w-5 h-5" />
-            ) : (
-              <Shield className="w-5 h-5" />
-            )}
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest mb-0.5">
-              {msg.type.toUpperCase()}
-            </p>
-            <p className="text-xs font-bold italic">{msg.text}</p>
-          </div>
-        </motion.div>
-      )}
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-16">
-        {/* Profile Info Form */}
-        <section className="space-y-8">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-stone-950 text-white rounded-xl flex items-center justify-center shadow-lg">
-              <User className="w-5 h-5" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Profile Info */}
+        <div className="bg-card rounded-xl border border-border-primary p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 bg-accent/10 rounded-xl flex items-center justify-center">
+              <User className="w-4.5 h-4.5 text-accent" />
             </div>
-            <h2 className="text-xl font-black text-stone-950 uppercase italic tracking-tight">
-              Core Credentials
-            </h2>
+            <h2 className="text-base font-bold text-primary">Personal Information</h2>
           </div>
 
-          <form
-            onSubmit={handleProfileUpdate}
-            className="space-y-6 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm"
-          >
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                Display Alias
+          <StatusBanner msg={profileMsg} />
+
+          <form onSubmit={handleProfileUpdate} className="space-y-4">
+            <div>
+              <label htmlFor="profile-username" className="text-xs font-medium text-secondary mb-1.5 block">
+                Username
               </label>
               <div className="relative">
-                <User className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" aria-hidden="true" />
                 <input
+                  id="profile-username"
                   type="text"
                   value={profileData.username}
-                  onChange={(e) =>
-                    setProfileData({ ...profileData, username: e.target.value })
-                  }
-                  className="w-full pl-14 pr-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:border-orange-600 focus:ring-4 focus:ring-orange-600/5 transition-all outline-none font-bold text-sm"
+                  onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
+                  className="w-full pl-10 pr-4 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all"
                 />
               </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                Digital Identity (Email)
+            <div>
+              <label htmlFor="profile-email" className="text-xs font-medium text-secondary mb-1.5 block">
+                Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" aria-hidden="true" />
                 <input
+                  id="profile-email"
                   type="email"
                   value={profileData.email}
-                  onChange={(e) =>
-                    setProfileData({ ...profileData, email: e.target.value })
-                  }
-                  className="w-full pl-14 pr-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:border-orange-600 focus:ring-4 focus:ring-orange-600/5 transition-all outline-none font-bold text-sm"
+                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                  className="w-full pl-10 pr-4 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all"
                 />
               </div>
             </div>
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-stone-950 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] italic flex items-center justify-center gap-3 hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 shadow-xl shadow-stone-950/10"
+              disabled={profileLoading}
+              className="w-full py-3 bg-accent text-white rounded-xl font-bold text-sm hover:bg-accent-hover transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+              {profileLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
               ) : (
-                <>
-                  <Save className="w-4 h-4" /> Synchronize Identity
-                </>
+                <Save className="w-4 h-4" aria-hidden="true" />
               )}
+              Save Changes
             </button>
           </form>
-        </section>
+        </div>
 
-        {/* Password Security Form */}
-        <section className="space-y-8">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-orange-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-orange-600/20">
-              <Lock className="w-5 h-5" />
+        {/* Change Password */}
+        <div className="bg-card rounded-xl border border-border-primary p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 bg-accent/10 rounded-xl flex items-center justify-center">
+              <Lock className="w-4.5 h-4.5 text-accent" />
             </div>
-            <h2 className="text-xl font-black text-stone-950 uppercase italic tracking-tight">
-              Security Vault
-            </h2>
+            <h2 className="text-base font-bold text-primary">Change Password</h2>
           </div>
 
-          <form
-            onSubmit={handlePasswordChange}
-            className="space-y-6 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm"
-          >
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                Current Cipher
+          <StatusBanner msg={passwordMsg} />
+
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <label htmlFor="current-password" className="text-xs font-medium text-secondary mb-1.5 block">
+                Current Password
               </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={passwordData.oldPassword}
-                onChange={(e) =>
-                  setPasswordData({
-                    ...passwordData,
-                    oldPassword: e.target.value,
-                  })
-                }
-                className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:border-orange-600 focus:ring-4 focus:ring-orange-600/5 transition-all outline-none font-bold text-sm"
-              />
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" aria-hidden="true" />
+                <input
+                  id="current-password"
+                  type={showOldPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  value={passwordData.oldPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
+                  className="w-full pl-10 pr-10 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all placeholder:text-muted"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOldPassword(!showOldPassword)}
+                  aria-label={showOldPassword ? "Hide current password" : "Show current password"}
+                  aria-pressed={showOldPassword}
+                  aria-controls="current-password"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                >
+                  {showOldPassword ? (
+                    <EyeOff className="w-4 h-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="w-4 h-4" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                New Protocol Cipher
+            <div>
+              <label htmlFor="new-password" className="text-xs font-medium text-secondary mb-1.5 block">
+                New Password
               </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={passwordData.newPassword}
-                onChange={(e) =>
-                  setPasswordData({
-                    ...passwordData,
-                    newPassword: e.target.value,
-                  })
-                }
-                className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:border-orange-600 focus:ring-4 focus:ring-orange-600/5 transition-all outline-none font-bold text-sm"
-              />
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" aria-hidden="true" />
+                <input
+                  id="new-password"
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder="Min 6 characters"
+                  autoComplete="new-password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  className="w-full pl-10 pr-10 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all placeholder:text-muted"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                  aria-pressed={showNewPassword}
+                  aria-controls="new-password"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="w-4 h-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="w-4 h-4" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
-                Verify New Cipher
+            <div>
+              <label htmlFor="confirm-password" className="text-xs font-medium text-secondary mb-1.5 block">
+                Confirm New Password
               </label>
               <input
+                id="confirm-password"
                 type="password"
                 placeholder="••••••••"
+                autoComplete="new-password"
                 value={passwordData.confirmPassword}
-                onChange={(e) =>
-                  setPasswordData({
-                    ...passwordData,
-                    confirmPassword: e.target.value,
-                  })
-                }
-                className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:border-orange-600 focus:ring-4 focus:ring-orange-600/5 transition-all outline-none font-bold text-sm"
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                className="w-full px-4 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all placeholder:text-muted"
               />
             </div>
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-orange-600 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] italic flex items-center justify-center gap-3 hover:bg-orange-700 transition-all active:scale-95 disabled:opacity-50 shadow-xl shadow-orange-600/20"
+              disabled={passwordLoading}
+              className="w-full py-3 bg-inverse text-inverse rounded-xl font-bold text-sm hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+              {passwordLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
               ) : (
-                <>
-                  <Shield className="w-4 h-4" /> Update Security Protocol
-                </>
+                <Shield className="w-4 h-4" aria-hidden="true" />
               )}
+              Update Password
             </button>
           </form>
-        </section>
+        </div>
       </div>
     </div>
   );

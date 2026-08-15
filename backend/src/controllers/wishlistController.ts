@@ -40,7 +40,6 @@ class WishlistController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -73,7 +72,6 @@ class WishlistController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -95,7 +93,7 @@ class WishlistController {
             include: [
               {
                 model: ProductImage,
-                attributes: ["id", "url", "isPrimary"],
+                attributes: ["id", "url", "isThumbnail"],
                 limit: 1,
               },
               {
@@ -121,7 +119,6 @@ class WishlistController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -163,7 +160,6 @@ class WishlistController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -189,7 +185,6 @@ class WishlistController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }

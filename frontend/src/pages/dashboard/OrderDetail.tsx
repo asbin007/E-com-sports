@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Package,
@@ -9,302 +10,608 @@ import {
   Clock,
   CreditCard,
   CheckCircle2,
-  Zap,
-  ArrowUpRight,
+  MessageCircle,
+  AlertTriangle,
+  UploadCloud,
+  Loader2,
+  WifiOff,
 } from "lucide-react";
 import { orderService } from "../../services/orderService";
+import api from "../../services/api";
 import { motion } from "framer-motion";
-import { getImageUrl } from "../../utils/imageUrl";
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  esewa: "eSewa",
+  khalti: "Khalti",
+  bank: "Bank Transfer",
+  cod: "Cash on Delivery",
+  qr: "QR / Manual", // legacy value on older orders
+};
 
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchFailed, setFetchFailed] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
-  useEffect(() => {
-    const fetchOrder = async () => {
-      if (!id) return;
-      try {
-        const data = await orderService.getOrderById(id);
-        setOrder(data);
-      } catch (error) {
-        console.error("Failed to fetch order details:", error);
-      } finally {
-        setLoading(false);
+  // Payment proof re-submission (shown when an admin rejected the payment)
+  const [proofTransactionId, setProofTransactionId] = useState("");
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofSubmitting, setProofSubmitting] = useState(false);
+  const [proofError, setProofError] = useState<string | null>(null);
+
+  const fetchOrder = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    setFetchFailed(false);
+    setNotFound(false);
+    try {
+      const data = await orderService.getOrderById(id);
+      setOrder(data);
+    } catch (error: any) {
+      console.error("Failed to fetch order details:", error);
+      // A genuine 404 means the order really is not there; anything else
+      // (network drop, 500, timeout) must not be reported as "not found".
+      if (error?.response?.status === 404) {
+        setNotFound(true);
+      } else {
+        setFetchFailed(true);
       }
-    };
-    fetchOrder();
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
-  if (loading)
+  useEffect(() => {
+    fetchOrder();
+  }, [fetchOrder]);
+
+  const handleProofResubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (proofSubmitting) return;
+
+    const transactionId = proofTransactionId.trim();
+    if (!transactionId && !proofFile) {
+      setProofError("Add the transaction ID or a payment screenshot so we can check it again.");
+      return;
+    }
+
+    setProofSubmitting(true);
+    setProofError(null);
+    try {
+      await orderService.uploadPaymentProof(order.id, transactionId, proofFile ?? undefined);
+      setProofTransactionId("");
+      setProofFile(null);
+      await fetchOrder();
+    } catch (err: any) {
+      setProofError(
+        err?.response?.data?.message ||
+          "We could not upload your payment proof. Please check your connection and try again."
+      );
+    } finally {
+      setProofSubmitting(false);
+    }
+  };
+
+  const handleProofFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setProofFile(e.target.files?.[0] ?? null);
+    setProofError(null);
+  };
+
+  const getStatusColor = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case "delivered": return "bg-green-500/10 text-green-600 border-green-500/20";
+      case "processing": case "preparation": return "bg-blue-500/10 text-blue-600 border-blue-500/20";
+      case "shipped": case "ontheway": return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+      case "cancelled": return "bg-red-500/10 text-red-600 border-red-500/20";
+      default: return "bg-secondary text-secondary border-border-primary";
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="space-y-8 animate-pulse">
-        <div className="h-20 w-1/3 bg-gray-100 rounded-2xl" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="h-64 bg-gray-100 rounded-3xl" />
-          <div className="h-64 bg-gray-100 rounded-3xl" />
+      <div className="space-y-6">
+        <div className="h-8 w-48 bg-secondary rounded-lg animate-pulse" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-64 bg-secondary rounded-xl animate-pulse" />
+          <div className="h-64 bg-secondary rounded-xl animate-pulse" />
         </div>
       </div>
     );
+  }
 
-  if (!order)
+  if (fetchFailed && !order) {
     return (
-      <div className="text-center py-24 space-y-6">
-        <div className="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto">
-          <Package className="w-10 h-10" />
-        </div>
-        <h2 className="text-2xl font-black uppercase text-stone-950 italic">
-          Mission File Lost
-        </h2>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-          Unable to retrieve deployment data for ID: {id}
+      <div className="text-center py-16">
+        <WifiOff className="w-12 h-12 text-muted mx-auto mb-4" />
+        <h2 className="text-lg font-bold text-primary">Couldn't load this order</h2>
+        <p className="text-sm text-tertiary mt-1">
+          Your order is safe — we just couldn't reach the server. Check your connection and try again.
         </p>
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button
+            onClick={fetchOrder}
+            className="px-5 py-2 bg-accent text-white rounded-xl text-sm font-bold"
+          >
+            Try Again
+          </button>
+          <button
+            onClick={() => navigate("/dashboard/orders")}
+            className="px-5 py-2 bg-secondary text-primary border border-border-primary rounded-xl text-sm font-bold"
+          >
+            Back to Orders
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !order) {
+    return (
+      <div className="text-center py-16">
+        <Package className="w-12 h-12 text-muted mx-auto mb-4" />
+        <h2 className="text-lg font-bold text-primary">Order not found</h2>
+        <p className="text-sm text-tertiary mt-1">Unable to find order details for this ID.</p>
         <button
           onClick={() => navigate("/dashboard/orders")}
-          className="bg-stone-950 text-white px-8 py-3 rounded-full font-black text-xs uppercase tracking-widest italic"
+          className="mt-4 px-5 py-2 bg-accent text-white rounded-xl text-sm font-bold"
         >
-          Return to History
+          Back to Orders
         </button>
       </div>
     );
+  }
+
+  const paymentStatus = order.Payment?.paymentStatus || order.paymentStatus || "pending";
+  const requiresProof = order.paymentMethod !== "cod";
+  const paymentRejected = paymentStatus === "failed";
+  // Proof never arrived (e.g. the upload failed during checkout) — the order sits
+  // pending with nothing for the admin to review, so the customer must send it.
+  const missingProof =
+    paymentStatus === "pending" &&
+    requiresProof &&
+    !order.paymentScreenshot &&
+    !order.paymentPid;
+  const awaitingVerification =
+    paymentStatus === "pending" && requiresProof && !missingProof;
+
+  const proofResubmitForm = (
+    <form onSubmit={handleProofResubmit} className="mt-4 space-y-3">
+      <div>
+        <label
+          htmlFor="proof-transaction-id"
+          className="block text-[10px] font-bold uppercase text-muted mb-1"
+        >
+          Transaction ID
+        </label>
+        <input
+          id="proof-transaction-id"
+          type="text"
+          value={proofTransactionId}
+          onChange={(e) => {
+            setProofTransactionId(e.target.value);
+            setProofError(null);
+          }}
+          disabled={proofSubmitting}
+          placeholder="Reference code from eSewa / Khalti / your bank"
+          className="w-full px-3 py-2 bg-card border border-border-primary rounded-lg text-sm text-primary placeholder:text-muted focus:outline-none focus:border-accent disabled:opacity-60"
+        />
+      </div>
+      <div>
+        <label
+          htmlFor="proof-screenshot"
+          className="block text-[10px] font-bold uppercase text-muted mb-1"
+        >
+          Payment screenshot
+        </label>
+        <input
+          id="proof-screenshot"
+          type="file"
+          accept="image/*"
+          onChange={handleProofFileChange}
+          disabled={proofSubmitting}
+          className="w-full text-xs text-secondary file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-secondary file:text-primary file:text-xs file:font-bold disabled:opacity-60"
+        />
+      </div>
+
+      {proofError && (
+        <p role="alert" className="text-xs font-semibold text-red-500">
+          {proofError}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={proofSubmitting}
+        className="w-full py-2.5 bg-accent text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {proofSubmitting ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Uploading...
+          </>
+        ) : (
+          <>
+            <UploadCloud className="w-4 h-4" />
+            {missingProof ? "Submit Payment Proof" : "Re-submit Payment Proof"}
+          </>
+        )}
+      </button>
+    </form>
+  );
 
   return (
-    <div className="space-y-12 pb-12">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-100 pb-12">
-        <div className="space-y-4">
-          <button
-            onClick={() => navigate("/dashboard/orders")}
-            className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-stone-950 transition-colors group mb-6"
-          >
-            <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            Deployment History
-          </button>
-          <h1 className="text-5xl font-black text-stone-950 uppercase italic tracking-tighter leading-none">
-            Mission{" "}
-            <span className="text-orange-600">
-              ID #{order.id.slice(-8).toUpperCase()}
-            </span>
-          </h1>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-400" />
-              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">
+      <div>
+        <button
+          onClick={() => navigate("/dashboard/orders")}
+          className="flex items-center gap-1 text-sm text-tertiary hover:text-accent transition-colors mb-4"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back to Orders
+        </button>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-primary">
+              Order #{order.orderNumber || order.id.slice(-8).toUpperCase()}
+            </h1>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-xs text-muted flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" />
                 {new Date(order.createdAt).toLocaleString()}
               </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-green-600" />
-              <span className="text-[10px] font-black text-green-600 uppercase tracking-widest italic">
-                Protocol Verified
+              <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase border ${getStatusColor(order.orderStatus)}`}>
+                {order.orderStatus}
               </span>
             </div>
           </div>
-        </div>
-
-        <div className="bg-stone-950 text-white px-8 py-4 rounded-2xl flex items-center gap-6 shadow-xl shadow-stone-950/10">
-          <div className="text-right">
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">
-              Deployment Status
-            </p>
-            <p className="text-xl font-black uppercase italic tracking-tighter text-orange-600">
-              {order.status}
-            </p>
-          </div>
-          <div className="w-px h-10 bg-white/10" />
-          <Truck className="w-8 h-8 text-gray-300" />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-        {/* Left Side: Items & Logistics */}
-        <div className="lg:col-span-8 space-y-12">
-          {/* Deployment Timeline */}
-          <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8 opacity-5">
-              <Truck className="w-32 h-32 text-stone-950" />
-            </div>
-            <h3 className="text-xl font-black text-stone-950 uppercase italic tracking-tight mb-10 flex items-center gap-3">
-              <Zap className="w-5 h-5 text-orange-600" /> Deployment Logistics
-            </h3>
-
-            <div className="space-y-12 relative">
-              <div className="absolute left-6 top-8 bottom-8 w-px bg-stone-100" />
-
-              <div className="flex gap-8 relative z-10">
-                <div className="w-12 h-12 bg-white border border-stone-100 rounded-2xl shadow-sm text-stone-950 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-6 h-6" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Order Items */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Payment rejected — explain and let the customer send new proof */}
+          {paymentRejected && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-500/10 border border-red-500/20 rounded-xl p-5"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 bg-red-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-500" />
                 </div>
-                <div className="py-1">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-stone-950 italic">
-                    Mission Conceived
-                  </h4>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">
-                    Deployment order has been validated and accepted by HQ
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-red-500">We couldn't verify your payment</h3>
+                  <p className="text-xs text-secondary mt-1">
+                    Our team reviewed the payment proof for this order and could not confirm it, so the
+                    order is on hold. Nothing has been charged by us — send us the correct details below
+                    and we'll check again.
                   </p>
+
+                  {order.paymentRejectionReason && (
+                    <div className="mt-3 bg-card border border-border-primary rounded-lg p-3">
+                      <p className="text-[10px] font-bold uppercase text-muted">Reason given</p>
+                      <p className="text-xs text-primary mt-1 whitespace-pre-line">
+                        {order.paymentRejectionReason}
+                      </p>
+                    </div>
+                  )}
+
+                  {(order.paymentScreenshot || order.paymentPid) && (
+                    <div className="mt-3 flex items-center gap-3">
+                      {order.paymentScreenshot && (
+                        <a
+                          href={order.paymentScreenshot}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-14 h-14 rounded-lg overflow-hidden border border-border-primary flex-shrink-0"
+                        >
+                          <img
+                            src={order.paymentScreenshot}
+                            alt="Payment proof you sent"
+                            className="w-full h-full object-cover"
+                          />
+                        </a>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase text-muted">What we received</p>
+                        <p className="text-xs text-secondary truncate">
+                          {order.paymentPid ? `Transaction ID: ${order.paymentPid}` : "Screenshot only"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {proofResubmitForm}
                 </div>
               </div>
+            </motion.div>
+          )}
 
-              <div className="flex gap-8 relative z-10 opacity-30">
-                <div className="w-12 h-12 bg-gray-50 border border-stone-100 rounded-2xl text-gray-400 flex items-center justify-center shrink-0">
-                  <Truck className="w-6 h-6" />
+          {/* Proof never arrived — the checkout upload failed, order is stuck until it's sent */}
+          {missingProof && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <UploadCloud className="w-5 h-5 text-amber-500" />
                 </div>
-                <div className="py-1">
-                  <h4 className="text-xs font-black uppercase tracking-widest italic">
-                    Neutral Ground Transit
-                  </h4>
-                  <p className="text-[10px] font-bold uppercase tracking-widest mt-1">
-                    Gear is currently in transit to your deployment zone
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-amber-600">
+                    We haven't received your payment proof
+                  </h3>
+                  <p className="text-xs text-secondary mt-1">
+                    Your order was placed, but no payment screenshot or transaction ID reached us —
+                    this can happen if the upload failed during checkout. If you already paid,
+                    don't pay again: just send the proof below and our team will verify it.
                   </p>
+                  {proofResubmitForm}
                 </div>
               </div>
-            </div>
+            </motion.div>
+          )}
+
+          {/* Payment submitted — waiting on a human to check it */}
+          {awaitingVerification && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-amber-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-amber-600">Awaiting payment verification</h3>
+                  <p className="text-xs text-secondary mt-1">
+                    Payments here are checked by a person, not automatically. Someone from our team is
+                    reviewing what you sent and your order moves forward once it's confirmed. You don't
+                    need to pay again or send anything else in the meantime.
+                  </p>
+
+                  {(order.paymentScreenshot || order.paymentPid) && (
+                    <div className="mt-3 flex items-center gap-3">
+                      {order.paymentScreenshot && (
+                        <a
+                          href={order.paymentScreenshot}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-14 h-14 rounded-lg overflow-hidden border border-border-primary flex-shrink-0"
+                        >
+                          <img
+                            src={order.paymentScreenshot}
+                            alt="Payment proof you sent"
+                            className="w-full h-full object-cover"
+                          />
+                        </a>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase text-muted">What we received</p>
+                        <p className="text-xs text-secondary truncate">
+                          {order.paymentPid ? `Transaction ID: ${order.paymentPid}` : "Screenshot only"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          <h3 className="text-sm font-bold text-primary flex items-center gap-2">
+            <Package className="w-4 h-4 text-accent" />
+            Order Items
+          </h3>
+
+          <div className="space-y-3">
+            {order.OrderItems?.map((item: any) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card p-4 rounded-xl border border-border-primary flex items-center gap-4"
+              >
+                <div className="w-16 h-18 bg-secondary rounded-lg overflow-hidden flex-shrink-0">
+                  {item.Product?.ProductImages?.[0]?.url ? (
+                    <img
+                      src={item.Product.ProductImages[0].url}
+                      alt={item.productName || item.Product?.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted">
+                      <Package className="w-5 h-5" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-semibold text-primary truncate">
+                    {item.productName || item.Product?.name || "Product"}
+                  </h4>
+                  <div className="flex gap-2 mt-1">
+                    {item.size && (
+                      <span className="text-[10px] text-muted bg-secondary px-2 py-0.5 rounded">
+                        Size: {item.size}
+                      </span>
+                    )}
+                    {item.color && (
+                      <span className="text-[10px] text-muted bg-secondary px-2 py-0.5 rounded">
+                        Color: {item.color}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted bg-secondary px-2 py-0.5 rounded">
+                      Qty: {item.quantity}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm font-bold text-primary">
+                  Rs {item.price?.toLocaleString()}
+                </p>
+              </motion.div>
+            ))}
           </div>
 
-          {/* Inventory Listing */}
-          <div className="space-y-8">
-            <h3 className="text-xl font-black text-stone-950 uppercase italic tracking-tight flex items-center gap-3">
-              <Package className="w-5 h-5 text-orange-600" /> Payload Items
+          {/* Order Timeline */}
+          <div className="bg-card p-5 rounded-xl border border-border-primary mt-6">
+            <h3 className="text-sm font-bold text-primary mb-4 flex items-center gap-2">
+              <Truck className="w-4 h-4 text-accent" />
+              Order Status
             </h3>
-
             <div className="space-y-4">
-              {order.OrderItems?.map((item: any) => (
-                <motion.div
-                  key={item.id}
-                  whileHover={{ x: 10 }}
-                  className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm flex items-center justify-between group"
-                >
-                  <div className="flex items-center gap-6">
-                    <div className="w-20 h-24 bg-stone-50 rounded-2xl overflow-hidden border border-gray-50 p-2 relative">
-                      <img
-                        src={(() => {
-                          const product = item.Variant?.Product;
-                          const firstImage = product?.images?.[0];
-                          if (!firstImage) return "/placeholder-product.png";
-                          return (
-                            getImageUrl(firstImage as any) ??
-                            "/placeholder-product.png"
-                          );
-                        })()}
-                        alt={item.Variant?.Product?.name || "Product"}
-                        className="w-full h-full object-cover rounded-xl transition-transform group-hover:scale-110"
-                      />
-                      <div className="absolute top-2 right-2 bg-stone-950 text-white w-6 h-6 rounded-lg text-[10px] font-black flex items-center justify-center italic">
-                        {item.quantity}
+              {order.StatusHistories && order.StatusHistories.length > 0 ? (
+                order.StatusHistories.map((entry: any, idx: number) => {
+                  const isLast = idx === order.StatusHistories.length - 1;
+                  const statusColors: Record<string, { bg: string; icon: string }> = {
+                    pending: { bg: "bg-gray-500/10", icon: "text-gray-500" },
+                    processing: { bg: "bg-blue-500/10", icon: "text-blue-500" },
+                    preparation: { bg: "bg-blue-500/10", icon: "text-blue-500" },
+                    shipped: { bg: "bg-yellow-500/10", icon: "text-yellow-500" },
+                    ontheway: { bg: "bg-yellow-500/10", icon: "text-yellow-500" },
+                    delivered: { bg: "bg-green-500/10", icon: "text-green-500" },
+                    cancelled: { bg: "bg-red-500/10", icon: "text-red-500" },
+                  };
+                  const colors = statusColors[entry.status] || statusColors.pending;
+                  return (
+                    <div key={entry.id || idx} className="flex items-start gap-3">
+                      <div className={`w-8 h-8 ${colors.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                        {isLast ? (
+                          <CheckCircle2 className={`w-4 h-4 ${colors.icon}`} />
+                        ) : (
+                          <Clock className={`w-4 h-4 ${colors.icon}`} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-primary capitalize">{entry.status}</p>
+                          <p className="text-[10px] text-muted">{new Date(entry.createdAt).toLocaleString()}</p>
+                        </div>
+                        {entry.note && <p className="text-[10px] text-tertiary mt-0.5">{entry.note}</p>}
                       </div>
                     </div>
-                    <div>
-                      <p className="text-[9px] font-black text-orange-600 uppercase tracking-widest italic mb-1">
-                        {item.Variant?.Product?.Brand?.name}
-                      </p>
-                      <h4 className="text-sm font-black text-stone-950 uppercase italic tracking-tight mb-2">
-                        {item.productName || item.Variant?.Product?.name}
-                      </h4>
-                      <div className="flex items-center gap-4">
-                        <span className="bg-gray-100 text-stone-950 px-3 py-1 rounded-full text-[8px] font-black uppercase">
-                          Size: {item.size || item.Variant?.size}
-                        </span>
-                        <span className="bg-gray-100 text-stone-950 px-3 py-1 rounded-full text-[8px] font-black uppercase">
-                          Color: {item.color || item.Variant?.color}
-                        </span>
-                      </div>
-                    </div>
+                  );
+                })
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
                   </div>
-
-                  <div className="text-right">
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 italic text-right">
-                      Unit Impact
-                    </p>
-                    <p className="text-lg font-black text-stone-950 italic">
-                      Rs {item.price?.toLocaleString()}
-                    </p>
+                  <div>
+                    <p className="text-xs font-semibold text-primary">Order Placed</p>
+                    <p className="text-[10px] text-muted">{new Date(order.createdAt).toLocaleString()}</p>
                   </div>
-                </motion.div>
-              ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Right Side: Financials & Mission Files */}
-        <div className="lg:col-span-4 space-y-8">
-          {/* Hub Details */}
-          <div className="bg-stone-950 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-orange-600/10 blur-[100px] rounded-full" />
+        {/* Sidebar - Address & Payment */}
+        <div className="space-y-4">
+          {/* Shipping Address */}
+          <div className="bg-card p-5 rounded-xl border border-border-primary">
+            <h3 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-accent" />
+              Shipping Address
+            </h3>
+            <div className="text-sm text-secondary space-y-1">
+              <p className="font-semibold text-primary">{order.firstName} {order.lastName}</p>
+              <p>{order.addressLine}</p>
+              <p>{order.city}, {order.state} {order.zipcode}</p>
+              <p className="text-muted">{order.phoneNumber}</p>
+              <p className="text-muted">{order.email}</p>
+            </div>
+          </div>
 
-            <div className="relative z-10 space-y-10">
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-orange-600" />
-                  <h4 className="text-xs font-black uppercase tracking-widest italic">
-                    Deployment Hub
-                  </h4>
-                </div>
-                <div className="bg-white/5 p-6 rounded-2xl border border-white/5 space-y-3">
-                  <p className="text-[10px] font-bold text-gray-300 uppercase italic tracking-widest">
-                    Target Location
-                  </p>
-                  <p className="text-sm font-black italic text-white uppercase leading-relaxed">
-                    {order.firstName} {order.lastName}
-                    <br />
-                    {order.addressLine}, {order.city}
-                    <br />
-                    {order.state} - {order.zipcode}
-                  </p>
-                </div>
+          {/* Payment */}
+          <div className="bg-card p-5 rounded-xl border border-border-primary">
+            <h3 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-accent" />
+              Payment
+            </h3>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-secondary">Method</span>
+                <span className="font-semibold text-primary">
+                  {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod}
+                </span>
               </div>
-
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  <CreditCard className="w-5 h-5 text-orange-600" />
-                  <h4 className="text-xs font-black uppercase tracking-widest italic">
-                    Financial Protocol
-                  </h4>
-                </div>
-                <div className="bg-white/5 p-6 rounded-2xl border border-white/5 space-y-4">
-                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                    <span className="text-gray-400 italic">Method</span>
-                    <span className="text-white bg-orange-600 px-3 py-1 rounded-md">
-                      {order.paymentMethod}
-                    </span>
-                  </div>
-                  <div className="w-full h-px bg-white/5" />
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 italic">
-                      Financial Payload
-                    </span>
-                    <span className="text-2xl font-black italic tracking-tighter">
-                      Rs {order.totalAmount?.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-secondary">Status</span>
+                <span
+                  className={`font-semibold capitalize ${
+                    paymentRejected
+                      ? "text-red-500"
+                      : paymentStatus === "paid"
+                        ? "text-green-600"
+                        : "text-primary"
+                  }`}
+                >
+                  {paymentStatus}
+                </span>
               </div>
-
-              <div className="pt-6 border-t border-white/5 flex items-center justify-center gap-3 opacity-40">
-                <ShieldCheck className="w-4 h-4 text-orange-600" />
-                <p className="text-[8px] font-black uppercase tracking-widest">
-                  Verified Authentication Sequence
-                </p>
+              {order.subtotal != null && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-secondary">Subtotal</span>
+                  <span className="font-semibold text-primary">Rs {order.subtotal.toLocaleString()}</span>
+                </div>
+              )}
+              {order.deliveryCharge != null && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-secondary">Delivery</span>
+                  <span className="font-semibold text-primary">Rs {order.deliveryCharge.toLocaleString()}</span>
+                </div>
+              )}
+              <hr className="border-border-primary" />
+              <div className="flex justify-between">
+                <span className="font-medium text-primary">Total</span>
+                <span className="text-xl font-black text-primary">
+                  Rs {order.totalPrice?.toLocaleString()}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Support Actions */}
-          <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
-            <button className="w-full bg-gray-50 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-950 hover:text-white transition-all italic flex items-center justify-center gap-2">
-              Download Protocol Receipt <ArrowUpRight className="w-4 h-4" />
-            </button>
-            <a 
-              href={`https://wa.me/1234567890?text=${encodeURIComponent(`Hello, I need help with my Order/Mission #${order.id.slice(-8).toUpperCase()}`)}`}
+          {/* Actions */}
+          <div className="space-y-2">
+            {/* Cancel Order — only if not delivered/cancelled/ontheway */}
+            {order.orderStatus !== "delivered" && order.orderStatus !== "cancelled" && order.orderStatus !== "ontheway" && (
+              <button
+                onClick={async () => {
+                  if (!confirm("Are you sure you want to cancel this order? This cannot be undone.")) return;
+                  try {
+                    await api.put(`/orders/${order.id}/cancel`);
+                    alert("Order cancelled successfully. Refund will be processed if payment was made.");
+                    window.location.reload();
+                  } catch (err: any) {
+                    alert(err.response?.data?.message || "Failed to cancel order. Please contact support.");
+                  }
+                }}
+                className="w-full py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all"
+              >
+                Cancel Order
+              </button>
+            )}
+
+            {/* Contact Support */}
+            <a
+              href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER || "9779748477628"}?text=${encodeURIComponent(`Hi! I need help with my order #${order.orderNumber || order.id.slice(-8).toUpperCase()}`)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full bg-[#25D366]/10 text-[#25D366] py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#25D366] hover:text-white transition-all italic flex items-center justify-center gap-2"
+              className="w-full py-3 bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#25D366] hover:text-white transition-all"
             >
-              Contact Support via WhatsApp
+              <MessageCircle className="w-4 h-4" />
+              Contact Support
             </a>
-            <button className="w-full bg-red-50 text-red-600 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all italic">
-              Request Mission Abortion
-            </button>
           </div>
         </div>
       </div>

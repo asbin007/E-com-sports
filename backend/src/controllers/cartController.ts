@@ -24,7 +24,7 @@ class CartController {
       const product = await Product.findByPk(productId, {
         include: [
           { model: Category, attributes: ["id", "name", "needsSize", "sizeType"] },
-          { model: Variant, as: "Variants" }
+          { model: Variant, as: "variants" }
         ],
       });
 
@@ -52,7 +52,7 @@ class CartController {
       let targetStock = 0;
 
       if (needsSize) {
-        const variant = (product as any).Variants?.find((v: any) => v.size === size);
+        const variant = (product as any).variants?.find((v: any) => v.size === size);
         if (!variant) {
           res.status(400).json({ message: `Size ${size} is not available` });
           return;
@@ -61,7 +61,7 @@ class CartController {
         variantPrice = variant.price;
       } else {
         // Find default variant if no size needed
-        const variant = (product as any).Variants?.[0];
+        const variant = (product as any).variants?.[0];
         if (!variant) {
           res.status(400).json({ message: "No active variant found" });
           return;
@@ -111,7 +111,7 @@ class CartController {
       });
     } catch (error: any) {
       console.error(error);
-      res.status(500).json({ message: "Internal server error", error: error.message });
+      res.status(500).json({ message: "Internal server error" });
     }
   }
 
@@ -129,7 +129,7 @@ class CartController {
       res.status(200).json({ message: "Cart fetched successfully", data: cartItems, totalPrice });
     } catch (error: any) {
       console.error(error);
-      res.status(500).json({ message: "Internal server error", error: error.message });
+      res.status(500).json({ message: "Internal server error" });
     }
   }
 
@@ -146,13 +146,13 @@ class CartController {
         where: { id, userId }, 
         include: [{ 
           model: Product,
-          include: [{ model: Variant, as: "Variants" }] 
+          include: [{ model: Variant, as: "variants" }] 
         }] 
       });
       if (!cartItem) { res.status(404).json({ message: "Cart item not found" }); return; }
 
       const product = cartItem.Product as any;
-      const variant = product.Variants?.find((v: any) => v.size === cartItem.size) || product.Variants?.[0];
+      const variant = product.variants?.find((v: any) => v.size === cartItem.size) || product.variants?.[0];
       const targetStock = variant ? variant.stock : 0;
 
       if (targetStock < quantity) {
@@ -164,7 +164,7 @@ class CartController {
       res.status(200).json({ message: "Cart updated successfully", data: cartItem });
     } catch (error: any) {
       console.error(error);
-      res.status(500).json({ message: "Internal server error", error: error.message });
+      res.status(500).json({ message: "Internal server error" });
     }
   }
 
@@ -182,7 +182,7 @@ class CartController {
       res.status(200).json({ message: "Product removed from cart successfully" });
     } catch (error: any) {
       console.error(error);
-      res.status(500).json({ message: "Internal server error", error: error.message });
+      res.status(500).json({ message: "Internal server error" });
     }
   }
 
@@ -195,7 +195,7 @@ class CartController {
           attributes: ["id", "name", "slug"],
           include: [
             { model: Brand, attributes: ["id", "name"] },
-            { model: Variant, as: "Variants", attributes: ["price", "originalPrice", "stock", "size", "color"] }
+            { model: Variant, as: "variants", attributes: ["price", "originalPrice", "stock", "size", "color"] }
           ],
         },
       ],

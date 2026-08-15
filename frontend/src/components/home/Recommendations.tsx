@@ -1,14 +1,40 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { ShoppingBag, ArrowRight, Star, Sparkles } from "lucide-react";
+import { AlertCircle, ChevronRight, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { productService } from "../../services/productService";
 import type { Product } from "../../services/productService";
-import { getFirstImageUrl } from "../../utils/imageUrl";
+import { recommendationService } from "../../services/recommendationService";
+import ProductCard from "../product/ProductCard";
+import { ProductCardSkeleton } from "../ui/Skeleton";
+
+export type RecommendationSource =
+  | "new-arrivals"
+  | "best-sellers"
+  | "trending"
+  | "on-sale"
+  | "personalized";
+
+/**
+ * The skeleton and the loaded grid must share one track definition, otherwise the
+ * column count snaps when data lands. `ProductGridSkeleton` in ui/Skeleton hardcodes
+ * a different (xl:grid-cols-3) track, so this section lays its own skeleton row out
+ * from `ProductCardSkeleton` inside this exact grid instead of using it.
+ */
+const PRODUCT_GRID = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8";
 
 interface RecommendationsProps {
   title: string;
   subtitle: string;
+  /** Which `/recommendations` collection backs this section. */
+  source?: RecommendationSource;
+  limit?: number;
+  /** Only meaningful for `new-arrivals`: the recency window, in days. */
+  days?: number;
+  /**
+   * Escape hatch for plain catalogue queries ("more from this category"), which
+   * the recommendation API has no collection for. Ignored when `source` is set.
+   */
   filter?: {
     limit?: number;
     categoryId?: string;
@@ -16,141 +42,178 @@ interface RecommendationsProps {
   };
 }
 
-const Recommendations = ({ title, subtitle, filter }: RecommendationsProps) => {
+const Recommendations = ({
+  title,
+  subtitle,
+  source,
+  limit,
+  days,
+  filter,
+}: RecommendationsProps) => {
+  // Read the primitives out of `filter` so the effect below depends on values
+  // rather than on an object literal's identity, which changes on every render
+  // of the parent and would refetch endlessly.
+  const categoryId = filter?.categoryId;
+  const search = filter?.search;
+  const count = limit ?? filter?.limit ?? 4;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  // `/personalized` reports whether it actually used the signed-in user's history,
+  // so the strapline can stop claiming to be personal when it isn't.
+  const [personalNote, setPersonalNote] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchRecommendations = async () => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setFailed(false);
       try {
-        const data = await productService.getAllProducts({
-          limit: filter?.limit || 4,
-          categoryId: filter?.categoryId,
-          search: filter?.search,
-        });
-        setProducts(data.data || []);
+        let result: Product[];
+        let note: string | null = null;
+
+        switch (source) {
+          case "new-arrivals":
+            result = await recommendationService.getNewArrivals({ limit: count, days });
+            break;
+          case "best-sellers":
+            result = await recommendationService.getBestSellers({ limit: count });
+            break;
+          case "trending":
+            result = await recommendationService.getTrending({ limit: count });
+            break;
+          case "on-sale":
+            result = await recommendationService.getOnSale({ limit: count });
+            break;
+          case "personalized": {
+            const personalized = await recommendationService.getPersonalized({ limit: count });
+            result = personalized.products;
+            note = personalized.isPersonalized
+              ? "Based on the categories and brands you've ordered before"
+              : null;
+            break;
+          }
+          default: {
+            const catalogue = await productService.getAllProducts({
+              limit: count,
+              categoryId,
+              search,
+            });
+            result = catalogue.data ?? [];
+          }
+        }
+
+        if (cancelled) return;
+        setProducts(result);
+        setPersonalNote(note);
       } catch (err) {
-        console.error("Failed to fetch recommendations", err);
+        if (cancelled) return;
+        console.error(`Failed to load the "${source ?? "catalogue"}" product section`, err);
+        setFailed(true);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    fetchRecommendations();
-  }, [filter]);
 
-  if (loading) return null;
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [source, count, days, categoryId, search, attempt]);
+
+  const header = (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5 }}
+      className="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-12 gap-4"
+    >
+      <div>
+        <h2 className="text-3xl md:text-4xl font-black text-primary uppercase tracking-tight">
+          {title.split(" ").map((word, i, arr) => (
+            <span key={i} className={i === arr.length - 1 ? "text-accent italic" : ""}>
+              {word}{" "}
+            </span>
+          ))}
+        </h2>
+        <p className="text-tertiary mt-2 text-sm">{personalNote ?? subtitle}</p>
+      </div>
+      <motion.button
+        whileHover={{ x: 4 }}
+        onClick={() => navigate("/shop")}
+        className="group flex items-center gap-2 text-sm font-bold text-accent hover:text-accent-hover transition-colors"
+      >
+        View All
+        <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+      </motion.button>
+    </motion.div>
+  );
+
+  if (loading) {
+    return (
+      <section className="py-20 bg-primary">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-12">
+            <div className="h-8 w-48 bg-secondary rounded-lg animate-pulse mb-3" />
+            <div className="h-4 w-64 bg-secondary rounded-lg animate-pulse" />
+          </div>
+          <div className={PRODUCT_GRID}>
+            {Array.from({ length: count }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // A failed request is not an empty shelf — say so and offer a way out, rather
+  // than silently deleting the section from the page.
+  if (failed) {
+    return (
+      <section className="py-20 bg-primary">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+          {header}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-border-primary bg-card px-6 py-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-primary">
+                  We couldn't load this section
+                </p>
+                <p className="text-xs text-tertiary mt-1">
+                  The store didn't respond. Everything else on this page still works.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAttempt((n) => n + 1)}
+              className="self-start sm:self-auto flex-shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors active:scale-95"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Try again
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Genuinely nothing to show: hide the section entirely.
+  if (products.length === 0) return null;
 
   return (
-    <section className="py-24 bg-white relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row items-end justify-between mb-16 gap-6">
-          <div className="max-w-xl">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-orange-100 text-orange-600 font-black text-[10px] uppercase tracking-[0.2em] mb-4"
-            >
-              <Sparkles className="w-3 h-3" />
-              PEAK PERFORMANCE
-            </motion.div>
-            <h2 className="text-5xl md:text-6xl font-black text-stone-950 tracking-tighter uppercase italic">
-              {title.split(" ").map((word, i) => (
-                <span
-                  key={i}
-                  className={
-                    i === title.split(" ").length - 1 ? "text-orange-600" : ""
-                  }
-                >
-                  {word}{" "}
-                </span>
-              ))}
-            </h2>
-            <p className="text-gray-500 text-lg mt-2 font-medium">{subtitle}</p>
-          </div>
-          <button
-            onClick={() => navigate("/shop")}
-            className="group flex items-center gap-2 text-stone-950 font-black uppercase tracking-widest text-sm hover:text-orange-600 transition-colors"
-          >
-            View Full Catalog
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+    <section className="py-20 bg-primary">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+        {header}
+        <div className={PRODUCT_GRID}>
           {products.map((product, idx) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              viewport={{ once: true }}
-              className="group relative bg-white/60 backdrop-blur-xl rounded-[2.5rem] p-6 border border-white/20 hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all duration-500 overflow-hidden"
-            >
-              {/* Badges */}
-              <div className="absolute top-6 left-6 flex flex-col gap-2 z-20">
-                {idx % 2 === 0 ? (
-                  <span className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-[9px] font-black px-3 py-1 rounded-full shadow-lg uppercase tracking-widest italic animate-pulse">
-                    Hot Drop
-                  </span>
-                ) : (
-                  <span className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-[9px] font-black px-3 py-1 rounded-full shadow-lg uppercase tracking-widest italic animate-bounce">
-                    New Era
-                  </span>
-                )}
-              </div>
-
-              {/* Product Image */}
-              <div className="relative aspect-square mb-6 overflow-hidden rounded-[2rem] bg-gradient-to-br from-stone-50 to-stone-100 flex items-center justify-center p-8 group-hover:bg-white transition-colors duration-500">
-                <img
-                  src={
-                    (product.ProductImages && product.ProductImages.length > 0)
-                      ? product.ProductImages.find(img => img.isThumbnail)?.url || product.ProductImages[0].url
-                      : "https://via.placeholder.com/300"
-                  }
-                  alt={product.name}
-                  className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.1)]"
-                />
-                <div className="absolute top-4 right-4">
-                  <div className="bg-white/90 backdrop-blur-md p-3 rounded-full shadow-sm hover:bg-orange-600 hover:text-white transition-all scale-0 group-hover:scale-100 cursor-pointer">
-                    <ShoppingBag className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Product Info */}
-              <div className="px-2">
-                <div className="flex items-center gap-1 text-orange-500 mb-2 opacity-60">
-                  <Star className="w-3 h-3 fill-current" />
-                  <span className="text-[10px] font-black tracking-widest uppercase">
-                    4.9 Elite Rating
-                  </span>
-                </div>
-                <h3 className="font-black text-stone-950 uppercase tracking-tighter italic text-2xl mb-2 line-clamp-1 group-hover:text-orange-600 transition-colors">
-                  {product.name}
-                </h3>
-                <p className="text-gray-500 text-[12px] mb-6 line-clamp-2 min-h-[2.5rem] font-medium leading-relaxed">
-                  {product.description ||
-                    "Engineered for the modern athlete who demands both performance and style in every step."}
-                </p>
-                <div className="flex items-center justify-between pt-4 border-t border-stone-100">
-                  <span className="text-2xl font-black text-stone-950 italic tracking-tighter">
-                    Rs.{" "}
-                    {(
-                      product.price ||
-                      product.Variants?.[0]?.price ||
-                      0
-                    ).toLocaleString()}
-                  </span>
-                  <button
-                    onClick={() => navigate(`/product/${product.id}`)}
-                    className="w-10 h-10 bg-stone-950 text-white rounded-full flex items-center justify-center hover:bg-orange-600 transition-all hover:scale-110 active:scale-95 group/btn"
-                  >
-                    <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-0.5 transition-transform" />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
+            <ProductCard key={product.id} product={product} index={idx} />
           ))}
         </div>
       </div>

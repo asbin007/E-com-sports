@@ -3,7 +3,6 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { envConfig } from "./config.js";
 import User from "../database/models/userModel.js";
 
-console.log("Google Strategy Callback URL:", `${envConfig.backendUrl}/api/v1/auth/google/callback`);
 passport.use(
   new GoogleStrategy(
     {
@@ -13,9 +12,6 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        console.log("Google Strategy: Verify callback started");
-        console.log("Google Profile ID:", profile.id);
-        
         // Check if user already exists
         let user = await User.findOne({ where: { googleId: profile.id } });
 

@@ -4,9 +4,33 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <meta name="description" content="Brothers Sports House - Premium sports gear, equipment & accessories for every athlete in Nepal." />
+    <!-- Apply the persisted theme before first paint. Must stay in sync with
+         src/context/ThemeContext.tsx (localStorage key "bsh-theme", classes "light"/"dark"). -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("bsh-theme");
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          var root = document.documentElement;
+          root.classList.remove("light", "dark");
+          root.classList.add(theme);
+        } catch (e) {
+          /* localStorage unavailable (private mode) — fall back to CSS defaults */
+        }
+      })();
+    </script>
+    <title>Brothers Sports House | Premium Sports Gear</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   </head>
-  <body>
+  <body class="antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

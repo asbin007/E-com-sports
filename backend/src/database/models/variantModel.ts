@@ -43,12 +43,6 @@ class Variant extends Model {
     type: DataType.FLOAT,
     allowNull: true,
   })
-  declare salePrice: number | null;
-
-  @Column({
-    type: DataType.FLOAT,
-    allowNull: true,
-  })
   declare originalPrice: number;
 
   @Column({

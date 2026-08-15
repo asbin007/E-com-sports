@@ -3,37 +3,28 @@ import { envConfig } from "./src/config/config.js";
 import app from "./src/app.js";
 import sequelize, { connectDB } from "./src/database/connection/connection.js";
 import { seedAdmin } from "./src/database/seeders/adminSeeder.js";
-import categoryController from "./src/controllers/categoryController.js";
-import brandController from "./src/controllers/brandController.js";
-import productTypeController from "./src/controllers/productTypeController.js";
+import { seedAll } from "./src/database/seeders/seedAll.js";
 
-async function ensureBrandNameColumn(): Promise<void> {
-  // Your `Brand` model expects `brands.name`, but some existing DBs only have
-  // `brands.slug`. Add `name` (nullable first), backfill from `slug`, then
-  // enforce NOT NULL + uniqueness.
-  await sequelize.query(`
-    ALTER TABLE "brands"
-    ADD COLUMN IF NOT EXISTS "name" VARCHAR(255);
-  `);
+// ── Validate critical environment variables at startup ──
+function validateEnv() {
+  const required = [
+    { key: "DB_URL", value: envConfig.databaseUrl },
+    { key: "JWT_SECRET_KEY", value: envConfig.jwtSecret },
+  ];
 
-  await sequelize.query(`
-    UPDATE "brands"
-    SET "name" = "slug"
-    WHERE "name" IS NULL;
-  `);
+  const missing = required.filter((r) => !r.value);
 
-  await sequelize.query(`
-    ALTER TABLE "brands"
-    ALTER COLUMN "name" SET NOT NULL;
-  `);
-
-  await sequelize.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS "brands_name_uidx"
-    ON "brands" ("name");
-  `);
+  if (missing.length > 0) {
+    console.error("❌ Missing required environment variables:");
+    missing.forEach((m) => console.error(`   - ${m.key}`));
+    console.error("\nPlease set these in your .env file.");
+    process.exit(1);
+  }
 }
 
 function startServer() {
+  validateEnv();
+
   const host = process.env.HOST || "0.0.0.0";
   const port = envConfig.port || 1000;
 
@@ -44,32 +35,44 @@ function startServer() {
 
     const server = http.createServer(app);
 
+    // ── Graceful shutdown ──
+    const shutdown = async (signal: string) => {
+      console.log(`\n${signal} received. Shutting down gracefully...`);
+      server.close(async () => {
+        try {
+          await sequelize.close();
+          console.log("✅ Database connections closed");
+        } catch (err) {
+          console.error("Error closing DB:", err);
+        }
+        process.exit(0);
+      });
+
+      // Force exit after 10 seconds if graceful shutdown hangs
+      setTimeout(() => {
+        console.error("Forced shutdown after timeout");
+        process.exit(1);
+      }, 10_000);
+    };
+
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
+
     server.listen(Number(port), host, async () => {
-      console.log(`Server is running on port ${port}`);
-      console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+      console.log(`✅ Server is running on port ${port}`);
 
       if (envConfig.databaseUrl) {
         try {
           await connectDB();
 
           if (process.env.NODE_ENV !== "production") {
-            await ensureBrandNameColumn();
-            // Keep sync minimal to avoid long/locking schema-alter runs.
             await sequelize.sync({ force: false, alter: false });
-            console.log(
-              "✅ Database synchronized successfully (alter enabled)"
-            );
-            await seedAdmin();
-            await seedAdmin();
-            await categoryController.seedCategory();
-            console.log("Categories seeded successfully");
+            console.log("✅ Database synchronized");
 
-            await brandController.seedBrand();
-            console.log("Brands seeded successfully");
-            await productTypeController.seedProductType();
-            console.log("Product types seeded successfully");
+            await seedAdmin();
+            await seedAll();
           } else {
-            console.log("⚠️  Skipping database sync in production");
+            console.log("⚠️ Skipping database sync in production");
           }
         } catch (error: any) {
           console.error("Error syncing database:", error);
@@ -88,7 +91,7 @@ function startServer() {
           }
         }
       } else {
-        console.log("Skipping database sync - no database connection");
+        console.log("⚠️ No DB_URL — running without database");
       }
     });
   } catch (error) {

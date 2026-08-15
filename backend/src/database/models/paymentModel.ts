@@ -1,5 +1,5 @@
 import { Table, Column, Model, DataType, HasOne } from "sequelize-typescript";
-import { PaymentMethod, PaymentStatus } from "../../services/types.js";
+import { PaymentStatus } from "../../services/types.js";
 
 @Table({
   tableName: "payments",
@@ -15,10 +15,10 @@ class Payment extends Model {
   declare id: string;
 
   @Column({
-    type: DataType.ENUM(PaymentMethod.COD, PaymentMethod.Khalti),
+    type: DataType.STRING,
     allowNull: false,
   })
-  declare paymentMethod: PaymentMethod;
+  declare paymentMethod: string;
 
   @Column({
     type: DataType.ENUM(

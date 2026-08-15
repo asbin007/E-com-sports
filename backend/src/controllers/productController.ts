@@ -20,6 +20,7 @@ class ProductController {
         brandId,
         productTypeId,
         search,
+        featured,
         page = 1,
         limit = 20,
       } = req.query;
@@ -29,6 +30,7 @@ class ProductController {
       if (categoryId) where.categoryId = categoryId;
       if (brandId) where.brandId = brandId;
       if (productTypeId) where.productTypeId = productTypeId;
+      if (featured === "true" || featured === "1") where.isFeatured = true;
       if (search) {
         where[Op.or] = [
           { name: { [Op.iLike]: `%${search}%` } },
@@ -65,14 +67,17 @@ class ProductController {
           },
           {
             model: Variant,
+            as: "variants",
             attributes: ["id", "size", "color", "price", "originalPrice", "costPrice", "stock", "isActive"],
           },
           {
             model: ProductImage,
+            as: "ProductImages",
             attributes: ["id", "url", "altText", "isThumbnail", "sortOrder"],
           },
           {
             model: ProductAttribute,
+            as: "ProductAttributes",
             attributes: ["id", "attributeName", "attributeValue"],
           },
         ],
@@ -81,9 +86,26 @@ class ProductController {
         order: [["createdAt", "DESC"]],
       });
 
+      // Normalize response — remove duplicate keys from toJSON, then set canonical names
+      const normalizedProducts = products.map((p: any) => {
+        const json = p.toJSON();
+        const variantsList = json.variants?.length ? json.variants : (json.Variants ?? []);
+        const imagesList = json.ProductImages?.length ? json.ProductImages : (json.images ?? []);
+        const attributesList = json.ProductAttributes?.length ? json.ProductAttributes : (json.attributes ?? []);
+        const { Variants, ProductImages, ProductAttributes, variants, images, attributes, ...rest } = json;
+        return {
+          ...rest,
+          variants: variantsList,
+          images: imagesList,
+          attributes: attributesList,
+          price: variantsList[0]?.price || 0,
+          originalPrice: variantsList[0]?.originalPrice || null,
+        };
+      });
+
       res.status(200).json({
         message: "Products fetched successfully",
-        data: products,
+        data: normalizedProducts,
         pagination: {
           total: count,
           page: Number(page),
@@ -95,7 +117,6 @@ class ProductController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -123,14 +144,17 @@ class ProductController {
           },
           {
             model: Variant,
+            as: "variants",
             attributes: ["id", "size", "color", "price", "originalPrice", "costPrice", "stock", "isActive"],
           },
           {
             model: ProductImage,
+            as: "ProductImages",
             attributes: ["id", "url", "altText", "isThumbnail", "sortOrder"],
           },
           {
             model: ProductAttribute,
+            as: "ProductAttributes",
             attributes: ["id", "attributeName", "attributeValue"],
           },
         ],
@@ -143,15 +167,32 @@ class ProductController {
         return;
       }
 
+      // Normalize for frontend compatibility — Sequelize attaches HasMany rows
+      // under the alias used in the include (`Variants`, `ProductImages`,
+      // `ProductAttributes`). Older clients reading lowercase keys also work.
+      const json = product.toJSON() as any;
+      const variantsList = json.variants?.length ? json.variants : (json.Variants ?? []);
+      const imagesList = json.ProductImages?.length ? json.ProductImages : (json.images ?? []);
+      const attributesList = json.ProductAttributes?.length ? json.ProductAttributes : (json.attributes ?? []);
+      const { Variants, ProductImages, ProductAttributes, variants, images, attributes, ...rest } = json;
+
+      const normalizedProduct = {
+        ...rest,
+        variants: variantsList,
+        images: imagesList,
+        attributes: attributesList,
+        price: variantsList[0]?.price || 0,
+        originalPrice: variantsList[0]?.originalPrice || null,
+      };
+
       res.status(200).json({
         message: "Product fetched successfully",
-        data: product,
+        data: normalizedProduct,
       });
     } catch (error: any) {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }
@@ -159,160 +200,123 @@ class ProductController {
   async createProduct(req: Request, res: Response): Promise<void> {
     const transaction = await sequelize.transaction();
     try {
-      console.log("DEBUG: createProduct called");
-      
-      const {
-        name,
-        description,
-        categoryId,
-        sportId,
-        gender,
-        isActive,
-      } = req.body;
+      const { name, description, categoryId, brandId, productTypeId, sportId, gender } = req.body;
 
-      const slug = req.body.slug || req.body.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || "";
-      let brandId = req.body.brandId;
-      let productTypeId = req.body.productTypeId;
-
-      if (req.body.brand && !brandId) {
-        const [brandRecord] = await Brand.findOrCreate({ 
-          where: { name: req.body.brand }, 
-          defaults: { slug: req.body.brand.toLowerCase().replace(/[^a-z0-9]+/g, '-') } 
-        });
-        brandId = brandRecord.id;
+      // Only name, categoryId, brandId are truly required
+      if (!name || !categoryId || !brandId) {
+        await transaction.rollback();
+        res.status(400).json({ message: "Name, categoryId, and brandId are required" });
+        return;
       }
 
-      if (!productTypeId) {
-        const [ptRecord] = await ProductType.findOrCreate({ 
-          where: { name: "General" }, 
-          defaults: { slug: "general" } 
-        });
-        productTypeId = ptRecord.id;
+      const slug = req.body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+      // Ensure unique slug
+      let uniqueSlug = slug;
+      let suffix = 1;
+      while (true) {
+        const existing = await Product.findOne({ where: { slug: uniqueSlug }, transaction, paranoid: false });
+        if (!existing) break;
+        suffix += 1;
+        uniqueSlug = `${slug}-${suffix}`;
+        if (suffix > 1000) {
+          await transaction.rollback();
+          res.status(409).json({ message: "Could not generate a unique slug" });
+          return;
+        }
       }
 
-      // Variants and Attributes are expected to be sent as JSON strings if using FormData
+      // Parse variants and attributes from FormData JSON strings
       let variants: any[] = [];
       let attributes: any[] = [];
-      
       try {
         variants = typeof req.body.variants === "string" ? JSON.parse(req.body.variants) : (req.body.variants || []);
         attributes = typeof req.body.attributes === "string" ? JSON.parse(req.body.attributes) : (req.body.attributes || []);
       } catch (e) {
-        console.error("Failed to parse variants or attributes", e);
+        console.error("Failed to parse variants/attributes:", e);
       }
 
-      if (variants.length === 0 && (req.body.sizes || req.body.colors || req.body.price)) {
-        const sizes = req.body.sizes ? req.body.sizes.split(',').map((s: string) => s.trim()).filter(Boolean) : ["Standard"];
-        const colors = req.body.colors ? req.body.colors.split(',').map((c: string) => c.trim()).filter(Boolean) : ["Default"];
-        
-        sizes.forEach((size: string) => {
-          colors.forEach((color: string) => {
-            variants.push({
-              size,
-              color,
-              price: parseFloat(req.body.price) || 0,
-              originalPrice: req.body.originalPrice ? parseFloat(req.body.originalPrice) : null,
-              costPrice: req.body.costPrice ? parseFloat(req.body.costPrice) : null,
-              stock: parseInt(req.body.totalStock) || parseInt(req.body.stock) || 0
-            });
-          });
-        });
-      }
-
-      if (attributes.length === 0 && req.body.features) {
-        const features = req.body.features.split(',').map((f: string) => f.trim()).filter(Boolean);
-        features.forEach((feature: string) => {
-          attributes.push({
-            attributeName: "Feature",
-            attributeValue: feature,
-          });
-        });
-      }
-
-      if (!name || !slug || !categoryId || !brandId || !productTypeId) {
-        await transaction.rollback();
-        res.status(400).json({
-          message: "Name, slug, categoryId, brandId, and productTypeId are required",
-        });
-        return;
-      }
-
-      // 1. Create Base Product
+      // Create product
       const product = await Product.create({
         name,
-        slug,
-        description,
+        slug: uniqueSlug,
+        description: description || null,
         brandId,
         categoryId,
-        productTypeId,
-        sportId: sportId || null,
-        gender,
-        isActive: isActive !== undefined ? (isActive === "true" || isActive === true) : true,
+        productTypeId: productTypeId && productTypeId !== "" ? productTypeId : null,
+        sportId: sportId && sportId !== "" ? sportId : null,
+        gender: gender || "Unisex",
+        isActive: req.body.isActive !== "false" && req.body.isActive !== false,
+        isFeatured: req.body.isFeatured === "true" || req.body.isFeatured === true,
+        allowCustomization: req.body.allowCustomization === "true" || req.body.allowCustomization === true,
+        tags: req.body.tags ? (typeof req.body.tags === "string" ? JSON.parse(req.body.tags) : req.body.tags) : [],
       }, { transaction });
 
-      // 2. Create Variants
+      // Create variants
       if (variants.length > 0) {
-        const variantPromises = variants.map((v: any) => 
+        await Promise.all(variants.map((v: any) =>
           Variant.create({
             productId: product.id,
-            size: v.size,
-            color: v.color,
+            size: v.size || null,
+            color: v.color || null,
             price: parseFloat(v.price) || 0,
             originalPrice: v.originalPrice ? parseFloat(v.originalPrice) : null,
             costPrice: v.costPrice ? parseFloat(v.costPrice) : null,
             stock: parseInt(v.stock) || 0,
-            isActive: v.isActive !== undefined ? v.isActive : true,
+            isActive: v.isActive !== false,
           }, { transaction })
-        );
-        await Promise.all(variantPromises);
+        ));
       }
 
-      // 3. Create Attributes
+      // Create attributes
       if (attributes.length > 0) {
-        const attributePromises = attributes.map((attr: any) => 
+        await Promise.all(attributes.map((attr: any) =>
           ProductAttribute.create({
             productId: product.id,
             attributeName: attr.attributeName,
             attributeValue: attr.attributeValue,
           }, { transaction })
-        );
-        await Promise.all(attributePromises);
+        ));
       }
 
-      // 4. Create Images
+      // Create images
       if (req.files && Array.isArray(req.files)) {
-        const imagePromises = (req.files as Express.Multer.File[]).map((file, index) => 
+        const filesArr = req.files as Express.Multer.File[];
+        const thumbIdx = parseInt(req.body.thumbnailIndex) || 0;
+        await Promise.all(filesArr.map((file, index) =>
           ProductImage.create({
             productId: product.id,
-            url: `/uploads/${file.filename}`,
-            isThumbnail: index === 0, // Set first image as thumbnail by default
+            url: (file as any).path || (file as any).secure_url || `/uploads/${file.filename}`,
+            isThumbnail: index === thumbIdx,
             sortOrder: index,
           }, { transaction })
-        );
-        await Promise.all(imagePromises);
-      }
-
-      // 5. Add to Collection if collectionId is provided
-      if (req.body.collectionId) {
-        await CollectionProduct.create({
-          productId: product.id,
-          collectionId: req.body.collectionId,
-        }, { transaction });
+        ));
       }
 
       await transaction.commit();
 
-      res.status(201).json({
-        message: "Product created successfully",
-        data: product,
+      // Fetch complete product with relations
+      const completeProduct = await Product.findByPk(product.id, {
+        include: [
+          { model: Category, attributes: ["id", "name", "needsSize", "sizeType", "slug"] },
+          { model: Brand, attributes: ["id", "name", "slug", "logo"] },
+          { model: ProductType, attributes: ["id", "name", "slug"] },
+          { model: Sport, attributes: ["id", "name", "slug"] },
+          { model: Variant, as: "variants" },
+          { model: ProductImage, as: "ProductImages" },
+          { model: ProductAttribute, as: "ProductAttributes" },
+        ],
       });
+
+      res.status(201).json({ message: "Product created successfully", data: completeProduct });
     } catch (error: any) {
       await transaction.rollback();
       console.error(error);
-      res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
+      if (error?.name === "SequelizeUniqueConstraintError") {
+        res.status(409).json({ message: "A product with this name/slug already exists" });
+        return;
+      }
+      res.status(500).json({ message: "Internal server error" });
     }
   }
 
@@ -320,158 +324,103 @@ class ProductController {
     const transaction = await sequelize.transaction();
     try {
       const { id } = req.params as { id: string };
-      const {
-        name,
-        description,
-        categoryId,
-        sportId,
-        isActive,
-        gender,
-      } = req.body;
+      const { name, description, categoryId, brandId, productTypeId, sportId, gender } = req.body;
 
-      // Parse variants and attributes if sent as JSON string
+      const product = await Product.findByPk(id);
+      if (!product) {
+        await transaction.rollback();
+        res.status(404).json({ message: "Product not found" });
+        return;
+      }
+
+      // Parse variants and attributes
       let variants: any[] = [];
       let attributes: any[] = [];
       try {
         variants = typeof req.body.variants === "string" ? JSON.parse(req.body.variants) : (req.body.variants || []);
         attributes = typeof req.body.attributes === "string" ? JSON.parse(req.body.attributes) : (req.body.attributes || []);
       } catch (e) {
-        console.error("Failed to parse variants or attributes", e);
+        console.error("Failed to parse variants/attributes:", e);
       }
 
-      if (variants.length === 0 && (req.body.sizes || req.body.colors || req.body.price)) {
-        const sizes = req.body.sizes ? req.body.sizes.split(',').map((s: string) => s.trim()).filter(Boolean) : ["Standard"];
-        const colors = req.body.colors ? req.body.colors.split(',').map((c: string) => c.trim()).filter(Boolean) : ["Default"];
-        
-        sizes.forEach((size: string) => {
-          colors.forEach((color: string) => {
-            variants.push({
-              size,
-              color,
-              price: parseFloat(req.body.price) || 0,
-              originalPrice: req.body.originalPrice ? parseFloat(req.body.originalPrice) : null,
-              costPrice: req.body.costPrice ? parseFloat(req.body.costPrice) : null,
-              stock: parseInt(req.body.totalStock) || parseInt(req.body.stock) || 0
-            });
-          });
-        });
-      }
-
-      if (attributes.length === 0 && req.body.features) {
-        const features = req.body.features.split(',').map((f: string) => f.trim()).filter(Boolean);
-        features.forEach((feature: string) => {
-          attributes.push({
-            attributeName: "Feature",
-            attributeValue: feature,
-          });
-        });
-      }
-
-      const product = await Product.findByPk(id);
-      if (!product) {
-        await transaction.rollback();
-        res.status(404).json({
-          message: "Product not found",
-        });
-        return;
-      }
-      
-      const slug = req.body.slug || (name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : product.slug);
-      let brandId = req.body.brandId || product.brandId;
-      let productTypeId = req.body.productTypeId || product.productTypeId;
-
-      if (req.body.brand && req.body.brand !== product.brandId) {
-        const [brandRecord] = await Brand.findOrCreate({ 
-          where: { name: req.body.brand }, 
-          defaults: { slug: req.body.brand.toLowerCase().replace(/[^a-z0-9]+/g, '-') } 
-        });
-        brandId = brandRecord.id;
-      }
-
-      const updateData = {
+      // Update product fields
+      await product.update({
         name: name || product.name,
-        slug: slug,
         description: description !== undefined ? description : product.description,
-        brandId: brandId,
+        brandId: brandId || product.brandId,
         categoryId: categoryId || product.categoryId,
-        productTypeId: productTypeId,
-        sportId: sportId !== undefined ? sportId : product.sportId,
+        productTypeId: productTypeId !== undefined && productTypeId !== "" ? productTypeId : (productTypeId === "" ? null : product.productTypeId),
+        sportId: sportId !== undefined && sportId !== "" ? sportId : (sportId === "" ? null : product.sportId),
         gender: gender || product.gender,
-        isActive: isActive !== undefined ? (isActive === "true" || isActive === true) : product.isActive,
-      };
+        isActive: req.body.isActive !== undefined ? (req.body.isActive === "true" || req.body.isActive === true) : product.isActive,
+        isFeatured: req.body.isFeatured !== undefined ? (req.body.isFeatured === "true" || req.body.isFeatured === true) : product.isFeatured,
+        allowCustomization: req.body.allowCustomization !== undefined ? (req.body.allowCustomization === "true" || req.body.allowCustomization === true) : product.allowCustomization,
+        tags: req.body.tags !== undefined ? (typeof req.body.tags === "string" ? JSON.parse(req.body.tags) : req.body.tags) : product.tags,
+      }, { transaction });
 
-      await product.update(updateData, { transaction });
-
-      // 2. Update Variants (Replace All strategy for simplicity, or upsert based on logic)
+      // Replace variants if provided
       if (variants.length > 0) {
         await Variant.destroy({ where: { productId: product.id }, transaction });
-        const variantPromises = variants.map((v: any) => 
+        await Promise.all(variants.map((v: any) =>
           Variant.create({
             productId: product.id,
-            size: v.size,
-            color: v.color,
+            size: v.size || null,
+            color: v.color || null,
             price: parseFloat(v.price) || 0,
             originalPrice: v.originalPrice ? parseFloat(v.originalPrice) : null,
             costPrice: v.costPrice ? parseFloat(v.costPrice) : null,
             stock: parseInt(v.stock) || 0,
-            isActive: v.isActive !== undefined ? v.isActive : true,
+            isActive: v.isActive !== false,
           }, { transaction })
-        );
-        await Promise.all(variantPromises);
+        ));
       }
 
-      // 3. Update Attributes (Replace All strategy)
+      // Replace attributes if provided
       if (attributes.length > 0) {
         await ProductAttribute.destroy({ where: { productId: product.id }, transaction });
-        const attributePromises = attributes.map((attr: any) => 
+        await Promise.all(attributes.map((attr: any) =>
           ProductAttribute.create({
             productId: product.id,
             attributeName: attr.attributeName,
             attributeValue: attr.attributeValue,
           }, { transaction })
-        );
-        await Promise.all(attributePromises);
+        ));
       }
 
-      // 4. Handle Images (Append new images)
+      // Append new images
       if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-        // Fetch current max sortOrder
         const currentImages = await ProductImage.findAll({ where: { productId: product.id } });
         const startSortOrder = currentImages.length;
-        
-        const newImages = (req.files as Express.Multer.File[]).map((file, index) => 
+        await Promise.all((req.files as Express.Multer.File[]).map((file, index) =>
           ProductImage.create({
             productId: product.id,
-            url: `/uploads/${file.filename}`,
-            isThumbnail: currentImages.length === 0 && index === 0, // Fallback if no images exist
+            url: (file as any).path || (file as any).secure_url || `/uploads/${file.filename}`,
+            isThumbnail: currentImages.length === 0 && index === 0,
             sortOrder: startSortOrder + index,
           }, { transaction })
-        );
-        await Promise.all(newImages);
-      }
-
-      if (req.body.collectionId) {
-        // Remove old associations and add new one
-        await CollectionProduct.destroy({ where: { productId: product.id }, transaction });
-        await CollectionProduct.create({
-          productId: product.id,
-          collectionId: req.body.collectionId,
-        }, { transaction });
+        ));
       }
 
       await transaction.commit();
 
-      res.status(200).json({
-        message: "Product updated successfully",
-        data: product,
+      // Fetch updated product with relations
+      const updatedProduct = await Product.findByPk(id, {
+        include: [
+          { model: Category, attributes: ["id", "name", "needsSize", "sizeType", "slug"] },
+          { model: Brand, attributes: ["id", "name", "slug", "logo"] },
+          { model: ProductType, attributes: ["id", "name", "slug"] },
+          { model: Sport, attributes: ["id", "name", "slug"] },
+          { model: Variant, as: "variants" },
+          { model: ProductImage, as: "ProductImages" },
+          { model: ProductAttribute, as: "ProductAttributes" },
+        ],
       });
+
+      res.status(200).json({ message: "Product updated successfully", data: updatedProduct });
     } catch (error: any) {
       await transaction.rollback();
       console.error(error);
-      res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
+      res.status(500).json({ message: "Internal server error" });
     }
   }
 
@@ -496,7 +445,6 @@ class ProductController {
       console.error(error);
       res.status(500).json({
         message: "Internal server error",
-        error: error.message,
       });
     }
   }

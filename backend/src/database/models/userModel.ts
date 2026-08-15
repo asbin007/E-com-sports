@@ -15,9 +15,11 @@ interface UserAttributes {
   isVerified: boolean;
   isActive: boolean;
   lastLoginAt?: Date;
+  failedLoginAttempts: number;
+  lockedUntil?: Date;
 }
 
-interface UserCreationAttributes extends Optional<UserAttributes, "id" | "password" | "googleId" | "avatar" | "phoneNumber" | "otp" | "otpExpiration" | "lastLoginAt" | 'role' | 'isVerified' | 'isActive'> {}
+interface UserCreationAttributes extends Optional<UserAttributes, "id" | "password" | "googleId" | "avatar" | "phoneNumber" | "otp" | "otpExpiration" | "lastLoginAt" | 'role' | 'isVerified' | 'isActive' | 'failedLoginAttempts' | 'lockedUntil'> {}
 
 @Table({
   tableName: "users",
@@ -58,7 +60,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> {
   declare googleId: string;
 
   @Column({
-    type: DataType.ENUM("customer", "admin"),
+    type: DataType.STRING,
     defaultValue: "customer",
   })
   declare role: string;
@@ -109,6 +111,20 @@ class User extends Model<UserAttributes, UserCreationAttributes> {
     field: "last_login_at",
   })
   declare lastLoginAt: Date;
+
+  @Column({
+    type: DataType.INTEGER,
+    defaultValue: 0,
+    field: "failed_login_attempts",
+  })
+  declare failedLoginAttempts: number;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+    field: "locked_until",
+  })
+  declare lockedUntil: Date;
 }
 
 export default User;

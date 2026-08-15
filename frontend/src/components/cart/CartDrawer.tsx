@@ -1,8 +1,26 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
-import { useCart } from "../../context/CartContext";
+import { useCart, type CartItem } from "../../context/CartContext";
 import { useNavigate } from "react-router-dom";
-import { cn } from "../../utils/cn";
+import { pickProductImageUrl } from "../../utils/placeholder";
+
+/**
+ * Stock available for what is actually in the cart. Returns null when the item
+ * carries no variant data (older carts restored from localStorage), in which
+ * case we cannot clamp and leave the control unbounded.
+ */
+function getAvailableStock(item: CartItem): number | null {
+  const variants = item.variants;
+  if (!variants || variants.length === 0) return null;
+  if (item.variantId) {
+    const match = variants.find((v) => v.id === item.variantId);
+    return typeof match?.stock === "number" ? match.stock : null;
+  }
+  return variants.reduce(
+    (sum, v) => sum + (typeof v.stock === "number" ? v.stock : 0),
+    0
+  );
+}
 
 const CartDrawer = () => {
   const {
@@ -25,46 +43,47 @@ const CartDrawer = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsCartOpen(false)}
-            className="fixed inset-0 bg-stone-950/60 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]"
           />
 
-          {/* Drawer Content */}
+          {/* Drawer */}
           <motion.div
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 bottom-0 w-full sm:w-[450px] bg-stone-950 text-white z-[110] flex flex-col shadow-2xl"
+            className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-primary z-[110] flex flex-col shadow-2xl border-l border-border-primary"
           >
             {/* Header */}
-            <div className="p-6 border-b border-white/10 flex items-center justify-between bg-stone-900/50 backdrop-blur-md">
+            <div className="p-5 border-b border-border-primary flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <ShoppingBag className="w-6 h-6 text-orange-600" />
-                <h2 className="text-xl font-black uppercase tracking-tighter italic">
-                  Your <span className="text-orange-600">Locker</span>
-                </h2>
+                <div className="w-9 h-9 bg-accent/10 rounded-xl flex items-center justify-center">
+                  <ShoppingBag className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-primary">Your Cart</h2>
+                  <p className="text-xs text-muted">{cart.length} item{cart.length !== 1 ? "s" : ""}</p>
+                </div>
               </div>
               <button
                 onClick={() => setIsCartOpen(false)}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                className="p-2 hover:bg-surface-hover rounded-xl transition-colors text-secondary"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-orange-600/20">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
               {cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center space-y-6">
-                  <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center">
-                    <ShoppingBag className="w-10 h-10 text-gray-600" />
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-4 py-12">
+                  <div className="w-16 h-16 bg-secondary rounded-2xl flex items-center justify-center">
+                    <ShoppingBag className="w-8 h-8 text-muted" />
                   </div>
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-black uppercase tracking-widest text-white italic">
-                      Locker is Empty
-                    </h3>
-                    <p className="text-gray-500 text-xs font-bold uppercase tracking-widest max-w-[200px]">
-                      No elite gear added yet. Start your journey.
+                  <div>
+                    <h3 className="text-base font-bold text-primary">Cart is empty</h3>
+                    <p className="text-sm text-tertiary mt-1">
+                      Add some products to get started
                     </p>
                   </div>
                   <button
@@ -72,150 +91,154 @@ const CartDrawer = () => {
                       setIsCartOpen(false);
                       navigate("/shop");
                     }}
-                    className="px-8 py-3 bg-orange-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-700 transition-all active:scale-95 shadow-xl shadow-orange-600/20"
+                    className="px-6 py-2.5 bg-accent text-white rounded-xl font-bold text-sm hover:bg-accent-hover transition-all active:scale-95"
                   >
-                    Go Shopping
+                    Browse Products
                   </button>
                 </div>
               ) : (
-                cart.map((item) => (
+                cart.map((item) => {
+                  const availableStock = getAvailableStock(item);
+                  const atStockCap =
+                    availableStock !== null && item.quantity >= availableStock;
+                  return (
                   <motion.div
                     key={item.variantId || item.id}
                     layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white/5 rounded-2xl p-4 border border-white/5 flex gap-4 group"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-secondary rounded-xl p-3 border border-border-primary flex gap-3 group"
                   >
-                    <div className="w-20 h-24 bg-stone-900 rounded-xl overflow-hidden shrink-0">
-                      {item.ProductImages && item.ProductImages.length > 0 ? (
+                    {/* Image */}
+                    <div className="w-18 h-20 bg-tertiary rounded-lg overflow-hidden shrink-0">
+                      {item.images && item.images.length > 0 ? (
                         <img
-                          src={item.ProductImages.find(img => img.isThumbnail)?.url || item.ProductImages[0].url}
+                          src={pickProductImageUrl(item.images)}
                           alt={item.name}
-                          className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-700 font-bold text-[10px] uppercase">
-                          No Pic
+                        <div className="w-full h-full flex items-center justify-center text-muted">
+                          <ShoppingBag className="w-5 h-5" />
                         </div>
                       )}
                     </div>
 
-                    <div className="flex-1 flex flex-col justify-between">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1 italic">
-                            {item.Brand?.name || "Premium Gear"}
-                          </p>
-                          <h4 className="font-black text-sm uppercase tracking-tighter italic line-clamp-1">
+                    {/* Details */}
+                    <div className="flex-1 flex flex-col justify-between min-w-0">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="min-w-0">
+                          <h4 className="font-semibold text-sm text-primary truncate">
                             {item.name}
                           </h4>
-                          <div className="flex flex-wrap gap-2 mt-1">
+                          <div className="flex gap-2 mt-0.5">
                             {item.selectedSize && (
-                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                                Size:{" "}
-                                <span className="text-white">
-                                  {item.selectedSize}
-                                </span>
-                              </p>
+                              <span className="text-[10px] font-medium text-tertiary">
+                                Size: {item.selectedSize}
+                              </span>
                             )}
                             {item.selectedColor && (
-                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                                Color:{" "}
-                                <span className="text-white">
-                                  {item.selectedColor}
-                                </span>
-                              </p>
+                              <span className="text-[10px] font-medium text-tertiary">
+                                Color: {item.selectedColor}
+                              </span>
                             )}
                           </div>
                         </div>
                         <button
-                          onClick={() =>
-                            removeFromCart(item.id, item.variantId)
-                          }
-                          className="p-1.5 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                          onClick={() => removeFromCart(item.id, item.variantId)}
+                          className="p-1.5 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all flex-shrink-0"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-3 bg-stone-900 rounded-lg p-1 border border-white/5">
+                      <div className="flex justify-between items-center mt-2">
+                        <div className="flex items-center gap-2 bg-primary rounded-lg p-0.5 border border-border-primary">
                           <button
                             onClick={() =>
-                              updateQuantity(
-                                item.id,
-                                item.variantId,
-                                item.quantity - 1,
-                              )
+                              updateQuantity(item.id, item.variantId, item.quantity - 1)
                             }
-                            className="w-6 h-6 flex items-center justify-center bg-stone-800 rounded-md text-gray-400 hover:text-white"
+                            aria-label={`Decrease quantity of ${item.name}`}
+                            className="w-6 h-6 flex items-center justify-center rounded-md text-secondary hover:bg-surface-hover transition-colors"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
-                          <span className="text-xs font-black w-4 text-center">
+                          <span className="text-xs font-bold text-primary w-4 text-center">
                             {item.quantity}
                           </span>
+                          {/* Clamped to stock — see Cart.tsx. */}
                           <button
                             onClick={() =>
                               updateQuantity(
                                 item.id,
                                 item.variantId,
-                                item.quantity + 1,
+                                availableStock === null
+                                  ? item.quantity + 1
+                                  : Math.min(item.quantity + 1, availableStock)
                               )
                             }
-                            className="w-6 h-6 flex items-center justify-center bg-stone-800 rounded-md text-gray-400 hover:text-white"
+                            disabled={atStockCap}
+                            aria-label={`Increase quantity of ${item.name}`}
+                            className="w-6 h-6 flex items-center justify-center rounded-md text-secondary hover:bg-surface-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                           >
                             <Plus className="w-3 h-3" />
                           </button>
                         </div>
-                        <p className="font-black text-sm text-white italic">
-                          Rs{" "}
-                          {(
-                            (item.variantPrice || item.price || 0) *
-                            item.quantity
-                          ).toLocaleString()}
+                        <p className="font-bold text-sm text-primary">
+                          Rs {((item.variantPrice || item.price || 0) * item.quantity).toLocaleString()}
                         </p>
                       </div>
+
+                      {availableStock !== null && (atStockCap || availableStock <= 5) && (
+                        <p
+                          className={`text-[10px] mt-1 font-medium ${
+                            atStockCap ? "text-amber-600" : "text-muted"
+                          }`}
+                        >
+                          {availableStock === 0
+                            ? "Out of stock"
+                            : atStockCap
+                              ? `Max available — only ${availableStock} in stock`
+                              : `Only ${availableStock} left`}
+                        </p>
+                      )}
                     </div>
                   </motion.div>
-                ))
+                  );
+                })
               )}
             </div>
 
             {/* Footer */}
             {cart.length > 0 && (
-              <div className="p-6 bg-stone-900/80 backdrop-blur-xl border-t border-white/10 space-y-4">
-                <div className="flex justify-between items-end mb-2">
-                  <p className="text-xs font-black text-gray-500 uppercase tracking-widest italic">
-                    Kit Total
-                  </p>
-                  <p className="text-3xl font-black text-white uppercase italic tracking-tighter">
+              <div className="p-5 border-t border-border-primary space-y-4">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-secondary font-medium">Subtotal</p>
+                  <p className="text-xl font-black text-primary">
                     Rs {cartTotal.toLocaleString()}
                   </p>
                 </div>
-                <div className="flex gap-4">
+                <p className="text-xs text-muted">Shipping calculated at checkout</p>
+                <div className="flex gap-3">
                   <button
                     onClick={() => {
                       setIsCartOpen(false);
                       navigate("/cart");
                     }}
-                    className="flex-1 py-4 bg-white/5 border border-white/10 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95"
+                    className="flex-1 py-3 bg-secondary border border-border-primary text-primary rounded-xl font-semibold text-sm hover:bg-surface-hover transition-all active:scale-95"
                   >
-                    Full View
+                    View Cart
                   </button>
                   <button
                     onClick={() => {
                       setIsCartOpen(false);
                       navigate("/checkout");
                     }}
-                    className="flex-[2] py-4 bg-orange-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-700 transition-all active:scale-95 shadow-xl shadow-orange-600/20 flex items-center justify-center gap-2"
+                    className="flex-[2] py-3 bg-accent text-white rounded-xl font-bold text-sm hover:bg-accent-hover transition-all active:scale-95 shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
                   >
-                    Quick Buy <ArrowRight className="w-4 h-4" />
+                    Checkout <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-[10px] text-gray-500 text-center font-bold uppercase tracking-widest">
-                  Secure Elite Checkout - Powered by Resend
-                </p>
               </div>
             )}
           </motion.div>
