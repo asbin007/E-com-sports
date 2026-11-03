@@ -374,7 +374,7 @@ const ProductListing = () => {
           {/* Desktop Sidebar */}
           <aside className="scrollbar-thin sticky top-28 hidden h-[calc(100vh-140px)] w-64 flex-shrink-0 space-y-6 overflow-y-auto pr-4 lg:block">
             {renderFilterGroup(
-              "Sport categories",
+              "Shop by category",
               categories,
               selectedCategoryId,
               setSelectedCategoryId
@@ -658,7 +658,7 @@ const ProductListing = () => {
 
               <div className="space-y-6">
                 {renderFilterGroup(
-                  "Sport categories",
+                  "Shop by category",
                   categories,
                   selectedCategoryId,
                   setSelectedCategoryId

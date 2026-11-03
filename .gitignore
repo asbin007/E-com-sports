@@ -14,3 +14,6 @@ coverage/
 !.vscode/settings.json
 .DS_Store
 *.log
+
+# Neon CLI local env output
+.env.local
