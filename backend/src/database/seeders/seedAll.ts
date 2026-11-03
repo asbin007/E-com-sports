@@ -697,8 +697,32 @@ const SAMPLE_PRODUCTS = [
   },
 ];
 
+/**
+ * Sample data is a starting point for an empty install, not a fixture the app
+ * keeps reasserting. It used to run on every start, so a product the owner
+ * deleted in admin reappeared on the next restart and could never be removed.
+ *
+ * It now seeds only a database that has no catalogue yet. To deliberately load
+ * the samples again — after clearing the shop, say — set SEED_SAMPLE_DATA=true.
+ * Everything the owner adds through the admin panel is theirs and untouched.
+ */
 export async function seedAll(): Promise<void> {
-  console.log("🌱 Seeding database...");
+  const forced = process.env.SEED_SAMPLE_DATA === "true";
+
+  if (!forced) {
+    const existingProducts = await Product.count();
+    const existingCategories = await Category.count();
+
+    if (existingProducts > 0 || existingCategories > 0) {
+      console.log(
+        `⏭️  Skipping sample data — the shop already has ${existingCategories} categories ` +
+          `and ${existingProducts} products. Set SEED_SAMPLE_DATA=true to load them anyway.`
+      );
+      return;
+    }
+  }
+
+  console.log(forced ? "🌱 Seeding database (forced)..." : "🌱 Seeding database (empty shop)...");
 
   // 1. Seed Categories
   const categoryMap = new Map<string, string>();
