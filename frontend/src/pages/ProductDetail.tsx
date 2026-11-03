@@ -572,7 +572,13 @@ const ProductDetail = () => {
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {availableColors.map((color) => {
-                    const available = selectedColor
+                    // Narrow colours by the chosen SIZE, not by the chosen
+                    // colour. Keying this off selectedColor meant that picking
+                    // any colour re-tested every colour against
+                    // `v.size === selectedSize`; on a product with no sizes
+                    // that compares null to "", so every colour showed as sold
+                    // out the moment one was selected.
+                    const available = selectedSize
                       ? variants.some(
                           (v) =>
                             v.color === color &&

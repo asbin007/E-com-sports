@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { Mail, Lock, ArrowRight, Loader, Eye, EyeOff, ShieldAlert, MessageCircle } from "lucide-react";
 import { authService } from "../services/authService";
@@ -15,7 +15,13 @@ const BTN_PRIMARY =
 const BTN_SECONDARY =
   "flex w-full items-center justify-center gap-3 rounded-tag border-2 border-inverse bg-transparent py-3 font-display text-lg uppercase leading-none tracking-[0.04em] text-primary transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none";
 
+/** Only ever return to a path inside this site, never to an absolute URL. */
+const safeRedirect = (value: string | null): string =>
+  value && value.startsWith("/") && !value.startsWith("//") ? value : "/";
+
 const Login = () => {
+  const [searchParams] = useSearchParams();
+  const redirectTo = safeRedirect(searchParams.get("redirect"));
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,7 +42,9 @@ const Login = () => {
     try {
       const data = await authService.login({ email, password });
       login(data.token, data.user, data.refreshToken);
-      navigate("/");
+      // Checkout sends people here with ?redirect=/checkout. Dropping them on
+      // the home page with a full cart loses the sale.
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       const message = getApiErrorMessage(err, "Login failed. Please check your credentials.");
       if (message === "Please verify your email first") {
