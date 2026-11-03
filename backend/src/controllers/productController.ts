@@ -84,6 +84,10 @@ class ProductController {
         limit: Number(limit),
         offset,
         order: [["createdAt", "DESC"]],
+        // Without this the hasMany includes (variants, images, attributes)
+        // multiply the rows and `count` returns the size of the join, not the
+        // number of products — 418 for a catalogue of 32.
+        distinct: true,
       });
 
       // Normalize response — remove duplicate keys from toJSON, then set canonical names

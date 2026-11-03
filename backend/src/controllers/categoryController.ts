@@ -41,8 +41,19 @@ class CategoryController {
     }
   }
 
+  /**
+   * Public callers get the categories the shop is actually trading in, so
+   * retiring one is a reversible `isActive` toggle in admin rather than a
+   * delete. Admin passes ?includeInactive=true to manage the hidden ones.
+   */
   async getAllCategories(req: Request, res: Response): Promise<void> {
-    const data = await Category.findAll();
+    const includeInactive = req.query.includeInactive === "true";
+
+    const data = await Category.findAll({
+      ...(includeInactive ? {} : { where: { isActive: true } }),
+      order: [["name", "ASC"]],
+    });
+
     res.status(200).json({
       message: "Fetched categories",
       data,
