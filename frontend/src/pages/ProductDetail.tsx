@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   ShoppingBag,
   Heart,
@@ -17,13 +17,21 @@ import {
   Share2,
   AlertTriangle,
   RotateCcw,
+  Wallet,
 } from "lucide-react";
-import { productService, type Product } from "../services/productService";
+import {
+  isVariantSellable,
+  productService,
+  variantStock,
+  type Product,
+} from "../services/productService";
 import { reviewService, type ReviewStats } from "../services/reviewService";
 import { useCart } from "../context/CartContext";
 import { cn } from "../utils/cn";
+import { whatsappUrl } from "../data/store";
 import { NO_IMAGE_PLACEHOLDER } from "../utils/placeholder";
 import ProductBadges from "../components/product/ProductBadges";
+import { SizeRun, type SizeOption } from "../components/product/ProductCard";
 import Recommendations from "../components/home/Recommendations";
 import ProductReviews from "../components/reviews/ProductReviews";
 import WriteReview from "../components/reviews/WriteReview";
@@ -37,9 +45,17 @@ type ProductImageObject = {
   sortOrder?: number;
 };
 
+/** Reveal: 160ms, 12px of travel, visible at rest. */
+const REVEAL = { duration: 0.16, ease: [0.2, 0.7, 0.3, 1] } as const;
+
+/** Icon-only controls hold the 44px floor. */
+const ICON_BUTTON =
+  "flex min-h-[44px] min-w-[44px] items-center justify-center rounded-tag border-2 transition duration-snap ease-snap";
+
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { addToCart } = useCart();
+  const reduce = useReducedMotion();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,7 +135,10 @@ const ProductDetail = () => {
 
   const variants = product?.variants || [];
   const hasVariants = variants.length > 0;
-  const isAvailable = hasVariants && variants.some((v) => v.isActive !== false && v.stock > 0);
+  // A row with no `stock` field is unknown, not empty, so it keeps counting as
+  // available — absent data must never read as sold out.
+  const isAvailable =
+    hasVariants && variants.some((v) => v.isActive !== false && isVariantSellable(v));
 
   const availableSizes = [...new Set(variants.map((v) => v.size).filter(Boolean))].sort((a, b) => {
     const numA = parseFloat(a.replace(/[^0-9.]/g, ""));
@@ -156,19 +175,26 @@ const ProductDetail = () => {
 
   const currentPrice = selectedVariant?.price || product?.price || minVariantPrice || 0;
   const originalPrice = selectedVariant?.originalPrice || product?.originalPrice || 0;
-  const inStock = selectedVariant ? selectedVariant.stock > 0 : isAvailable;
-  const stockCount = selectedVariant?.stock || 0;
+  const inStock = selectedVariant ? isVariantSellable(selectedVariant) : isAvailable;
+  /** `null` when the row reports no count: the chip then omits the figure. */
+  const stockCount = variantStock(selectedVariant);
   const discount = originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
 
   // Options are chosen but no such variant exists (e.g. size L never made in Red).
   const combinationUnavailable = !needsSelection && hasVariants && !selectedVariant;
   const canAddToCart =
-    hasVariants && isAvailable && !needsSelection && !!selectedVariant && selectedVariant.stock > 0;
-  const maxQuantity = selectedVariant?.stock ?? 0;
+    hasVariants &&
+    isAvailable &&
+    !needsSelection &&
+    !!selectedVariant &&
+    isVariantSellable(selectedVariant);
+  /** Unknown stock caps nothing; a reported count is the ceiling. */
+  const maxQuantity = stockCount ?? Number.POSITIVE_INFINITY;
 
   // Re-clamp quantity whenever the resolved variant (and therefore its stock) changes.
   const clampQuantityFor = (size: string, color: string) => {
-    const stock = findVariant(size, color)?.stock ?? 0;
+    const stock = variantStock(findVariant(size, color));
+    if (stock === null) return;
     setQuantity((q) => (stock > 0 ? Math.min(q, stock) : 1));
   };
 
@@ -189,7 +215,7 @@ const ProductDetail = () => {
     // different sizes into one line and the second one is silently lost.
     if (!product || !canAddToCart || !selectedVariant) return;
 
-    const qty = Math.max(1, Math.min(quantity, selectedVariant.stock));
+    const qty = Math.max(1, Math.min(quantity, maxQuantity));
     for (let i = 0; i < qty; i++) {
       addToCart(product, selectedVariant.id, selectedSize || null, selectedColor || null, currentPrice);
     }
@@ -220,36 +246,49 @@ const ProductDetail = () => {
     }
   };
 
+  // The size run is the primary selector here. Availability is exactly the rule
+  // the old buttons used, so a sold-out size stays unselectable and unaddable.
+  const sizeOptions: SizeOption[] = availableSizes.map((size) => ({
+    size,
+    inStock: selectedColor
+      ? variants.some(
+          (v) => v.size === size && v.color === selectedColor && isVariantSellable(v)
+        )
+      : variants.some((v) => v.size === size && isVariantSellable(v)),
+  }));
+
   if (loading) {
     return <ProductDetailSkeleton />;
   }
 
   if (loadError || !product) {
     return (
-      <div className="min-h-screen bg-primary flex items-center justify-center px-4">
+      <div className="flex min-h-screen items-center justify-center bg-primary px-4">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md text-center p-8 rounded-3xl bg-card border border-border-primary shadow-lg"
+          transition={REVEAL}
+          className="w-full max-w-md rounded-card border-2 border-inverse bg-card p-8 text-center"
         >
-          <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-5">
-            <AlertTriangle className="w-7 h-7 text-accent" />
-          </div>
-          <h1 className="text-xl font-bold text-primary">Couldn't load this product</h1>
-          <p className="text-sm text-tertiary mt-2">
+          <AlertTriangle aria-hidden="true" className="mx-auto mb-4 h-8 w-8 text-accent" />
+          <h1 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+            Couldn't load this product
+          </h1>
+          <p className="mt-2 text-sm text-tertiary">
             Something went wrong while fetching this product. Please check your connection and try again.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 mt-6">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
+              type="button"
               onClick={fetchProduct}
-              className="flex-1 h-12 rounded-xl bg-accent text-white font-bold text-sm hover:bg-accent-hover transition-colors flex items-center justify-center gap-2"
+              className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-tag border-2 border-inverse bg-accent font-display text-[19px] font-semibold uppercase leading-none text-inverse transition duration-snap ease-snap hover:bg-accent-hover"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw aria-hidden="true" className="h-4 w-4" />
               Try again
             </button>
             <Link
               to="/shop"
-              className="flex-1 h-12 rounded-xl border border-border-primary text-primary font-bold text-sm hover:border-accent hover:text-accent transition-colors flex items-center justify-center"
+              className="flex min-h-[44px] flex-1 items-center justify-center rounded-tag border-2 border-inverse bg-card font-display text-[19px] font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
             >
               Back to shop
             </Link>
@@ -261,81 +300,86 @@ const ProductDetail = () => {
 
   return (
     <div className="min-h-screen bg-primary">
-      <div className="max-w-[1440px] mx-auto pt-4 pb-16 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1440px] px-4 pb-16 pt-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
-        <motion.nav
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-2 text-sm py-4 mb-6"
-        >
-          <Link to="/" className="text-muted hover:text-accent transition-colors">Home</Link>
-          <ChevronRight className="w-3 h-3 text-muted" />
-          <Link to="/shop" className="text-muted hover:text-accent transition-colors">Shop</Link>
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 py-4 text-sm">
+          <Link to="/" className="text-tertiary transition-colors duration-snap ease-snap hover:text-accent">
+            Home
+          </Link>
+          <ChevronRight aria-hidden="true" className="h-3 w-3 text-tertiary" />
+          <Link to="/shop" className="text-tertiary transition-colors duration-snap ease-snap hover:text-accent">
+            Shop
+          </Link>
           {product.Category && (
             <>
-              <ChevronRight className="w-3 h-3 text-muted" />
-              <Link to={`/${product.Category.slug}`} className="text-muted hover:text-accent transition-colors">
+              <ChevronRight aria-hidden="true" className="h-3 w-3 text-tertiary" />
+              <Link
+                to={`/${product.Category.slug}`}
+                className="text-tertiary transition-colors duration-snap ease-snap hover:text-accent"
+              >
                 {product.Category.name}
               </Link>
             </>
           )}
-          <ChevronRight className="w-3 h-3 text-muted" />
-          <span className="text-primary font-medium truncate max-w-[200px]">{product.name}</span>
-        </motion.nav>
+          <ChevronRight aria-hidden="true" className="h-3 w-3 text-tertiary" />
+          <span className="max-w-[200px] truncate font-bold text-primary">{product.name}</span>
+        </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
+        <div className="rule-section mb-8" />
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-16">
           {/* Image Gallery */}
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-4"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={REVEAL}
+            className="space-y-3"
           >
             {/* Main Image */}
-            <div className="relative aspect-square bg-secondary rounded-3xl overflow-hidden group border border-border-primary shadow-lg">
+            <div className="group relative aspect-square overflow-hidden rounded-card border-2 border-inverse bg-secondary">
               <AnimatePresence mode="wait">
                 <motion.img
                   key={currentImageIndex}
-                  initial={{ opacity: 0, scale: 1.05 }}
-                  animate={{ opacity: 1, scale: 1 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.4 }}
+                  transition={{ duration: 0.16 }}
                   src={images[currentImageIndex] || NO_IMAGE_PLACEHOLDER}
                   alt={product.name}
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                  className="h-full w-full object-cover"
                 />
               </AnimatePresence>
 
               {/* Navigation Arrows */}
               {images.length > 1 && (
-                <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-x-3 top-1/2 flex -translate-y-1/2 justify-between">
                   <button
                     type="button"
                     aria-label="Previous image"
                     onClick={() => setCurrentImageIndex((i) => (i === 0 ? images.length - 1 : i - 1))}
-                    className="p-3 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg text-gray-800 hover:bg-accent hover:text-white transition-all active:scale-95"
+                    className={cn(ICON_BUTTON, "border-inverse bg-card text-primary hover:bg-inverse hover:text-inverse")}
                   >
-                    <ChevronLeft className="w-5 h-5" />
+                    <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     type="button"
                     aria-label="Next image"
                     onClick={() => setCurrentImageIndex((i) => (i === images.length - 1 ? 0 : i + 1))}
-                    className="p-3 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg text-gray-800 hover:bg-accent hover:text-white transition-all active:scale-95"
+                    className={cn(ICON_BUTTON, "border-inverse bg-card text-primary hover:bg-inverse hover:text-inverse")}
                   >
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="h-5 w-5" />
                   </button>
                 </div>
               )}
 
               {/* Badges */}
-              <div className="absolute top-4 left-4 z-10">
+              <div className="absolute left-3 top-3 z-10">
                 <ProductBadges product={product} layout="row" />
               </div>
 
               {/* Image Counter */}
               {images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs font-medium">
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-tag bg-inverse px-2 py-1 font-display text-[17px] leading-none tabular-nums text-inverse">
                   {currentImageIndex + 1} / {images.length}
                 </div>
               )}
@@ -343,7 +387,7 @@ const ProductDetail = () => {
 
             {/* Thumbnails */}
             {images.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+              <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-2">
                 {images.map((img: string, idx: number) => (
                   <button
                     key={idx}
@@ -352,16 +396,16 @@ const ProductDetail = () => {
                     aria-current={currentImageIndex === idx}
                     onClick={() => setCurrentImageIndex(idx)}
                     className={cn(
-                      "w-20 h-20 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all",
+                      "h-20 w-20 flex-shrink-0 overflow-hidden rounded-tag border-2 transition duration-snap ease-snap",
                       currentImageIndex === idx
-                        ? "border-accent shadow-lg shadow-accent/20"
-                        : "border-border-primary opacity-60 hover:opacity-100 hover:border-accent/50"
+                        ? "border-inverse shadow-hard-sm"
+                        : "border-border-primary opacity-70 hover:opacity-100"
                     )}
                   >
                     <img
                       src={img}
                       alt={`${product.name} — view ${idx + 1}`}
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   </button>
                 ))}
@@ -371,53 +415,55 @@ const ProductDetail = () => {
 
           {/* Product Info */}
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...REVEAL, delay: 0.04 }}
             className="flex flex-col"
           >
             {/* Brand & Category */}
-            <div className="flex items-center gap-3 flex-wrap mb-3">
+            <div className="mb-2 flex flex-wrap items-center gap-3">
               {product.Brand?.name && (
-                <span className="text-xs font-bold text-accent uppercase tracking-wider px-2.5 py-1 bg-accent/10 rounded-lg">
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-accent">
                   {product.Brand.name}
                 </span>
               )}
               {product.Category?.name && (
-                <span className="text-xs text-muted font-medium">
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
                   {product.Category.name}
                 </span>
               )}
             </div>
 
             {/* Name */}
-            <h1 className="text-2xl md:text-3xl font-bold text-primary leading-tight">
+            <h1 className="font-display text-[clamp(34px,6vw,56px)] font-semibold uppercase leading-[0.92] text-primary">
               {product.name}
             </h1>
 
             {/* Rating — real stats only; nothing is rendered without reviews */}
             {reviewStats && reviewStats.totalReviews > 0 && (
-              <div className="flex items-center gap-3 mt-3">
+              <div className="mt-3 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((i) => (
                     <Star
                       key={i}
+                      aria-hidden="true"
                       className={cn(
-                        "w-4 h-4",
+                        "h-4 w-4",
                         i <= Math.round(reviewStats.averageRating)
-                          ? "fill-amber-400 text-amber-400"
+                          ? "fill-marigold text-marigold"
                           : "text-muted"
                       )}
                     />
                   ))}
                 </div>
-                <span className="text-xs text-muted font-medium">
-                  ({reviewStats.averageRating.toFixed(1)} • {reviewStats.totalReviews}{" "}
-                  {reviewStats.totalReviews === 1 ? "review" : "reviews"})
+                <span className="text-sm tabular-nums text-tertiary">
+                  {reviewStats.averageRating.toFixed(1)} • {reviewStats.totalReviews}{" "}
+                  {reviewStats.totalReviews === 1 ? "review" : "reviews"}
                 </span>
                 <button
+                  type="button"
                   onClick={() => document.getElementById("reviews-section")?.scrollIntoView({ behavior: "smooth" })}
-                  className="text-xs text-accent font-medium hover:underline"
+                  className="min-h-[44px] text-[11px] font-bold uppercase tracking-[0.12em] text-accent underline"
                 >
                   Read reviews
                 </button>
@@ -425,129 +471,134 @@ const ProductDetail = () => {
             )}
 
             {/* Price — a range until the options that fix a price are chosen */}
-            <div className="flex items-baseline gap-3 mt-5">
+            <div className="mt-4 flex flex-wrap items-baseline gap-3">
               {hasVariants && (selectedVariant ? currentPrice > 0 : maxVariantPrice > 0) ? (
                 selectedVariant ? (
                   <>
-                    <span className="text-3xl font-black text-primary">Rs {currentPrice.toLocaleString()}</span>
+                    <span className="font-display text-[44px] font-semibold leading-none tabular-nums text-primary">
+                      Rs {currentPrice.toLocaleString()}
+                    </span>
                     {originalPrice > currentPrice && (
                       <>
-                        <span className="text-lg text-muted line-through">Rs {originalPrice.toLocaleString()}</span>
-                        <span className="text-sm font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-lg">
-                          {discount}% OFF
+                        <span className="font-display text-[26px] leading-none tabular-nums text-muted line-through">
+                          Rs {originalPrice.toLocaleString()}
+                        </span>
+                        <span className="inline-flex items-center rounded-tag border-[1.5px] border-marigold bg-marigold-soft px-1.5 py-0.5 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-marigold">
+                          <span className="tabular-nums">{discount}</span>
+                          <span className="ml-1">% off</span>
                         </span>
                       </>
                     )}
                   </>
                 ) : minVariantPrice !== maxVariantPrice ? (
-                  <span className="text-3xl font-black text-primary">
+                  <span className="font-display text-[44px] font-semibold leading-none tabular-nums text-primary">
                     Rs {minVariantPrice.toLocaleString()} – Rs {maxVariantPrice.toLocaleString()}
                   </span>
                 ) : (
-                  <span className="text-3xl font-black text-primary">Rs {maxVariantPrice.toLocaleString()}</span>
+                  <span className="font-display text-[44px] font-semibold leading-none tabular-nums text-primary">
+                    Rs {maxVariantPrice.toLocaleString()}
+                  </span>
                 )
               ) : (
-                <span className="text-xl font-bold text-muted">Price coming soon</span>
+                <span className="font-display text-[29px] font-semibold uppercase leading-none text-tertiary">
+                  Price coming soon
+                </span>
               )}
             </div>
 
             {/* Unavailable Banner */}
             {!isAvailable && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-5 p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 flex items-start gap-3"
-              >
-                <PackageX className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div className="mt-5 flex items-start gap-3 rounded-card border-2 border-marigold bg-marigold-soft p-3">
+                <PackageX aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-marigold" />
                 <div>
                   <p className="text-sm font-bold text-primary">
                     {hasVariants ? "Currently out of stock" : "Not available yet"}
                   </p>
-                  <p className="text-xs text-tertiary mt-0.5">
+                  <p className="mt-0.5 text-sm text-primary">
                     {hasVariants
                       ? "All variants are currently sold out. Check back soon."
                       : "This product hasn't been stocked yet. Reach out on WhatsApp for availability."}
                   </p>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* Description */}
             {product.description && (
-              <p className="text-sm text-tertiary leading-relaxed mt-5">{product.description}</p>
+              <p className="mt-5 max-w-[62ch] text-base leading-relaxed text-secondary">
+                {product.description}
+              </p>
             )}
 
-            <div className="border-t border-border-primary my-6" />
+            <div className="my-6 border-t-2 border-border-primary" />
 
-            {/* Size Selection */}
+            {/* Size run — the primary selector */}
             {availableSizes.length > 0 && availableSizes[0] !== "One Size" && (
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-bold text-primary">Select Size</span>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                    Select size
+                  </span>
                   {selectedSize && (
-                    <span className="text-xs text-accent font-semibold bg-accent/10 px-2 py-1 rounded-lg">
+                    <span className="font-display text-[19px] font-semibold uppercase leading-none tabular-nums text-primary">
                       {selectedSize}
                     </span>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2.5">
-                  {availableSizes.map((size) => {
-                    const available = selectedColor
-                      ? variants.some((v) => v.size === size && v.color === selectedColor && v.stock > 0)
-                      : variants.some((v) => v.size === size && v.stock > 0);
-                    return (
-                      <button
-                        key={size}
-                        disabled={!available}
-                        onClick={() => handleSelectSize(size)}
-                        className={cn(
-                          "min-w-[48px] h-12 px-4 rounded-xl text-sm font-bold border-2 transition-all",
-                          selectedSize === size
-                            ? "bg-accent border-accent text-white shadow-lg shadow-accent/20"
-                            : available
-                              ? "bg-secondary border-border-primary text-primary hover:border-accent/50"
-                              : "bg-secondary border-border-primary text-muted opacity-40 cursor-not-allowed line-through"
-                        )}
-                      >
-                        {size}
-                      </button>
-                    );
-                  })}
-                </div>
+                <SizeRun
+                  sizes={sizeOptions}
+                  selected={selectedSize}
+                  onSelect={handleSelectSize}
+                  boxClassName="min-h-[48px] min-w-[48px] px-3 text-[23px]"
+                />
+                <p className="mt-2 text-sm text-tertiary">
+                  A struck-through box is sold out in that size.
+                </p>
               </div>
             )}
 
             {/* Color Selection */}
             {availableColors.length > 1 && (
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-bold text-primary">Select Color</span>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                    Select colour
+                  </span>
                   {selectedColor && (
-                    <span className="text-xs text-accent font-semibold capitalize bg-accent/10 px-2 py-1 rounded-lg">
+                    <span className="font-display text-[19px] font-semibold uppercase leading-none text-primary">
                       {selectedColor}
                     </span>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2.5">
+                <div className="flex flex-wrap gap-1.5">
                   {availableColors.map((color) => {
-                    const available = selectedSize
-                      ? variants.some((v) => v.color === color && v.size === selectedSize && v.stock > 0)
-                      : variants.some((v) => v.color === color && v.stock > 0);
+                    const available = selectedColor
+                      ? variants.some(
+                          (v) =>
+                            v.color === color &&
+                            v.size === selectedSize &&
+                            isVariantSellable(v)
+                        )
+                      : variants.some((v) => v.color === color && isVariantSellable(v));
+                    const isSelected = selectedColor === color;
                     return (
                       <button
                         key={color}
+                        type="button"
                         disabled={!available}
+                        aria-pressed={isSelected}
                         onClick={() => handleSelectColor(color)}
                         className={cn(
-                          "px-5 h-11 rounded-xl text-sm font-bold border-2 transition-all capitalize",
-                          selectedColor === color
-                            ? "bg-accent border-accent text-white shadow-lg shadow-accent/20"
+                          "min-h-[48px] rounded-tag border-2 px-4 font-display text-[23px] font-semibold uppercase leading-none transition duration-snap ease-snap",
+                          isSelected
+                            ? "border-inverse bg-inverse text-inverse"
                             : available
-                              ? "bg-secondary border-border-primary text-primary hover:border-accent/50"
-                              : "bg-secondary border-border-primary text-muted opacity-40 cursor-not-allowed"
+                              ? "border-inverse bg-card text-primary hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-sm"
+                              : "cursor-not-allowed border-border-primary text-muted"
                         )}
                       >
                         {color}
+                        {!available && <span className="sr-only">, sold out</span>}
                       </button>
                     );
                   })}
@@ -557,164 +608,160 @@ const ProductDetail = () => {
 
             {/* Stock Indicator — hidden until the options resolve a real variant */}
             {!needsSelection && selectedVariant && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+              <p
                 className={cn(
-                  "flex items-center gap-2 text-xs font-semibold mb-5 px-3 py-2 rounded-xl",
-                  inStock ? "text-emerald-600 bg-emerald-500/10" : "text-red-500 bg-red-500/10"
+                  "mb-5 inline-flex items-center gap-2 self-start rounded-tag border-[1.5px] px-1.5 py-0.5 text-[11px] font-bold uppercase leading-none tracking-[0.12em]",
+                  inStock ? "border-pitch text-pitch" : "border-accent text-accent"
                 )}
               >
-                <div className={cn("w-2 h-2 rounded-full", inStock ? "bg-emerald-500 animate-pulse" : "bg-red-500")} />
-                {inStock ? `In stock (${stockCount} available)` : "Out of stock"}
-              </motion.div>
+                {inStock ? (
+                  <>
+                    In stock
+                    {stockCount !== null && (
+                      <span className="tabular-nums">({stockCount})</span>
+                    )}
+                  </>
+                ) : (
+                  "Out of stock"
+                )}
+              </p>
             )}
 
             {/* Chosen combination does not exist */}
             {combinationUnavailable && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2 text-xs font-semibold mb-5 px-3 py-2 rounded-xl text-amber-600 bg-amber-500/10"
-              >
-                <PackageX className="w-4 h-4 shrink-0" />
-                This combination isn't available. Try another size or color.
-              </motion.div>
+              <p className="mb-5 flex items-center gap-2 self-start rounded-tag border-[1.5px] border-marigold bg-marigold-soft px-1.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-marigold">
+                <PackageX aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                This combination isn't available — try another size or colour.
+              </p>
             )}
 
             {/* Quantity + Add to Cart */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center bg-secondary border border-border-primary rounded-xl">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="flex items-center rounded-tag border-2 border-inverse bg-card">
                 <button
                   type="button"
                   aria-label="Decrease quantity"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   disabled={!canAddToCart || quantity <= 1}
-                  className="w-11 h-11 flex items-center justify-center text-secondary hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center text-primary transition duration-snap ease-snap disabled:text-muted"
                 >
-                  <Minus className="w-4 h-4" />
+                  <Minus className="h-4 w-4" />
                 </button>
-                <span className="w-10 text-center text-sm font-bold text-primary">{quantity}</span>
+                <span className="w-10 text-center font-display text-[23px] font-semibold leading-none tabular-nums text-primary">
+                  {quantity}
+                </span>
                 <button
                   type="button"
                   aria-label="Increase quantity"
                   onClick={() => setQuantity((q) => Math.max(1, Math.min(maxQuantity, q + 1)))}
                   disabled={!canAddToCart || quantity >= maxQuantity}
-                  className="w-11 h-11 flex items-center justify-center text-secondary hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center text-primary transition duration-snap ease-snap disabled:text-muted"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="h-4 w-4" />
                 </button>
               </div>
 
-              <motion.button
-                whileTap={{ scale: 0.98 }}
+              <button
+                type="button"
                 onClick={handleAddToCart}
                 disabled={!canAddToCart}
                 className={cn(
-                  "flex-1 h-12 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2",
+                  "flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-tag border-2 font-display text-[23px] font-semibold uppercase leading-none transition duration-snap ease-snap",
                   addedToCart
-                    ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                    ? "border-pitch bg-pitch text-inverse"
                     : canAddToCart
-                      ? "bg-accent text-white hover:bg-accent-hover shadow-lg shadow-accent/20"
-                      : "bg-secondary text-muted cursor-not-allowed border border-border-primary"
+                      ? "border-inverse bg-accent text-inverse hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
+                      : "cursor-not-allowed border-border-primary bg-secondary text-muted"
                 )}
               >
-                <AnimatePresence mode="wait">
-                  {addedToCart ? (
-                    <motion.div
-                      key="added"
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="flex items-center gap-2"
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                      Added to Cart!
-                    </motion.div>
-                  ) : !isAvailable ? (
-                    <span key="unavailable">Unavailable</span>
-                  ) : needsSelection ? (
-                    <span key="select">Select Options</span>
-                  ) : combinationUnavailable ? (
-                    <span key="nocombo">Unavailable</span>
-                  ) : !inStock ? (
-                    <span key="outofstock">Out of Stock</span>
-                  ) : (
-                    <motion.div key="addtocart" className="flex items-center gap-2">
-                      <ShoppingBag className="w-4 h-4" />
-                      Add to Cart
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.button>
+                {addedToCart ? (
+                  <>
+                    <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
+                    Added to cart
+                  </>
+                ) : !isAvailable ? (
+                  "Unavailable"
+                ) : needsSelection ? (
+                  "Select options"
+                ) : combinationUnavailable ? (
+                  "Unavailable"
+                ) : !inStock ? (
+                  "Out of stock"
+                ) : (
+                  <>
+                    <ShoppingBag aria-hidden="true" className="h-5 w-5" />
+                    Add to cart
+                  </>
+                )}
+              </button>
 
               {/* NOTE: wishlist is local-only state — a backend exists at
                   /api/v1/wishlist but no frontend service calls it yet. */}
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button
+                type="button"
                 onClick={() => setIsWishlisted(!isWishlisted)}
                 aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
                 aria-pressed={isWishlisted}
                 className={cn(
-                  "w-12 h-12 border-2 rounded-xl flex items-center justify-center transition-all",
+                  ICON_BUTTON,
                   isWishlisted
-                    ? "bg-red-500 border-red-500 text-white"
-                    : "border-border-primary text-secondary hover:text-red-500 hover:border-red-500"
+                    ? "border-accent bg-accent text-inverse"
+                    : "border-inverse bg-card text-primary hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-sm"
                 )}
               >
-                <Heart className={cn("w-5 h-5", isWishlisted && "fill-current")} />
-              </motion.button>
+                <Heart className={cn("h-5 w-5", isWishlisted && "fill-current")} />
+              </button>
 
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button
+                type="button"
                 onClick={handleShare}
                 aria-label={linkCopied ? "Link copied to clipboard" : "Share this product"}
-                title={linkCopied ? "Link copied!" : "Share"}
+                title={linkCopied ? "Link copied" : "Share"}
                 className={cn(
-                  "w-12 h-12 border-2 rounded-xl flex items-center justify-center transition-all",
+                  ICON_BUTTON,
                   linkCopied
-                    ? "border-emerald-500 text-emerald-500"
-                    : "border-border-primary text-secondary hover:text-accent hover:border-accent"
+                    ? "border-pitch bg-card text-pitch"
+                    : "border-inverse bg-card text-primary hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-sm"
                 )}
               >
-                {linkCopied ? <CheckCircle2 className="w-5 h-5" /> : <Share2 className="w-5 h-5" />}
-              </motion.button>
+                {linkCopied ? <CheckCircle2 className="h-5 w-5" /> : <Share2 className="h-5 w-5" />}
+              </button>
             </div>
 
             {/* WhatsApp Order */}
-            <motion.a
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER || "9779748477628"}?text=${encodeURIComponent(
+            <a
+              href={whatsappUrl(
                 `Hi! I'd like to order:\n*${product.name}*${selectedSize ? `\nSize: ${selectedSize}` : ""}${selectedColor ? `\nColor: ${selectedColor}` : ""}\nPrice: Rs ${currentPrice.toLocaleString()}\nQty: ${quantity}\n\nPlease confirm availability.`
-              )}`}
+              )}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-3.5 rounded-xl text-sm font-bold border-2 border-[#25D366] text-[#25D366] hover:bg-[#25D366]/10 transition-all flex items-center justify-center gap-2"
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-tag border-2 border-pitch bg-card font-display text-[23px] font-semibold uppercase leading-none text-pitch transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
             >
-              <MessageCircle className="w-5 h-5" />
-              Order via WhatsApp
-            </motion.a>
+              <MessageCircle aria-hidden="true" className="h-5 w-5" />
+              Order on WhatsApp
+            </a>
 
-            {/* Trust Badges */}
-            <div className="grid grid-cols-3 gap-3 mt-6">
+            {/* What the shop actually promises */}
+            <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
-                { icon: Truck, label: "Nepal Delivery", desc: "2-4 days" },
-                { icon: ShieldCheck, label: "Genuine Product", desc: "100% authentic" },
-                { icon: MessageCircle, label: "24/7 Support", desc: "WhatsApp" },
+                { icon: Truck, label: "Nepal delivery", desc: "2–4 days" },
+                { icon: Wallet, label: "Cash on delivery", desc: "Pay at the door" },
+                { icon: ShieldCheck, label: "Genuine kit", desc: "Bardibas stock" },
               ].map((item, idx) => (
                 <motion.div
                   key={item.label}
-                  initial={{ opacity: 0, y: 10 }}
+                  // Mount-driven: nothing below the fold waits on an observer.
+                  initial={reduce ? false : { opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + idx * 0.1 }}
-                  className="flex flex-col items-center text-center gap-2 p-4 bg-secondary rounded-2xl border border-border-primary hover:border-accent/20 transition-all"
+                  transition={{ ...REVEAL, delay: idx * 0.04 }}
+                  className="flex items-center gap-3 rounded-card border-2 border-border-primary bg-card p-3"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                    <item.icon className="w-5 h-5 text-accent" />
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-bold text-primary block">{item.label}</span>
-                    <span className="text-[10px] text-muted">{item.desc}</span>
+                  <item.icon aria-hidden="true" className="h-5 w-5 shrink-0 text-pitch" />
+                  <div className="min-w-0">
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+                      {item.label}
+                    </span>
+                    <span className="block text-sm tabular-nums text-tertiary">{item.desc}</span>
                   </div>
                 </motion.div>
               ))}
@@ -723,14 +770,19 @@ const ProductDetail = () => {
         </div>
 
         {/* Reviews Section */}
-        <div id="reviews-section" className="mt-20 pt-10 border-t border-border-primary">
+        <div id="reviews-section" className="mt-20">
+          <div className="rule-section mb-8" />
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            // Mount-driven: nothing below the fold waits on an observer.
+            initial={reduce ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={REVEAL}
           >
-            <h2 className="text-2xl font-bold text-primary mb-8">Customer Reviews</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <p className="eyebrow mb-2">From the shop floor</p>
+            <h2 className="mb-8 font-display text-[clamp(34px,6vw,56px)] font-semibold uppercase leading-[0.92] text-primary">
+              Customer reviews
+            </h2>
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
               <div className="lg:col-span-2">
                 {/* key bump forces the list (which only refetches on productId) to reload */}
                 <ProductReviews key={`${product.id}-${reviewsVersion}`} productId={product.id} />
@@ -746,7 +798,8 @@ const ProductDetail = () => {
         </div>
 
         {/* Similar Products */}
-        <div className="mt-20 pt-10 border-t border-border-primary">
+        <div className="mt-20">
+          <div className="rule-section mb-8" />
           <Recommendations
             title="You May Also Like"
             subtitle="Similar products from this category"

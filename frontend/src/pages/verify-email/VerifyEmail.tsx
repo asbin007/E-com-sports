@@ -1,14 +1,22 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { CheckCircle, Loader, Mail } from "lucide-react";
 import { authService } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
+import { getApiErrorMessage } from "../../utils/apiError";
+
+const LABEL = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary";
+const INPUT =
+  "w-full rounded-tag border-2 border-border-primary bg-card px-4 py-3 text-sm text-primary transition-all duration-snap ease-snap placeholder:text-muted focus:border-accent";
+const BTN_PRIMARY =
+  "flex w-full items-center justify-center gap-2 rounded-tag border-2 border-inverse bg-accent py-3 font-display text-xl uppercase leading-none tracking-[0.04em] text-inverse transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none disabled:translate-x-0 disabled:translate-y-0 disabled:border-border-primary disabled:bg-secondary disabled:text-muted disabled:shadow-none";
 
 const VerifyEmail = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { login } = useAuth();
+  const reduce = useReducedMotion();
 
   // Get email from location state (redirected from login/register) or allow manual entry if missing
   const [email, setEmail] = useState(location.state?.email || "");
@@ -32,9 +40,9 @@ const VerifyEmail = () => {
       const data = await authService.verifyOtp({ email, otp });
       login(data.token, data.user);
       navigate("/");
-    } catch (err: any) {
+    } catch (err) {
       setError(
-        err.response?.data?.message || "Invalid OTP. Please check code.",
+        getApiErrorMessage(err, "Invalid OTP. Please check code."),
       );
     } finally {
       setLoading(false);
@@ -64,9 +72,9 @@ const VerifyEmail = () => {
           return prev - 1;
         });
       }, 1000);
-    } catch (err: any) {
+    } catch (err) {
       setError(
-        err.response?.data?.message || "Failed to resend OTP. Try again later.",
+        getApiErrorMessage(err, "Failed to resend OTP. Try again later."),
       );
     } finally {
       setLoading(false);
@@ -74,63 +82,68 @@ const VerifyEmail = () => {
   };
 
   return (
-    <div className="min-h-screen pt-4 flex items-center justify-center bg-primary relative overflow-hidden px-4">
-      {/* Background Decor */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[120px] translate-x-1/2 -translate-y-1/2"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent/5 rounded-full blur-[120px] -translate-x-1/2 translate-y-1/2"></div>
-
+    <div className="min-h-screen pt-4 flex items-center justify-center bg-primary px-4">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={reduce ? false : { opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-card backdrop-blur-lg p-8 sm:p-10 rounded-2xl shadow-xl w-full max-w-md border border-border-primary relative z-10"
+        transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
+        className="w-full max-w-md rounded-card border-2 border-inverse bg-card p-8 sm:p-10"
       >
         {/* Logo */}
-        <div className="flex justify-center mb-8">
+        <div className="mb-8 flex justify-center">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center">
-              <span className="text-white font-black text-lg italic">B</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-tag border-2 border-inverse bg-accent">
+              <span className="font-display text-xl font-bold leading-none text-inverse">B</span>
             </div>
             <div>
-              <span className="text-lg font-black text-primary tracking-tight uppercase italic leading-none block">Brothers</span>
-              <span className="text-[8px] font-bold text-accent uppercase tracking-[0.2em] leading-none">Sports House</span>
+              <span className="block font-display text-xl font-bold uppercase leading-none text-primary">Brothers</span>
+              <span className="text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-accent">Sports House</span>
             </div>
           </Link>
         </div>
 
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-primary">Verify Your Email</h2>
-          <p className="text-tertiary text-sm mt-1">
+        <div className="mb-8">
+          <p className="eyebrow mb-2">Verification</p>
+          <h2 className="font-display text-[34px] font-semibold uppercase leading-none text-primary">Verify Your Email</h2>
+          <p className="mt-1 text-sm text-tertiary">
             Enter the 6-digit code sent to your email
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-sm text-center font-medium">
+          <div
+            role="alert"
+            className="mb-4 rounded-tag border-2 border-accent bg-card p-3 text-center text-sm font-bold text-accent"
+          >
             {error}
           </div>
         )}
 
         {message && (
-          <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-500 rounded-xl text-sm text-center font-medium">
+          <div
+            role="status"
+            className="mb-4 rounded-tag border-2 border-pitch bg-card p-3 text-center text-sm font-bold text-pitch"
+          >
             {message}
           </div>
         )}
 
         <form onSubmit={handleVerifyOtp} className="space-y-5">
-          <div className="flex justify-center mb-4">
-            <div className="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center">
-              <Mail className="w-7 h-7 text-accent" />
+          <div className="mb-4 flex justify-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-tag border-2 border-inverse bg-marigold-soft">
+              <Mail className="h-7 w-7 text-marigold" aria-hidden="true" />
             </div>
           </div>
 
           {!location.state?.email && (
             <div>
-              <label className="block text-sm font-medium text-secondary mb-1.5">
+              <label htmlFor="verify-email" className={LABEL}>
                 Email Address
               </label>
               <input
+                id="verify-email"
                 type="email"
-                className="w-full px-4 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all placeholder:text-muted"
+                className={INPUT}
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -140,22 +153,23 @@ const VerifyEmail = () => {
           )}
 
           {location.state?.email && (
-            <div className="text-center text-sm font-medium text-secondary bg-secondary border border-border-primary py-2.5 rounded-xl">
-              Verifying for: <span className="text-accent font-bold">{email}</span>
+            <div className="rounded-tag border-2 border-border-primary bg-secondary py-2.5 text-center text-sm text-primary">
+              Verifying for: <span className="font-bold text-accent">{email}</span>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-secondary mb-1.5 text-center">
+            <label htmlFor="verify-otp" className={`${LABEL} text-center`}>
               One-Time Password
             </label>
             <input
+              id="verify-otp"
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
               pattern="[0-9]{6}"
               autoFocus
-              className="w-full px-4 py-4 bg-secondary border border-border-primary rounded-xl text-center text-2xl tracking-[0.5em] font-bold text-primary focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all placeholder:text-muted"
+              className="w-full rounded-tag border-2 border-border-primary bg-card px-4 py-4 text-center font-display text-3xl font-semibold leading-none tracking-[0.4em] tabular-nums text-primary transition-all duration-snap ease-snap placeholder:text-muted focus:border-accent"
               placeholder="000000"
               maxLength={6}
               value={otp}
@@ -167,25 +181,25 @@ const VerifyEmail = () => {
           <button
             type="submit"
             disabled={loading || otp.length < 6}
-            className="w-full bg-accent text-white py-3.5 rounded-xl font-bold text-sm shadow-lg shadow-accent/20 hover:bg-accent-hover hover:shadow-accent/30 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className={`${BTN_PRIMARY} disabled:cursor-not-allowed`}
           >
             {loading ? (
-              <Loader className="w-5 h-5 animate-spin" />
+              <Loader className="h-5 w-5 animate-spin" />
             ) : (
               <>
-                Verify & Login <CheckCircle className="w-4 h-4" />
+                Verify &amp; Login <CheckCircle className="h-4 w-4" />
               </>
             )}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-tertiary mb-1">Didn't receive the code?</p>
+          <p className="mb-1 text-sm text-tertiary">Didn't receive the code?</p>
           <button
             type="button"
             onClick={handleResendOtp}
             disabled={loading || resendCooldown > 0}
-            className="text-accent font-bold text-sm hover:underline disabled:text-muted disabled:no-underline"
+            className="inline-flex min-h-[44px] items-center justify-center px-2 text-sm font-bold text-accent tabular-nums hover:underline disabled:text-muted disabled:no-underline"
           >
             {resendCooldown > 0
               ? `Resend available in ${resendCooldown}s`
@@ -195,7 +209,7 @@ const VerifyEmail = () => {
 
         <div className="mt-8 text-center text-sm text-tertiary">
           Wrong email?{" "}
-          <Link to="/register" className="text-accent font-bold hover:underline">
+          <Link to="/register" className="font-bold text-accent hover:underline">
             Create a new account
           </Link>
         </div>

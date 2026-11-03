@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Package, Settings, LogOut, LayoutDashboard, MessageCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { cn } from "../../utils/cn";
+import { whatsappUrl } from "../../data/store";
 
 type NavItem = {
   /** Stable identity for this nav entry — the active check keys off this, never off raw path equality. */
@@ -24,6 +25,7 @@ const menuItems: NavItem[] = [
  * sharing a path (the old Wishlist/Overview bug) can no longer both light up, and
  * nested routes like /dashboard/orders/:id correctly keep "My Orders" highlighted.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const getActiveNavKey = (pathname: string): string => {
   const normalized = pathname.replace(/\/+$/, "") || "/dashboard";
   const match = [...menuItems]
@@ -32,22 +34,29 @@ export const getActiveNavKey = (pathname: string): string => {
   return match?.key ?? "";
 };
 
-const whatsappHref = `https://wa.me/${
-  import.meta.env.VITE_WHATSAPP_NUMBER || "9779748477628"
-}?text=Hi!%20I%20need%20help%20with%20my%20order.`;
+const whatsappHref = whatsappUrl("Hi! I need help with my order.");
+
+/** Nav entry: 44px minimum hit area, ink fill when active. */
+const NAV_ITEM_BASE =
+  "flex min-h-[44px] items-center rounded-tag transition-all duration-snap ease-snap";
+const NAV_ITEM_ACTIVE = "border-2 border-inverse bg-accent text-inverse";
+const NAV_ITEM_IDLE =
+  "border-2 border-transparent text-primary hover:border-inverse hover:bg-surface-hover";
 
 export const DashboardProfileCard = () => {
   const { user } = useAuth();
 
   return (
-    <div className="bg-card rounded-2xl p-5 border border-border-primary">
+    <div className="rounded-card border-2 border-inverse bg-card p-5">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center text-white text-lg font-bold">
+        <div className="flex h-12 w-12 items-center justify-center rounded-tag border-2 border-inverse bg-accent font-display text-xl font-bold leading-none text-inverse">
           {user?.username?.charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-bold text-primary truncate">{user?.username}</h3>
-          <p className="text-xs text-muted truncate">{user?.email}</p>
+          <h2 className="truncate font-display text-xl font-semibold uppercase leading-none text-primary">
+            {user?.username}
+          </h2>
+          <p className="truncate text-xs text-tertiary">{user?.email}</p>
         </div>
       </div>
     </div>
@@ -55,18 +64,20 @@ export const DashboardProfileCard = () => {
 };
 
 export const DashboardHelpCard = () => (
-  <div className="bg-accent/10 rounded-2xl p-5 border border-accent/20">
-    <h4 className="text-sm font-bold text-primary mb-1">Need Help?</h4>
-    <p className="text-xs text-tertiary mb-4">
-      Contact us anytime via WhatsApp for order support.
+  <div className="rounded-card border-2 border-inverse bg-marigold-soft p-5">
+    <h2 className="mb-1 font-display text-xl font-semibold uppercase leading-none text-primary">
+      Need Help?
+    </h2>
+    <p className="mb-4 text-xs text-primary">
+      Message us on WhatsApp for order support — Bardibas (Chaudhary Market).
     </p>
     <a
       href={whatsappHref}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-2 text-xs font-bold text-accent hover:underline"
+      className="inline-flex min-h-[44px] items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-accent hover:underline"
     >
-      <MessageCircle className="w-4 h-4" />
+      <MessageCircle className="h-4 w-4" aria-hidden="true" />
       Chat on WhatsApp
     </a>
   </div>
@@ -90,9 +101,9 @@ export const DashboardNavTabs = () => {
   return (
     <nav
       aria-label="Dashboard"
-      className="bg-card rounded-2xl border border-border-primary p-1.5 overflow-x-auto scrollbar-hide"
+      className="scrollbar-hide overflow-x-auto rounded-card border-2 border-inverse bg-card p-1.5"
     >
-      <div className="flex items-center gap-1 w-max min-w-full">
+      <div className="flex w-max min-w-full items-center gap-1">
         {menuItems.map((item) => {
           const isActive = item.key === activeKey;
           const Icon = item.icon;
@@ -102,26 +113,30 @@ export const DashboardNavTabs = () => {
               to={item.path}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap",
-                isActive
-                  ? "bg-accent text-white"
-                  : "text-secondary hover:bg-surface-hover hover:text-primary"
+                NAV_ITEM_BASE,
+                "gap-2 whitespace-nowrap px-4",
+                isActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE
               )}
             >
-              <Icon className={cn("w-4 h-4", isActive ? "text-white" : "text-muted")} />
-              <span className="text-sm font-semibold">{item.label}</span>
+              <Icon className={cn("h-4 w-4", isActive ? "text-inverse" : "text-tertiary")} />
+              <span className="font-display text-lg font-semibold uppercase leading-none">
+                {item.label}
+              </span>
             </Link>
           );
         })}
 
-        <span aria-hidden="true" className="w-px self-stretch bg-secondary mx-1" />
+        <span aria-hidden="true" className="mx-1 w-px self-stretch bg-border-primary" />
 
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-red-500 hover:bg-red-500/5 transition-all whitespace-nowrap"
+          className={cn(
+            NAV_ITEM_BASE,
+            "gap-2 whitespace-nowrap px-4 border-2 border-transparent text-accent hover:border-accent"
+          )}
         >
-          <LogOut className="w-4 h-4" />
-          <span className="text-sm font-semibold">Logout</span>
+          <LogOut className="h-4 w-4" aria-hidden="true" />
+          <span className="font-display text-lg font-semibold uppercase leading-none">Logout</span>
         </button>
       </div>
     </nav>
@@ -140,13 +155,13 @@ const DashboardSidebar = () => {
   };
 
   return (
-    <div className="w-full lg:w-72 flex flex-col gap-4 lg:sticky lg:top-28">
+    <div className="flex w-full flex-col gap-4 lg:sticky lg:top-28 lg:w-72">
       <DashboardProfileCard />
 
       {/* Navigation */}
       <nav
         aria-label="Dashboard"
-        className="bg-card rounded-2xl p-3 border border-border-primary space-y-1"
+        className="space-y-1 rounded-card border-2 border-inverse bg-card p-3"
       >
         {menuItems.map((item) => {
           const isActive = item.key === activeKey;
@@ -157,26 +172,30 @@ const DashboardSidebar = () => {
               to={item.path}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all",
-                isActive
-                  ? "bg-accent text-white"
-                  : "text-secondary hover:bg-surface-hover hover:text-primary"
+                NAV_ITEM_BASE,
+                "gap-3 px-4",
+                isActive ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE
               )}
             >
-              <Icon className={cn("w-4.5 h-4.5", isActive ? "text-white" : "text-muted")} />
-              <span className="text-sm font-semibold">{item.label}</span>
+              <Icon className={cn("h-4 w-4", isActive ? "text-inverse" : "text-tertiary")} />
+              <span className="font-display text-lg font-semibold uppercase leading-none">
+                {item.label}
+              </span>
             </Link>
           );
         })}
 
-        <hr className="border-border-primary my-2" />
+        <hr className="my-2 border-border-primary" />
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-500/5 transition-all"
+          className={cn(
+            NAV_ITEM_BASE,
+            "w-full gap-3 px-4 border-2 border-transparent text-accent hover:border-accent"
+          )}
         >
-          <LogOut className="w-4.5 h-4.5" />
-          <span className="text-sm font-semibold">Logout</span>
+          <LogOut className="h-4 w-4" aria-hidden="true" />
+          <span className="font-display text-lg font-semibold uppercase leading-none">Logout</span>
         </button>
       </nav>
 

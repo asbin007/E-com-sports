@@ -16,7 +16,6 @@ import {
   ChevronLeft,
   ArrowRight,
   Package,
-  Lock,
   MessageCircle,
   Banknote,
   QrCode,
@@ -27,7 +26,8 @@ import {
   Clock,
   UploadCloud,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
+import { STORE } from "../data/store";
 
 const KATHMANDU_VALLEY = ["kathmandu", "lalitpur", "bhaktapur", "kirtipur", "madhyapur thimi"];
 const MAJOR_CITIES = [
@@ -40,6 +40,17 @@ const MAJOR_CITIES = [
   "sindhuli", "ramechhap", "dolakha", "sindhupalchok", "kavre", "nuwakot",
   "rasuwa", "dhading", "kaski", "tanahu",
 ];
+
+const LABEL = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary";
+const INPUT_BASE =
+  "w-full rounded-tag border-2 bg-card px-4 py-3 text-sm text-primary transition-all duration-snap ease-snap placeholder:text-muted";
+const BTN_PRIMARY =
+  "flex w-full items-center justify-center gap-2 rounded-tag border-2 border-inverse bg-accent py-3 font-display text-xl uppercase leading-none tracking-[0.04em] text-inverse transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none disabled:translate-x-0 disabled:translate-y-0 disabled:border-border-primary disabled:bg-secondary disabled:text-muted disabled:shadow-none";
+const BTN_SECONDARY =
+  "flex w-full items-center justify-center gap-2 rounded-tag border-2 border-inverse bg-transparent py-3 font-display text-lg uppercase leading-none tracking-[0.04em] text-primary transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none";
+const BTN_INLINE_ACCENT =
+  "inline-flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-inverse bg-accent px-4 font-display text-base uppercase leading-none tracking-[0.04em] text-inverse transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none";
+const RECEIPT_ROW = "flex items-baseline justify-between gap-3 border-b border-border-primary py-2.5 text-sm";
 
 type ShippingFieldName =
   | "firstName"
@@ -103,6 +114,7 @@ const Checkout = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
+  const reduce = useReducedMotion();
 
   // A request that never got a response — the server may still have committed the
   // order, so this must never be reported the same way as a rejection.
@@ -423,26 +435,29 @@ const Checkout = () => {
     return (
       <div className="min-h-screen bg-primary flex items-center justify-center p-6">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="bg-card p-8 sm:p-12 rounded-2xl shadow-xl border border-border-primary text-center max-w-lg w-full"
+          initial={reduce ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
+          className="w-full max-w-lg rounded-card border-2 border-inverse bg-card p-8 text-center sm:p-12"
         >
           <div
-            className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${
-              awaitingVerification ? "bg-accent/10" : "bg-green-500/10"
+            className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-tag border-2 ${
+              awaitingVerification
+                ? "border-marigold bg-marigold-soft"
+                : "border-pitch bg-card"
             }`}
           >
             {awaitingVerification ? (
-              <Clock className="w-8 h-8 text-accent" />
+              <Clock className="h-8 w-8 text-marigold" aria-hidden="true" />
             ) : (
-              <CheckCircle className="w-8 h-8 text-green-500" />
+              <CheckCircle className="h-8 w-8 text-pitch" aria-hidden="true" />
             )}
           </div>
 
-          <h2 className="text-2xl font-black text-primary mb-2">
-            {awaitingVerification ? "Order Received" : "Order Placed Successfully!"}
-          </h2>
-          <p className="text-tertiary text-sm mb-6">
+          <h1 className="mb-2 font-display text-[34px] font-semibold uppercase leading-none text-primary">
+            {awaitingVerification ? "Order Received" : "Order Placed"}
+          </h1>
+          <p className="mb-6 text-sm leading-relaxed text-tertiary">
             {awaitingVerification
               ? "We have your order, but it is not confirmed yet — our team still has to check your payment manually. We'll update you on WhatsApp and email as soon as it's verified."
               : "Your order is confirmed. Please keep the cash ready for the delivery partner. You'll receive updates on WhatsApp and email."}
@@ -450,14 +465,14 @@ const Checkout = () => {
 
           {/* The number the customer needs to quote on a support call. */}
           {orderReference && (
-            <div className="bg-secondary border border-border-primary rounded-xl px-4 py-3 mb-6">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
+            <div className="mb-6 rounded-tag border-2 border-inverse bg-secondary px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
                 Your order number
               </p>
-              <p className="text-xl font-black text-primary tracking-wide mt-0.5">
+              <p className="mt-0.5 font-display text-[29px] font-semibold leading-none tabular-nums text-primary">
                 #{orderReference}
               </p>
-              <p className="text-[10px] text-muted mt-1">
+              <p className="mt-1 text-[11px] text-tertiary">
                 Quote this if you contact us about this order.
               </p>
             </div>
@@ -466,22 +481,19 @@ const Checkout = () => {
           {/* Proof upload failed — the money is already gone, so say so plainly
               and hand them a direct route to re-send it. */}
           {proofUploadFailed && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6 text-left flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-amber-600">
+            <div className="mb-6 flex items-start gap-3 rounded-tag border-2 border-marigold bg-marigold-soft p-4 text-left">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-marigold" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <h2 className="font-display text-lg font-semibold uppercase leading-none text-primary">
                   Your payment proof did not upload
-                </h3>
-                <p className="text-xs text-secondary mt-1 leading-relaxed">
+                </h2>
+                <p className="mt-1 text-xs leading-relaxed text-primary">
                   Your order was created, but the transaction ID and screenshot never
                   reached us, so we cannot verify your payment yet. Please re-send your
                   proof from the order page — do not pay again.
                 </p>
-                <Link
-                  to={orderDetailPath}
-                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl font-bold text-xs hover:bg-accent-hover transition-all active:scale-95"
-                >
-                  <UploadCloud className="w-3.5 h-3.5" />
+                <Link to={orderDetailPath} className={`mt-3 ${BTN_INLINE_ACCENT}`}>
+                  <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
                   Re-send payment proof
                 </Link>
               </div>
@@ -491,40 +503,38 @@ const Checkout = () => {
           <div className="space-y-3">
             {/* WhatsApp Confirmation */}
             <a
-              href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER || "9779748477628"}?text=${placedOrder?.whatsappText || ""}`}
+              href={`https://wa.me/${STORE.whatsapp}?text=${placedOrder?.whatsappText || ""}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-3.5 bg-[#25D366] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#20bd5a] transition-all active:scale-95 shadow-lg shadow-[#25D366]/20"
+              className="flex w-full items-center justify-center gap-2 rounded-tag border-2 border-pitch bg-transparent py-3 font-display text-lg uppercase leading-none tracking-[0.04em] text-pitch transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
             >
-              <MessageCircle className="w-5 h-5" />
+              <MessageCircle className="h-5 w-5" aria-hidden="true" />
               Confirm on WhatsApp
             </a>
 
-            <button
-              onClick={() => navigate(orderDetailPath)}
-              className="w-full py-3.5 bg-accent text-white rounded-xl font-bold text-sm hover:bg-accent-hover transition-all active:scale-95"
-            >
+            <button onClick={() => navigate(orderDetailPath)} className={BTN_PRIMARY}>
               {placedOrder?.id ? "View This Order" : "View My Orders"}
             </button>
 
-            <button
-              onClick={() => navigate("/")}
-              className="w-full py-3.5 bg-secondary text-primary border border-border-primary rounded-xl font-semibold text-sm hover:bg-surface-hover transition-all active:scale-95"
-            >
+            <button onClick={() => navigate("/")} className={BTN_SECONDARY}>
               Continue Shopping
             </button>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-border-primary flex items-center justify-center gap-2">
+          <div className="mt-8 flex items-center justify-center gap-2 border-t-2 border-inverse pt-6">
             {awaitingVerification ? (
               <>
-                <Clock className="w-4 h-4 text-accent" />
-                <p className="text-xs text-muted">Awaiting manual payment verification</p>
+                <Clock className="h-4 w-4 text-marigold" aria-hidden="true" />
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-marigold">
+                  Awaiting manual payment verification
+                </p>
               </>
             ) : (
               <>
-                <ShieldCheck className="w-4 h-4 text-green-500" />
-                <p className="text-xs text-muted">Order confirmed & secured</p>
+                <ShieldCheck className="h-4 w-4 text-pitch" aria-hidden="true" />
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-pitch">
+                  Order confirmed
+                </p>
               </>
             )}
           </div>
@@ -548,13 +558,14 @@ const Checkout = () => {
     <>
       {error && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={reduce ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
           role="alert"
-          className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl flex items-center gap-3 mb-6"
+          className="mb-6 flex items-center gap-3 rounded-tag border-2 border-accent bg-card p-4"
         >
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm font-medium">{error}</p>
+          <AlertCircle className="h-5 w-5 flex-shrink-0 text-accent" aria-hidden="true" />
+          <p className="text-sm font-bold text-accent">{error}</p>
         </motion.div>
       )}
 
@@ -562,27 +573,25 @@ const Checkout = () => {
           was created. Retrying blind is what duplicates a paid order. */}
       {networkFailure && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={reduce ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
           role="alert"
-          className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl mb-6"
+          className="mb-6 rounded-tag border-2 border-marigold bg-marigold-soft p-4"
         >
           <div className="flex items-start gap-3">
-            <WifiOff className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-bold text-amber-600">
+            <WifiOff className="mt-0.5 h-5 w-5 flex-shrink-0 text-marigold" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <h2 className="font-display text-lg font-semibold uppercase leading-none text-primary">
                 We couldn't reach the server
-              </h3>
-              <p className="text-xs text-secondary mt-1 leading-relaxed">
+              </h2>
+              <p className="mt-1 text-xs leading-relaxed text-primary">
                 Your connection dropped before we heard back, so your order may still
                 have gone through. Please check My Orders first — placing it again
                 could charge you for a duplicate order.
               </p>
-              <Link
-                to="/dashboard/orders"
-                className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl font-bold text-xs hover:bg-accent-hover transition-all active:scale-95"
-              >
-                Check My Orders <ArrowRight className="w-3.5 h-3.5" />
+              <Link to="/dashboard/orders" className={`mt-3 ${BTN_INLINE_ACCENT}`}>
+                Check My Orders <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
               </Link>
             </div>
           </div>
@@ -595,31 +604,47 @@ const Checkout = () => {
     <div className="min-h-screen bg-primary pt-4 pb-20">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="py-8 border-b border-border-primary">
+        <div className="border-b-[3px] border-inverse py-8">
           <button
             onClick={() => activeStep === 2 ? setActiveStep(1) : navigate("/cart")}
-            className="flex items-center gap-1 text-sm text-tertiary hover:text-accent transition-colors mb-4"
+            className="mb-4 flex min-h-[44px] items-center gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary transition-colors duration-snap ease-snap hover:text-accent"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {activeStep === 2 ? "Back to shipping" : "Back to cart"}
           </button>
-          <h1 className="text-2xl md:text-3xl font-black text-primary">Checkout</h1>
+          <h1 className="font-display text-[34px] font-semibold uppercase leading-none text-primary md:text-[44px]">
+            Checkout
+          </h1>
 
           {/* Steps */}
-          <div className="flex items-center gap-3 mt-4">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold ${activeStep >= 1 ? "bg-accent/10 text-accent" : "bg-secondary text-muted"}`}>
-              <span className="w-5 h-5 rounded-full bg-accent text-white text-[10px] font-bold flex items-center justify-center">1</span>
+          <div className="mt-4 flex items-center gap-3">
+            <div
+              className={`flex min-h-[44px] items-center gap-2 rounded-tag border-2 px-3 text-[11px] font-bold uppercase tracking-[0.12em] ${
+                activeStep >= 1 ? "border-inverse bg-card text-primary" : "border-border-primary bg-secondary text-tertiary"
+              }`}
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-tag bg-accent font-display text-sm leading-none tabular-nums text-inverse">1</span>
               Shipping
             </div>
-            <div className="w-8 h-px bg-border-primary" />
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold ${activeStep >= 2 ? "bg-accent/10 text-accent" : "bg-secondary text-muted"}`}>
-              <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${activeStep >= 2 ? "bg-accent text-white" : "bg-tertiary text-muted"}`}>2</span>
+            <div className="h-px w-8 bg-border-primary" />
+            <div
+              className={`flex min-h-[44px] items-center gap-2 rounded-tag border-2 px-3 text-[11px] font-bold uppercase tracking-[0.12em] ${
+                activeStep >= 2 ? "border-inverse bg-card text-primary" : "border-border-primary bg-secondary text-tertiary"
+              }`}
+            >
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-tag font-display text-sm leading-none tabular-nums ${
+                  activeStep >= 2 ? "bg-accent text-inverse" : "bg-border-primary text-primary"
+                }`}
+              >
+                2
+              </span>
               Payment
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
+        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-12">
           {/* Form */}
           <div className="lg:col-span-7">
             {/* On step 1 the banner sits at the top of the form the customer is
@@ -631,24 +656,21 @@ const Checkout = () => {
               {/* Step 1: Shipping (only shown on Step 1) */}
               {activeStep === 1 && (
                 <div>
-                  <h2 className="text-lg font-bold text-primary mb-6 flex items-center gap-2">
-                    <Truck className="w-5 h-5 text-accent" />
+                  <h2 className="mb-6 flex items-center gap-2 font-display text-[29px] font-semibold uppercase leading-none text-primary">
+                    <Truck className="h-5 w-5 text-accent" aria-hidden="true" />
                     Shipping Information
                   </h2>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {SHIPPING_FIELDS.map((field) => {
                       const fieldId = `checkout-${field.name}`;
                       const errorId = `${fieldId}-error`;
                       const hasError = Boolean(fieldErrors[field.name]);
                       return (
                         <div key={field.name} className={field.colSpan === 2 ? "md:col-span-2" : ""}>
-                          <label
-                            htmlFor={fieldId}
-                            className="text-xs font-medium text-secondary mb-1.5 block"
-                          >
+                          <label htmlFor={fieldId} className={LABEL}>
                             {field.label}{" "}
-                            <span className="text-red-400" aria-hidden="true">*</span>
+                            <span className="text-accent" aria-hidden="true">*</span>
                             <span className="sr-only">(required)</span>
                           </label>
                           <input
@@ -664,14 +686,12 @@ const Checkout = () => {
                             aria-required="true"
                             aria-invalid={hasError || undefined}
                             aria-describedby={hasError ? errorId : undefined}
-                            className={`w-full px-4 py-3 bg-secondary border rounded-xl text-primary text-sm font-medium outline-none transition-all placeholder:text-muted ${
-                              hasError
-                                ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
-                                : "border-border-primary focus:border-accent focus:ring-2 focus:ring-accent/10"
+                            className={`${INPUT_BASE} ${
+                              hasError ? "border-accent" : "border-border-primary focus:border-accent"
                             }`}
                           />
                           {hasError && (
-                            <p id={errorId} role="alert" className="text-red-500 text-xs mt-1">
+                            <p id={errorId} role="alert" className="mt-1 text-xs font-bold text-accent">
                               {fieldErrors[field.name]}
                             </p>
                           )}
@@ -682,11 +702,8 @@ const Checkout = () => {
 
                   {/* Inline next-step button so it's always visible on Step 1,
                       not just in the sidebar (which can scroll out of view). */}
-                  <button
-                    type="submit"
-                    className="w-full mt-6 py-4 bg-accent text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg shadow-accent/20 hover:bg-accent-hover transition-all active:scale-95 flex items-center justify-center gap-2"
-                  >
-                    Continue to Payment <ArrowRight className="w-4 h-4" />
+                  <button type="submit" className={`mt-6 ${BTN_PRIMARY}`}>
+                    Continue to Payment <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
               )}
@@ -694,37 +711,40 @@ const Checkout = () => {
               {/* Step 2: Payment (only shown on Step 2) */}
               {activeStep === 2 && (
               <div>
-                <h2 className="text-lg font-bold text-primary mb-6 flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-accent" />
+                <h2 className="mb-6 flex items-center gap-2 font-display text-[29px] font-semibold uppercase leading-none text-primary">
+                  <CreditCard className="h-5 w-5 text-accent" aria-hidden="true" />
                   Payment Method
                 </h2>
 
                 <div className="space-y-3">
                   {/* Loading methods */}
                   {methodsLoading && (
-                    <div className="p-8 rounded-xl border border-border-primary bg-secondary flex flex-col items-center justify-center gap-3">
-                      <Loader className="w-6 h-6 animate-spin text-accent" />
-                      <p className="text-xs text-tertiary">Loading payment methods...</p>
+                    <div className="flex flex-col items-center justify-center gap-3 rounded-card border-2 border-border-primary bg-secondary p-8">
+                      <Loader className="h-6 w-6 animate-spin text-accent" aria-hidden="true" />
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                        Loading payment methods...
+                      </p>
                     </div>
                   )}
 
                   {/* Methods failed to load */}
                   {!methodsLoading && methodsError && (
                     <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl"
+                      initial={reduce ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
+                      className="rounded-tag border-2 border-accent bg-card p-4"
                     >
-                      <div className="flex items-center gap-3 text-red-500">
-                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                        <p className="text-sm font-medium">{methodsError}</p>
+                      <div className="flex items-center gap-3 text-accent">
+                        <AlertCircle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                        <p className="text-sm font-bold">{methodsError}</p>
                       </div>
                       <button
                         type="button"
                         onClick={fetchPaymentMethods}
-                        className="mt-3 px-4 py-2 bg-accent text-white rounded-xl font-bold text-xs hover:bg-accent-hover transition-all active:scale-95 flex items-center gap-2"
+                        className={`mt-3 ${BTN_INLINE_ACCENT}`}
                       >
-                        <RefreshCw className="w-3.5 h-3.5" />
+                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                         Try again
                       </button>
                     </motion.div>
@@ -732,7 +752,7 @@ const Checkout = () => {
 
                   {/* No methods configured */}
                   {!methodsLoading && !methodsError && paymentMethods.length === 0 && (
-                    <div className="p-5 rounded-xl border border-border-primary bg-secondary">
+                    <div className="rounded-card border-2 border-border-primary bg-secondary p-5">
                       <p className="text-sm text-tertiary">
                         No payment methods are available right now. Please contact us to
                         complete your order.
@@ -742,39 +762,39 @@ const Checkout = () => {
 
                   {/* Method selector */}
                   {!methodsLoading && paymentMethods.length > 0 && (
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                      {paymentMethods.map((method, index) => {
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                      {paymentMethods.map((method) => {
                         const isActive = formData.paymentMethod === method.id;
                         return (
-                          <motion.button
+                          <button
                             key={method.id}
                             type="button"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.05 }}
                             onClick={() => selectPaymentMethod(method.id)}
-                            className={`text-left p-4 rounded-xl border-2 transition-all ${
+                            aria-pressed={isActive}
+                            className={`min-h-[44px] rounded-card border-2 p-4 text-left transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none ${
                               isActive
-                                ? "border-accent bg-accent/5"
-                                : "border-border-primary bg-secondary hover:border-accent/40"
+                                ? "border-inverse bg-marigold-soft"
+                                : "border-border-primary bg-card"
                             }`}
                           >
                             <div className="flex flex-col gap-2.5">
                               <div
-                                className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                                  isActive ? "bg-accent text-white" : "bg-card text-primary"
+                                className={`flex h-10 w-10 items-center justify-center rounded-tag border-2 border-inverse ${
+                                  isActive ? "bg-accent text-inverse" : "bg-card text-primary"
                                 }`}
                               >
                                 {renderMethodIcon(method.type)}
                               </div>
                               <div>
-                                <h4 className="text-sm font-bold text-primary">{method.label}</h4>
-                                <p className="text-[11px] text-tertiary">
+                                <h3 className="font-display text-lg font-semibold uppercase leading-none text-primary">
+                                  {method.label}
+                                </h3>
+                                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
                                   {methodCaption(method.type)}
                                 </p>
                               </div>
                             </div>
-                          </motion.button>
+                          </button>
                         );
                       })}
                     </div>
@@ -782,51 +802,51 @@ const Checkout = () => {
 
                   {/* Selected method details */}
                   {selectedMethod && (
-                    <div className="p-5 rounded-xl border-2 border-accent bg-accent/5 space-y-4">
+                    <div className="space-y-4 rounded-card border-2 border-inverse bg-card p-5">
                       {/* QR method */}
                       {selectedMethod.type === "qr" && (
                         <div className="flex flex-col items-center">
-                          <p className="text-xs font-bold text-primary mb-3">
+                          <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
                             Scan to Pay with {selectedMethod.label}
                           </p>
                           {selectedMethod.qrImage ? (
-                            <div className="w-48 h-48 bg-white rounded-xl overflow-hidden shadow-sm border border-border-primary p-2">
+                            <div className="h-48 w-48 overflow-hidden rounded-tag border-2 border-inverse bg-card p-2">
                               <img
                                 src={selectedMethod.qrImage}
-                                className="w-full h-full object-contain"
+                                className="h-full w-full object-contain"
                                 alt={`${selectedMethod.label} payment QR code`}
                               />
                             </div>
                           ) : (
-                            <div className="w-full p-4 rounded-xl border border-dashed border-border-primary bg-secondary flex items-start gap-3">
-                              <AlertCircle className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                              <p className="text-xs text-tertiary leading-relaxed">
+                            <div className="flex w-full items-start gap-3 rounded-tag border-2 border-dashed border-border-primary bg-secondary p-4">
+                              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+                              <p className="text-xs leading-relaxed text-tertiary">
                                 QR not configured yet — please use the account details below to
                                 send your payment.
                               </p>
                             </div>
                           )}
-                          <p className="text-lg font-bold text-accent mt-3">
+                          <p className="mt-3 font-display text-[29px] font-semibold uppercase leading-none tabular-nums text-accent">
                             Amount: Rs {payableTotal.toLocaleString()}
                           </p>
-                          <p className="text-[10px] text-muted mt-1">
+                          <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
                             After payment, enter the transaction ID below
                           </p>
 
                           {(selectedMethod.accountName || selectedMethod.accountNumber) && (
-                            <div className="w-full mt-4 pt-4 border-t border-border-primary space-y-2">
+                            <div className="mt-4 w-full border-t border-border-primary pt-4">
                               {selectedMethod.accountName && (
-                                <div className="flex justify-between gap-3 text-xs">
-                                  <span className="text-secondary">Account Name</span>
-                                  <span className="font-semibold text-primary text-right">
+                                <div className={RECEIPT_ROW}>
+                                  <span className="text-tertiary">Account Name</span>
+                                  <span className="text-right font-bold text-primary">
                                     {selectedMethod.accountName}
                                   </span>
                                 </div>
                               )}
                               {selectedMethod.accountNumber && (
-                                <div className="flex justify-between gap-3 text-xs">
-                                  <span className="text-secondary">Account Number</span>
-                                  <span className="font-semibold text-primary text-right">
+                                <div className={RECEIPT_ROW}>
+                                  <span className="text-tertiary">Account Number</span>
+                                  <span className="text-right font-bold tabular-nums text-primary">
                                     {selectedMethod.accountNumber}
                                   </span>
                                 </div>
@@ -839,14 +859,14 @@ const Checkout = () => {
                       {/* Bank transfer method */}
                       {selectedMethod.type === "bank" && (
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-accent text-white shrink-0">
-                            <Landmark className="w-5 h-5" />
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-tag border-2 border-inverse bg-accent text-inverse">
+                            <Landmark className="h-5 w-5" aria-hidden="true" />
                           </div>
                           <div className="flex-1">
-                            <h4 className="text-sm font-bold text-primary mb-3">
+                            <h3 className="mb-3 font-display text-lg font-semibold uppercase leading-none tabular-nums text-primary">
                               Transfer Rs {payableTotal.toLocaleString()} to our account
-                            </h4>
-                            <div className="space-y-2">
+                            </h3>
+                            <div>
                               {[
                                 { label: "Bank Name", value: selectedMethod.bankName },
                                 { label: "Branch", value: selectedMethod.branch },
@@ -855,12 +875,9 @@ const Checkout = () => {
                               ]
                                 .filter((row) => row.value)
                                 .map((row) => (
-                                  <div
-                                    key={row.label}
-                                    className="flex justify-between gap-3 text-xs"
-                                  >
-                                    <span className="text-secondary">{row.label}</span>
-                                    <span className="font-semibold text-primary text-right">
+                                  <div key={row.label} className={RECEIPT_ROW}>
+                                    <span className="text-tertiary">{row.label}</span>
+                                    <span className="text-right font-bold tabular-nums text-primary">
                                       {row.value}
                                     </span>
                                   </div>
@@ -873,30 +890,30 @@ const Checkout = () => {
                       {/* COD method */}
                       {selectedMethod.type === "cod" && (
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-accent text-white shrink-0">
-                            <Banknote className="w-5 h-5" />
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-tag border-2 border-inverse bg-accent text-inverse">
+                            <Banknote className="h-5 w-5" aria-hidden="true" />
                           </div>
                           <div className="flex-1">
-                            <h4 className="text-sm font-bold text-primary mb-1">
+                            <h3 className="mb-1 font-display text-lg font-semibold uppercase leading-none text-primary">
                               Pay with cash on delivery
-                            </h4>
-                            <p className="text-xs text-tertiary leading-relaxed">
+                            </h3>
+                            <p className="text-xs leading-relaxed text-tertiary">
                               Keep the exact amount of{" "}
-                              <span className="font-bold text-primary">
+                              <span className="font-bold tabular-nums text-primary">
                                 Rs {payableTotal.toLocaleString()}
                               </span>{" "}
                               ready. Our delivery partner will collect payment when your order
                               arrives. No transaction ID required.
                             </p>
-                            <ul className="mt-3 space-y-1.5 text-[11px] text-secondary">
+                            <ul className="mt-3 space-y-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
                               <li className="flex items-center gap-2">
-                                <CheckCircle className="w-3.5 h-3.5 text-green-500" /> Inspect before you pay
+                                <CheckCircle className="h-3.5 w-3.5 text-pitch" aria-hidden="true" /> Inspect before you pay
                               </li>
                               <li className="flex items-center gap-2">
-                                <CheckCircle className="w-3.5 h-3.5 text-green-500" /> Cash only at delivery
+                                <CheckCircle className="h-3.5 w-3.5 text-pitch" aria-hidden="true" /> Cash only at delivery
                               </li>
                               <li className="flex items-center gap-2">
-                                <CheckCircle className="w-3.5 h-3.5 text-green-500" /> Keep your phone reachable
+                                <CheckCircle className="h-3.5 w-3.5 text-pitch" aria-hidden="true" /> Keep your phone reachable
                               </li>
                             </ul>
                           </div>
@@ -905,30 +922,27 @@ const Checkout = () => {
 
                       {/* Instructions — shown for every method */}
                       {selectedMethod.instructions && (
-                        <p className="text-[11px] text-tertiary leading-relaxed pt-3 border-t border-border-primary">
+                        <p className="border-t border-border-primary pt-3 text-xs leading-relaxed text-tertiary">
                           {selectedMethod.instructions}
                         </p>
                       )}
 
                       {/* Proof of payment — only for methods that require it */}
                       {requiresProof && (
-                        <div className="space-y-4 pt-3 border-t border-border-primary">
+                        <div className="space-y-4 border-t border-border-primary pt-3">
                           {/* Either field satisfies the check, so neither is marked
                               required on its own — the requirement is the pair. */}
-                          <p className="text-[11px] text-secondary">
+                          <p className="text-xs text-tertiary">
                             Send us proof of your payment:{" "}
                             <span className="font-bold text-primary">
                               a Transaction ID or a screenshot
                             </span>{" "}
                             — either one is enough.{" "}
-                            <span className="text-red-400" aria-hidden="true">*</span>
+                            <span className="text-accent" aria-hidden="true">*</span>
                           </p>
 
                           <div>
-                            <label
-                              htmlFor="checkout-transactionId"
-                              className="text-xs font-medium text-secondary mb-1.5 block"
-                            >
+                            <label htmlFor="checkout-transactionId" className={LABEL}>
                               Transaction ID
                             </label>
                             <input
@@ -945,20 +959,17 @@ const Checkout = () => {
                               aria-describedby={
                                 fieldErrors.paymentProof ? "checkout-proof-error" : undefined
                               }
-                              className={`w-full px-4 py-3 bg-secondary border rounded-xl text-primary text-sm font-medium outline-none transition-all placeholder:text-muted ${
+                              className={`${INPUT_BASE} ${
                                 fieldErrors.paymentProof
-                                  ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
-                                  : "border-border-primary focus:border-accent focus:ring-2 focus:ring-accent/10"
+                                  ? "border-accent"
+                                  : "border-border-primary focus:border-accent"
                               }`}
                             />
                           </div>
 
                           {/* Payment Screenshot Upload */}
                           <div>
-                            <label
-                              htmlFor="checkout-paymentScreenshot"
-                              className="text-xs font-medium text-secondary mb-1.5 block"
-                            >
+                            <label htmlFor="checkout-paymentScreenshot" className={LABEL}>
                               Payment Screenshot
                             </label>
                             <div className="relative">
@@ -984,27 +995,30 @@ const Checkout = () => {
                                     ? "checkout-proof-error checkout-screenshot-hint"
                                     : "checkout-screenshot-hint"
                                 }
-                                className="w-full px-4 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-accent/10 file:text-accent hover:file:bg-accent/20"
+                                className="w-full rounded-tag border-2 border-border-primary bg-card px-4 py-3 text-sm text-primary transition-all duration-snap ease-snap file:mr-3 file:min-h-[32px] file:rounded-tag file:border-0 file:bg-inverse file:px-3 file:text-xs file:font-bold file:uppercase file:tracking-[0.12em] file:text-inverse focus:border-accent"
                               />
                             </div>
                             {screenshotPreview && (
-                              <div className="mt-3 relative inline-block">
+                              <div className="relative mt-3 inline-block">
                                 <img
                                   src={screenshotPreview}
                                   alt="Payment screenshot you selected"
-                                  className="w-32 h-40 object-cover rounded-lg border border-border-primary"
+                                  className="h-40 w-32 rounded-tag border-2 border-inverse object-cover"
                                 />
                                 <button
                                   type="button"
                                   aria-label="Remove payment screenshot"
                                   onClick={() => { setPaymentScreenshot(null); setScreenshotPreview(null); }}
-                                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center"
+                                  className="absolute -right-3 -top-3 flex h-11 w-11 items-center justify-center rounded-tag border-2 border-inverse bg-accent font-display text-xl leading-none text-inverse transition-all duration-snap ease-snap hover:bg-accent-hover"
                                 >
                                   <span aria-hidden="true">×</span>
                                 </button>
                               </div>
                             )}
-                            <p id="checkout-screenshot-hint" className="text-[10px] text-muted mt-1.5">
+                            <p
+                              id="checkout-screenshot-hint"
+                              className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary"
+                            >
                               Upload screenshot of your payment confirmation
                             </p>
                           </div>
@@ -1015,9 +1029,9 @@ const Checkout = () => {
                             <p
                               id="checkout-proof-error"
                               role="alert"
-                              className="text-red-500 text-xs font-medium flex items-center gap-1.5"
+                              className="flex items-center gap-1.5 text-xs font-bold text-accent"
                             >
-                              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                              <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
                               {fieldErrors.paymentProof}
                             </p>
                           )}
@@ -1038,17 +1052,17 @@ const Checkout = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-4 bg-accent text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg shadow-accent/20 hover:bg-accent-hover transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={`${BTN_PRIMARY} disabled:cursor-not-allowed`}
                 >
                   {loading ? (
                     <>
-                      <Loader className="w-4 h-4 animate-spin" />
+                      <Loader className="h-4 w-4 animate-spin" aria-hidden="true" />
                       Placing your order...
                     </>
                   ) : (
                     <>
-                      Place Order · Rs {payableTotal.toLocaleString()}
-                      <ArrowRight className="w-4 h-4" />
+                      <span className="tabular-nums">Place Order · Rs {payableTotal.toLocaleString()}</span>
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </>
                   )}
                 </button>
@@ -1057,33 +1071,54 @@ const Checkout = () => {
             </form>
           </div>
 
-          {/* Order Summary Sidebar */}
+          {/* Order Summary Sidebar — printed receipt */}
           <div className="lg:col-span-5">
-            <div className="bg-card rounded-2xl p-6 border border-border-primary sticky top-28 shadow-sm">
-              <h2 className="text-lg font-bold text-primary mb-6 flex items-center gap-2">
-                <Package className="w-5 h-5 text-accent" />
+            <div className="sticky top-28 rounded-card border-2 border-inverse bg-card p-6">
+              <p className="eyebrow mb-4">Receipt</p>
+              <h2 className="mb-6 flex items-center gap-2 font-display text-[29px] font-semibold uppercase leading-none text-primary">
+                <Package className="h-5 w-5 text-accent" aria-hidden="true" />
                 Order Summary
               </h2>
 
               {/* Items */}
-              <div className="max-h-[280px] overflow-y-auto space-y-4 mb-6 scrollbar-thin">
+              <div className="mb-6 max-h-[280px] overflow-y-auto scrollbar-thin">
                 {cart.map((item) => (
-                  <div key={`${item.id}-${item.variantId}`} className="flex gap-3">
-                    <div className="w-14 h-16 bg-secondary rounded-lg overflow-hidden shrink-0 border border-border-primary">
+                  <div
+                    key={`${item.id}-${item.variantId}`}
+                    className="flex gap-3 border-b border-border-primary py-3 first:pt-0"
+                  >
+                    <div className="h-16 w-14 shrink-0 overflow-hidden rounded-tag border-2 border-inverse bg-secondary">
                       <img
                         src={pickProductImageUrl(item.images)}
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                         alt={item.name}
                       />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-semibold text-primary truncate">{item.name}</h4>
-                      <div className="flex gap-2 text-[10px] text-muted mt-0.5">
-                        {item.selectedSize && <span>Size: {item.selectedSize}</span>}
-                        {item.selectedColor && <span>Color: {item.selectedColor}</span>}
-                        <span>Qty: {item.quantity}</span>
+                    <div className="min-w-0 flex-1">
+                      {item.Brand?.name && (
+                        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                          {item.Brand.name}
+                        </p>
+                      )}
+                      <h3 className="truncate font-display text-lg font-semibold uppercase leading-none text-primary">
+                        {item.name}
+                      </h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {item.selectedSize && (
+                          <span className="flex min-h-[24px] min-w-[24px] items-center justify-center rounded-tag border-[1.5px] border-inverse px-1.5 font-display text-sm font-semibold uppercase leading-none tabular-nums text-primary">
+                            {item.selectedSize}
+                          </span>
+                        )}
+                        {item.selectedColor && (
+                          <span className="rounded-tag border-[1.5px] border-border-primary px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                            {item.selectedColor}
+                          </span>
+                        )}
+                        <span className="rounded-tag border-[1.5px] border-border-primary px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] tabular-nums text-tertiary">
+                          Qty {item.quantity}
+                        </span>
                       </div>
-                      <p className="text-sm font-bold text-primary mt-1">
+                      <p className="mt-1 font-display text-lg font-semibold leading-none tabular-nums text-primary">
                         Rs {((item.variantPrice || item.price || 0) * item.quantity).toLocaleString()}
                       </p>
                     </div>
@@ -1092,50 +1127,55 @@ const Checkout = () => {
               </div>
 
               {/* Totals */}
-              <div className="space-y-3 pt-4 border-t border-border-primary">
-                <div className="flex justify-between text-sm">
-                  <span className="text-secondary">Subtotal</span>
-                  <span className="font-semibold text-primary">Rs {cartTotal.toLocaleString()}</span>
+              <dl className="border-t border-border-primary pt-4">
+                <div className={RECEIPT_ROW}>
+                  <dt className="text-tertiary">Subtotal</dt>
+                  <dd className="font-display text-lg font-semibold leading-none tabular-nums text-primary">
+                    Rs {cartTotal.toLocaleString()}
+                  </dd>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-secondary">
-                    Shipping
+                <div className={RECEIPT_ROW}>
+                  <dt className="text-tertiary">
+                    Delivery
                     {formData.city && (
-                      <span className="text-muted"> · {getDeliveryLabel(formData.city)}</span>
+                      <span className="text-[11px] font-bold uppercase tracking-[0.12em]">
+                        {" "}· {getDeliveryLabel(formData.city)}
+                      </span>
                     )}
-                  </span>
-                  <span className="font-semibold text-primary">
-                    {formData.city ? `Rs ${deliveryCharge}` : "Enter city"}
-                  </span>
+                  </dt>
+                  <dd className="font-display text-lg font-semibold leading-none tabular-nums text-primary">
+                    {formData.city ? `Rs ${deliveryCharge.toLocaleString()}` : "Enter city"}
+                  </dd>
                 </div>
-                <hr className="border-border-primary" />
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-primary">Total</span>
-                  <span className="text-2xl font-black text-primary">
+                <div className="flex items-baseline justify-between border-t-2 border-inverse pt-3">
+                  <dt className="font-display text-xl font-semibold uppercase leading-none text-primary">Total</dt>
+                  <dd className="font-display text-[34px] font-semibold leading-none tabular-nums text-primary">
                     Rs {payableTotal.toLocaleString()}
-                  </span>
+                  </dd>
                 </div>
-              </div>
+              </dl>
 
               {/* Submit Button */}
               <button
                 type="submit"
                 form="checkout-form"
                 disabled={loading}
-                className="w-full mt-6 py-4 bg-accent text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg shadow-accent/20 hover:bg-accent-hover transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
+                className={`mt-6 ${BTN_PRIMARY}`}
               >
                 {loading ? (
-                  <Loader className="w-5 h-5 animate-spin" />
+                  <Loader className="h-5 w-5 animate-spin" aria-hidden="true" />
                 ) : activeStep === 1 ? (
-                  <>Continue to Payment <ArrowRight className="w-4 h-4" /></>
+                  <>Continue to Payment <ArrowRight className="h-4 w-4" aria-hidden="true" /></>
                 ) : (
-                  <>Place Order <ArrowRight className="w-4 h-4" /></>
+                  <>Place Order <ArrowRight className="h-4 w-4" aria-hidden="true" /></>
                 )}
               </button>
 
-              <div className="flex items-center justify-center gap-2 mt-4">
-                <Lock className="w-3.5 h-3.5 text-muted" />
-                <p className="text-[10px] text-muted">Secure & encrypted checkout</p>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <Banknote className="h-3.5 w-3.5 text-tertiary" aria-hidden="true" />
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                  COD available · Delivery all over Nepal
+                </p>
               </div>
             </div>
           </div>

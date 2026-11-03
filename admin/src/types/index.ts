@@ -158,10 +158,47 @@ export interface Payment {
   amount: number;
 }
 
+export interface DeliveryBoy {
+  id: string;
+  username: string;
+  email: string;
+  isVerified: boolean;
+  createdAt: string;
+}
+
 export interface DashboardStats {
   totalProducts: number;
   totalOrders: number;
   totalUsers: number;
   totalRevenue: number;
+  pendingOrders: number;
+  todayOrders: number;
+  todayRevenue: number;
+  yesterdayRevenue?: number | null;
   recentOrders: Order[];
+}
+
+export interface RevenuePoint {
+  date: string;
+  revenue: number;
+}
+
+export interface TopProduct {
+  productName: string;
+  totalQty: number;
+  // SUM() aggregates come back as strings from Postgres.
+  totalRevenue: number | string;
+}
+
+export interface OrderStatusCount {
+  status: string;
+  count: number;
+}
+
+export interface LowStockVariant {
+  variantId: string;
+  productName: string;
+  size?: string | null;
+  color?: string | null;
+  stock: number;
 }

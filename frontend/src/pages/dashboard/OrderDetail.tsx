@@ -16,9 +16,11 @@ import {
   Loader2,
   WifiOff,
 } from "lucide-react";
-import { orderService } from "../../services/orderService";
+import { orderService, type Order } from "../../services/orderService";
 import api from "../../services/api";
-import { motion } from "framer-motion";
+import { getApiErrorMessage, getApiErrorStatus } from "../../utils/apiError";
+import { motion, useReducedMotion } from "framer-motion";
+import { whatsappUrl } from "../../data/store";
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   esewa: "eSewa",
@@ -28,13 +30,26 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   qr: "QR / Manual", // legacy value on older orders
 };
 
+const MICRO = "text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary";
+const CHIP =
+  "rounded-tag border-[1.5px] px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em]";
+const CARD = "rounded-card border-2 border-inverse bg-card p-5";
+const RECEIPT_ROW = "flex items-baseline justify-between gap-3 border-b border-border-primary py-2.5 text-sm";
+const BTN_PRIMARY =
+  "flex w-full items-center justify-center gap-2 rounded-tag border-2 border-inverse bg-accent py-3 font-display text-lg uppercase leading-none tracking-[0.04em] text-inverse transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none disabled:translate-x-0 disabled:translate-y-0 disabled:border-border-primary disabled:bg-secondary disabled:text-muted disabled:shadow-none";
+const BTN_INLINE_ACCENT =
+  "inline-flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-inverse bg-accent px-5 font-display text-base uppercase leading-none tracking-[0.04em] text-inverse transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none";
+const BTN_INLINE_SECONDARY =
+  "inline-flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-inverse bg-transparent px-5 font-display text-base uppercase leading-none tracking-[0.04em] text-primary transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none";
+
 const OrderDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [order, setOrder] = useState<any>(null);
+  const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchFailed, setFetchFailed] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const reduce = useReducedMotion();
 
   // Payment proof re-submission (shown when an admin rejected the payment)
   const [proofTransactionId, setProofTransactionId] = useState("");
@@ -50,11 +65,11 @@ const OrderDetail = () => {
     try {
       const data = await orderService.getOrderById(id);
       setOrder(data);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to fetch order details:", error);
       // A genuine 404 means the order really is not there; anything else
       // (network drop, 500, timeout) must not be reported as "not found".
-      if (error?.response?.status === 404) {
+      if (getApiErrorStatus(error) === 404) {
         setNotFound(true);
       } else {
         setFetchFailed(true);
@@ -70,7 +85,7 @@ const OrderDetail = () => {
 
   const handleProofResubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (proofSubmitting) return;
+    if (proofSubmitting || !order) return;
 
     const transactionId = proofTransactionId.trim();
     if (!transactionId && !proofFile) {
@@ -85,10 +100,9 @@ const OrderDetail = () => {
       setProofTransactionId("");
       setProofFile(null);
       await fetchOrder();
-    } catch (err: any) {
+    } catch (err) {
       setProofError(
-        err?.response?.data?.message ||
-          "We could not upload your payment proof. Please check your connection and try again."
+        getApiErrorMessage(err, "We could not upload your payment proof. Please check your connection and try again.")
       );
     } finally {
       setProofSubmitting(false);
@@ -100,23 +114,26 @@ const OrderDetail = () => {
     setProofError(null);
   };
 
+  // Semantic, not accent: delivered reads pitch, in-flight and pending read
+  // marigold, cancelled reads accent crimson.
   const getStatusColor = (status?: string) => {
     switch (status?.toLowerCase()) {
-      case "delivered": return "bg-green-500/10 text-green-600 border-green-500/20";
-      case "processing": case "preparation": return "bg-blue-500/10 text-blue-600 border-blue-500/20";
-      case "shipped": case "ontheway": return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
-      case "cancelled": return "bg-red-500/10 text-red-600 border-red-500/20";
-      default: return "bg-secondary text-secondary border-border-primary";
+      case "delivered": return "text-pitch border-pitch";
+      case "processing": case "preparation": return "text-marigold border-marigold";
+      case "shipped": case "ontheway": return "text-marigold border-marigold";
+      case "pending": return "text-marigold border-marigold";
+      case "cancelled": return "text-accent border-accent";
+      default: return "text-tertiary border-border-primary";
     }
   };
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 w-48 bg-secondary rounded-lg animate-pulse" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 h-64 bg-secondary rounded-xl animate-pulse" />
-          <div className="h-64 bg-secondary rounded-xl animate-pulse" />
+      <div className="space-y-6" aria-busy="true">
+        <div className="h-8 w-48 rounded-tag border-2 border-border-primary bg-secondary" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="h-64 rounded-card border-2 border-border-primary bg-secondary lg:col-span-2" />
+          <div className="h-64 rounded-card border-2 border-border-primary bg-secondary" />
         </div>
       </div>
     );
@@ -124,23 +141,19 @@ const OrderDetail = () => {
 
   if (fetchFailed && !order) {
     return (
-      <div className="text-center py-16">
-        <WifiOff className="w-12 h-12 text-muted mx-auto mb-4" />
-        <h2 className="text-lg font-bold text-primary">Couldn't load this order</h2>
-        <p className="text-sm text-tertiary mt-1">
+      <div className="py-16 text-center">
+        <WifiOff className="mx-auto mb-4 h-12 w-12 text-tertiary" aria-hidden="true" />
+        <h1 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+          Couldn't load this order
+        </h1>
+        <p className="mt-1 text-sm text-tertiary">
           Your order is safe — we just couldn't reach the server. Check your connection and try again.
         </p>
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button
-            onClick={fetchOrder}
-            className="px-5 py-2 bg-accent text-white rounded-xl text-sm font-bold"
-          >
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <button onClick={fetchOrder} className={BTN_INLINE_ACCENT}>
             Try Again
           </button>
-          <button
-            onClick={() => navigate("/dashboard/orders")}
-            className="px-5 py-2 bg-secondary text-primary border border-border-primary rounded-xl text-sm font-bold"
-          >
+          <button onClick={() => navigate("/dashboard/orders")} className={BTN_INLINE_SECONDARY}>
             Back to Orders
           </button>
         </div>
@@ -150,13 +163,15 @@ const OrderDetail = () => {
 
   if (notFound || !order) {
     return (
-      <div className="text-center py-16">
-        <Package className="w-12 h-12 text-muted mx-auto mb-4" />
-        <h2 className="text-lg font-bold text-primary">Order not found</h2>
-        <p className="text-sm text-tertiary mt-1">Unable to find order details for this ID.</p>
+      <div className="py-16 text-center">
+        <Package className="mx-auto mb-4 h-12 w-12 text-tertiary" aria-hidden="true" />
+        <h1 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+          Order not found
+        </h1>
+        <p className="mt-1 text-sm text-tertiary">Unable to find order details for this ID.</p>
         <button
           onClick={() => navigate("/dashboard/orders")}
-          className="mt-4 px-5 py-2 bg-accent text-white rounded-xl text-sm font-bold"
+          className={`mt-4 ${BTN_INLINE_ACCENT}`}
         >
           Back to Orders
         </button>
@@ -180,10 +195,7 @@ const OrderDetail = () => {
   const proofResubmitForm = (
     <form onSubmit={handleProofResubmit} className="mt-4 space-y-3">
       <div>
-        <label
-          htmlFor="proof-transaction-id"
-          className="block text-[10px] font-bold uppercase text-muted mb-1"
-        >
+        <label htmlFor="proof-transaction-id" className={`mb-1 block ${MICRO}`}>
           Transaction ID
         </label>
         <input
@@ -196,14 +208,11 @@ const OrderDetail = () => {
           }}
           disabled={proofSubmitting}
           placeholder="Reference code from eSewa / Khalti / your bank"
-          className="w-full px-3 py-2 bg-card border border-border-primary rounded-lg text-sm text-primary placeholder:text-muted focus:outline-none focus:border-accent disabled:opacity-60"
+          className="w-full min-h-[44px] rounded-tag border-2 border-border-primary bg-card px-3 py-2 text-sm text-primary transition-all duration-snap ease-snap placeholder:text-muted focus:border-accent disabled:bg-secondary disabled:text-muted"
         />
       </div>
       <div>
-        <label
-          htmlFor="proof-screenshot"
-          className="block text-[10px] font-bold uppercase text-muted mb-1"
-        >
+        <label htmlFor="proof-screenshot" className={`mb-1 block ${MICRO}`}>
           Payment screenshot
         </label>
         <input
@@ -212,12 +221,12 @@ const OrderDetail = () => {
           accept="image/*"
           onChange={handleProofFileChange}
           disabled={proofSubmitting}
-          className="w-full text-xs text-secondary file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-secondary file:text-primary file:text-xs file:font-bold disabled:opacity-60"
+          className="w-full min-h-[44px] rounded-tag border-2 border-border-primary bg-card px-3 py-2 text-xs text-primary transition-all duration-snap ease-snap file:mr-3 file:min-h-[32px] file:rounded-tag file:border-0 file:bg-inverse file:px-3 file:text-xs file:font-bold file:uppercase file:tracking-[0.12em] file:text-inverse focus:border-accent disabled:bg-secondary disabled:text-muted"
         />
       </div>
 
       {proofError && (
-        <p role="alert" className="text-xs font-semibold text-red-500">
+        <p role="alert" className="text-xs font-bold text-accent">
           {proofError}
         </p>
       )}
@@ -225,21 +234,46 @@ const OrderDetail = () => {
       <button
         type="submit"
         disabled={proofSubmitting}
-        className="w-full py-2.5 bg-accent text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+        className={`${BTN_PRIMARY} disabled:cursor-not-allowed`}
       >
         {proofSubmitting ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Uploading...
           </>
         ) : (
           <>
-            <UploadCloud className="w-4 h-4" />
+            <UploadCloud className="h-4 w-4" aria-hidden="true" />
             {missingProof ? "Submit Payment Proof" : "Re-submit Payment Proof"}
           </>
         )}
       </button>
     </form>
+  );
+
+  const receivedProof = (
+    <div className="mt-3 flex items-center gap-3">
+      {order.paymentScreenshot && (
+        <a
+          href={order.paymentScreenshot}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block h-14 w-14 flex-shrink-0 overflow-hidden rounded-tag border-2 border-inverse"
+        >
+          <img
+            src={order.paymentScreenshot}
+            alt="Payment proof you sent"
+            className="h-full w-full object-cover"
+          />
+        </a>
+      )}
+      <div className="min-w-0">
+        <p className={MICRO}>What we received</p>
+        <p className="truncate text-xs text-primary">
+          {order.paymentPid ? `Transaction ID: ${order.paymentPid}` : "Screenshot only"}
+        </p>
+      </div>
+    </div>
   );
 
   return (
@@ -248,23 +282,24 @@ const OrderDetail = () => {
       <div>
         <button
           onClick={() => navigate("/dashboard/orders")}
-          className="flex items-center gap-1 text-sm text-tertiary hover:text-accent transition-colors mb-4"
+          className={`mb-4 flex min-h-[44px] items-center gap-1 ${MICRO} transition-colors duration-snap ease-snap hover:text-accent`}
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           Back to Orders
         </button>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-xl font-bold text-primary">
+            <p className="eyebrow mb-2">Order</p>
+            <h1 className="font-display text-[34px] font-semibold uppercase leading-none tabular-nums text-primary">
               Order #{order.orderNumber || order.id.slice(-8).toUpperCase()}
             </h1>
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-xs text-muted flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
+            <div className="mt-1.5 flex items-center gap-3">
+              <span className={`flex items-center gap-1 tabular-nums ${MICRO}`}>
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                 {new Date(order.createdAt).toLocaleString()}
               </span>
-              <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase border ${getStatusColor(order.orderStatus)}`}>
+              <span className={`${CHIP} ${getStatusColor(order.orderStatus)}`}>
                 {order.orderStatus}
               </span>
             </div>
@@ -272,61 +307,41 @@ const OrderDetail = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Order Items */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="space-y-4 lg:col-span-2">
           {/* Payment rejected — explain and let the customer send new proof */}
           {paymentRejected && (
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-red-500/10 border border-red-500/20 rounded-xl p-5"
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
+              className="rounded-card border-2 border-accent bg-card p-5"
             >
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 bg-red-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-tag border-2 border-accent bg-card">
+                  <AlertTriangle className="h-5 w-5 text-accent" aria-hidden="true" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-red-500">We couldn't verify your payment</h3>
-                  <p className="text-xs text-secondary mt-1">
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-display text-xl font-semibold uppercase leading-none text-accent">
+                    We couldn't verify your payment
+                  </h2>
+                  <p className="mt-1 text-xs leading-relaxed text-tertiary">
                     Our team reviewed the payment proof for this order and could not confirm it, so the
                     order is on hold. Nothing has been charged by us — send us the correct details below
                     and we'll check again.
                   </p>
 
                   {order.paymentRejectionReason && (
-                    <div className="mt-3 bg-card border border-border-primary rounded-lg p-3">
-                      <p className="text-[10px] font-bold uppercase text-muted">Reason given</p>
-                      <p className="text-xs text-primary mt-1 whitespace-pre-line">
+                    <div className="mt-3 rounded-tag border-2 border-border-primary bg-secondary p-3">
+                      <p className={MICRO}>Reason given</p>
+                      <p className="mt-1 whitespace-pre-line text-xs text-primary">
                         {order.paymentRejectionReason}
                       </p>
                     </div>
                   )}
 
-                  {(order.paymentScreenshot || order.paymentPid) && (
-                    <div className="mt-3 flex items-center gap-3">
-                      {order.paymentScreenshot && (
-                        <a
-                          href={order.paymentScreenshot}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block w-14 h-14 rounded-lg overflow-hidden border border-border-primary flex-shrink-0"
-                        >
-                          <img
-                            src={order.paymentScreenshot}
-                            alt="Payment proof you sent"
-                            className="w-full h-full object-cover"
-                          />
-                        </a>
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase text-muted">What we received</p>
-                        <p className="text-xs text-secondary truncate">
-                          {order.paymentPid ? `Transaction ID: ${order.paymentPid}` : "Screenshot only"}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  {(order.paymentScreenshot || order.paymentPid) && receivedProof}
 
                   {proofResubmitForm}
                 </div>
@@ -337,19 +352,20 @@ const OrderDetail = () => {
           {/* Proof never arrived — the checkout upload failed, order is stuck until it's sent */}
           {missingProof && (
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5"
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
+              className="rounded-card border-2 border-marigold bg-marigold-soft p-5"
             >
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <UploadCloud className="w-5 h-5 text-amber-500" />
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-tag border-2 border-marigold bg-card">
+                  <UploadCloud className="h-5 w-5 text-marigold" aria-hidden="true" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-amber-600">
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-display text-xl font-semibold uppercase leading-none text-primary">
                     We haven't received your payment proof
-                  </h3>
-                  <p className="text-xs text-secondary mt-1">
+                  </h2>
+                  <p className="mt-1 text-xs leading-relaxed text-primary">
                     Your order was placed, but no payment screenshot or transaction ID reached us —
                     this can happen if the upload failed during checkout. If you already paid,
                     don't pay again: just send the proof below and our team will verify it.
@@ -363,151 +379,139 @@ const OrderDetail = () => {
           {/* Payment submitted — waiting on a human to check it */}
           {awaitingVerification && (
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5"
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
+              className="rounded-card border-2 border-marigold bg-marigold-soft p-5"
             >
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <ShieldCheck className="w-5 h-5 text-amber-500" />
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-tag border-2 border-marigold bg-card">
+                  <ShieldCheck className="h-5 w-5 text-marigold" aria-hidden="true" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-amber-600">Awaiting payment verification</h3>
-                  <p className="text-xs text-secondary mt-1">
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-display text-xl font-semibold uppercase leading-none text-primary">
+                    Awaiting payment verification
+                  </h2>
+                  <p className="mt-1 text-xs leading-relaxed text-primary">
                     Payments here are checked by a person, not automatically. Someone from our team is
                     reviewing what you sent and your order moves forward once it's confirmed. You don't
                     need to pay again or send anything else in the meantime.
                   </p>
 
-                  {(order.paymentScreenshot || order.paymentPid) && (
-                    <div className="mt-3 flex items-center gap-3">
-                      {order.paymentScreenshot && (
-                        <a
-                          href={order.paymentScreenshot}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block w-14 h-14 rounded-lg overflow-hidden border border-border-primary flex-shrink-0"
-                        >
-                          <img
-                            src={order.paymentScreenshot}
-                            alt="Payment proof you sent"
-                            className="w-full h-full object-cover"
-                          />
-                        </a>
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase text-muted">What we received</p>
-                        <p className="text-xs text-secondary truncate">
-                          {order.paymentPid ? `Transaction ID: ${order.paymentPid}` : "Screenshot only"}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  {(order.paymentScreenshot || order.paymentPid) && receivedProof}
                 </div>
               </div>
             </motion.div>
           )}
 
-          <h3 className="text-sm font-bold text-primary flex items-center gap-2">
-            <Package className="w-4 h-4 text-accent" />
+          <h2 className="flex items-center gap-2 font-display text-[29px] font-semibold uppercase leading-none text-primary">
+            <Package className="h-5 w-5 text-accent" aria-hidden="true" />
             Order Items
-          </h3>
+          </h2>
 
           <div className="space-y-3">
-            {order.OrderItems?.map((item: any) => (
-              <motion.div
+            {order.OrderItems?.map((item) => (
+              <div
                 key={item.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-card p-4 rounded-xl border border-border-primary flex items-center gap-4"
+                className="flex items-center gap-4 rounded-card border-2 border-inverse bg-card p-4"
               >
-                <div className="w-16 h-18 bg-secondary rounded-lg overflow-hidden flex-shrink-0">
+                <div className="h-20 w-16 flex-shrink-0 overflow-hidden rounded-tag border-2 border-inverse bg-secondary">
                   {item.Product?.ProductImages?.[0]?.url ? (
                     <img
                       src={item.Product.ProductImages[0].url}
                       alt={item.productName || item.Product?.name}
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-muted">
-                      <Package className="w-5 h-5" />
+                    <div className="flex h-full w-full items-center justify-center text-tertiary">
+                      <Package className="h-5 w-5" aria-hidden="true" />
                     </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-semibold text-primary truncate">
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate font-display text-xl font-semibold uppercase leading-none text-primary">
                     {item.productName || item.Product?.name || "Product"}
-                  </h4>
-                  <div className="flex gap-2 mt-1">
+                  </h3>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {item.size && (
-                      <span className="text-[10px] text-muted bg-secondary px-2 py-0.5 rounded">
-                        Size: {item.size}
+                      <span className="flex min-h-[24px] min-w-[24px] items-center justify-center rounded-tag border-[1.5px] border-inverse px-1.5 font-display text-sm font-semibold uppercase leading-none tabular-nums text-primary">
+                        {item.size}
                       </span>
                     )}
                     {item.color && (
-                      <span className="text-[10px] text-muted bg-secondary px-2 py-0.5 rounded">
-                        Color: {item.color}
+                      <span className={`${CHIP} border-border-primary text-tertiary`}>
+                        {item.color}
                       </span>
                     )}
-                    <span className="text-[10px] text-muted bg-secondary px-2 py-0.5 rounded">
-                      Qty: {item.quantity}
+                    <span className={`${CHIP} border-border-primary tabular-nums text-tertiary`}>
+                      Qty {item.quantity}
                     </span>
                   </div>
                 </div>
-                <p className="text-sm font-bold text-primary">
+                <p className="font-display text-xl font-semibold leading-none tabular-nums text-primary">
                   Rs {item.price?.toLocaleString()}
                 </p>
-              </motion.div>
+              </div>
             ))}
           </div>
 
           {/* Order Timeline */}
-          <div className="bg-card p-5 rounded-xl border border-border-primary mt-6">
-            <h3 className="text-sm font-bold text-primary mb-4 flex items-center gap-2">
-              <Truck className="w-4 h-4 text-accent" />
+          <div className={`mt-6 ${CARD}`}>
+            <h2 className="mb-4 flex items-center gap-2 font-display text-xl font-semibold uppercase leading-none text-primary">
+              <Truck className="h-4 w-4 text-accent" aria-hidden="true" />
               Order Status
-            </h3>
+            </h2>
             <div className="space-y-4">
               {order.StatusHistories && order.StatusHistories.length > 0 ? (
-                order.StatusHistories.map((entry: any, idx: number) => {
-                  const isLast = idx === order.StatusHistories.length - 1;
-                  const statusColors: Record<string, { bg: string; icon: string }> = {
-                    pending: { bg: "bg-gray-500/10", icon: "text-gray-500" },
-                    processing: { bg: "bg-blue-500/10", icon: "text-blue-500" },
-                    preparation: { bg: "bg-blue-500/10", icon: "text-blue-500" },
-                    shipped: { bg: "bg-yellow-500/10", icon: "text-yellow-500" },
-                    ontheway: { bg: "bg-yellow-500/10", icon: "text-yellow-500" },
-                    delivered: { bg: "bg-green-500/10", icon: "text-green-500" },
-                    cancelled: { bg: "bg-red-500/10", icon: "text-red-500" },
+                order.StatusHistories.map((entry, idx, histories) => {
+                  const isLast = idx === histories.length - 1;
+                  const statusTone: Record<string, string> = {
+                    pending: "text-marigold border-marigold",
+                    processing: "text-marigold border-marigold",
+                    preparation: "text-marigold border-marigold",
+                    shipped: "text-marigold border-marigold",
+                    ontheway: "text-marigold border-marigold",
+                    delivered: "text-pitch border-pitch",
+                    cancelled: "text-accent border-accent",
                   };
-                  const colors = statusColors[entry.status] || statusColors.pending;
+                  const tone = statusTone[entry.status] || statusTone.pending;
                   return (
                     <div key={entry.id || idx} className="flex items-start gap-3">
-                      <div className={`w-8 h-8 ${colors.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      <div
+                        className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-tag border-2 bg-card ${tone}`}
+                      >
                         {isLast ? (
-                          <CheckCircle2 className={`w-4 h-4 ${colors.icon}`} />
+                          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                         ) : (
-                          <Clock className={`w-4 h-4 ${colors.icon}`} />
+                          <Clock className="h-4 w-4" aria-hidden="true" />
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold text-primary capitalize">{entry.status}</p>
-                          <p className="text-[10px] text-muted">{new Date(entry.createdAt).toLocaleString()}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-display text-lg font-semibold uppercase leading-none text-primary">
+                            {entry.status}
+                          </p>
+                          <p className={`tabular-nums ${MICRO}`}>
+                            {new Date(entry.createdAt).toLocaleString()}
+                          </p>
                         </div>
-                        {entry.note && <p className="text-[10px] text-tertiary mt-0.5">{entry.note}</p>}
+                        {entry.note && <p className="mt-0.5 text-xs text-tertiary">{entry.note}</p>}
                       </div>
                     </div>
                   );
                 })
               ) : (
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center">
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-tag border-2 border-pitch bg-card">
+                    <CheckCircle2 className="h-4 w-4 text-pitch" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-primary">Order Placed</p>
-                    <p className="text-[10px] text-muted">{new Date(order.createdAt).toLocaleString()}</p>
+                    <p className="font-display text-lg font-semibold uppercase leading-none text-primary">
+                      Order Placed
+                    </p>
+                    <p className={`tabular-nums ${MICRO}`}>
+                      {new Date(order.createdAt).toLocaleString()}
+                    </p>
                   </div>
                 </div>
               )}
@@ -518,67 +522,72 @@ const OrderDetail = () => {
         {/* Sidebar - Address & Payment */}
         <div className="space-y-4">
           {/* Shipping Address */}
-          <div className="bg-card p-5 rounded-xl border border-border-primary">
-            <h3 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-accent" />
+          <div className={CARD}>
+            <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-semibold uppercase leading-none text-primary">
+              <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
               Shipping Address
-            </h3>
-            <div className="text-sm text-secondary space-y-1">
-              <p className="font-semibold text-primary">{order.firstName} {order.lastName}</p>
-              <p>{order.addressLine}</p>
-              <p>{order.city}, {order.state} {order.zipcode}</p>
-              <p className="text-muted">{order.phoneNumber}</p>
-              <p className="text-muted">{order.email}</p>
+            </h2>
+            <div className="space-y-1 text-sm text-primary">
+              <p className="font-bold">{order.firstName} {order.lastName}</p>
+              <p className="text-tertiary">{order.addressLine}</p>
+              <p className="text-tertiary">{order.city}, {order.state} {order.zipcode}</p>
+              <p className="tabular-nums text-tertiary">{order.phoneNumber}</p>
+              <p className="text-tertiary">{order.email}</p>
             </div>
           </div>
 
-          {/* Payment */}
-          <div className="bg-card p-5 rounded-xl border border-border-primary">
-            <h3 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-accent" />
+          {/* Payment — printed receipt */}
+          <div className={CARD}>
+            <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-semibold uppercase leading-none text-primary">
+              <CreditCard className="h-4 w-4 text-accent" aria-hidden="true" />
               Payment
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-secondary">Method</span>
-                <span className="font-semibold text-primary">
-                  {PAYMENT_METHOD_LABELS[order.paymentMethod] || order.paymentMethod}
-                </span>
+            </h2>
+            <dl>
+              <div className={RECEIPT_ROW}>
+                <dt className="text-tertiary">Method</dt>
+                <dd className="font-bold text-primary">
+                  {PAYMENT_METHOD_LABELS[order.paymentMethod ?? ""] || order.paymentMethod}
+                </dd>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-secondary">Status</span>
-                <span
-                  className={`font-semibold capitalize ${
+              <div className={RECEIPT_ROW}>
+                <dt className="text-tertiary">Status</dt>
+                <dd
+                  className={`font-bold capitalize ${
                     paymentRejected
-                      ? "text-red-500"
+                      ? "text-accent"
                       : paymentStatus === "paid"
-                        ? "text-green-600"
-                        : "text-primary"
+                        ? "text-pitch"
+                        : "text-marigold"
                   }`}
                 >
                   {paymentStatus}
-                </span>
+                </dd>
               </div>
               {order.subtotal != null && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-secondary">Subtotal</span>
-                  <span className="font-semibold text-primary">Rs {order.subtotal.toLocaleString()}</span>
+                <div className={RECEIPT_ROW}>
+                  <dt className="text-tertiary">Subtotal</dt>
+                  <dd className="font-display text-lg font-semibold leading-none tabular-nums text-primary">
+                    Rs {order.subtotal.toLocaleString()}
+                  </dd>
                 </div>
               )}
               {order.deliveryCharge != null && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-secondary">Delivery</span>
-                  <span className="font-semibold text-primary">Rs {order.deliveryCharge.toLocaleString()}</span>
+                <div className={RECEIPT_ROW}>
+                  <dt className="text-tertiary">Delivery</dt>
+                  <dd className="font-display text-lg font-semibold leading-none tabular-nums text-primary">
+                    Rs {order.deliveryCharge.toLocaleString()}
+                  </dd>
                 </div>
               )}
-              <hr className="border-border-primary" />
-              <div className="flex justify-between">
-                <span className="font-medium text-primary">Total</span>
-                <span className="text-xl font-black text-primary">
+              <div className="flex items-baseline justify-between border-t-2 border-inverse pt-3">
+                <dt className="font-display text-xl font-semibold uppercase leading-none text-primary">
+                  Total
+                </dt>
+                <dd className="font-display text-[29px] font-semibold leading-none tabular-nums text-primary">
                   Rs {order.totalPrice?.toLocaleString()}
-                </span>
+                </dd>
               </div>
-            </div>
+            </dl>
           </div>
 
           {/* Actions */}
@@ -592,11 +601,11 @@ const OrderDetail = () => {
                     await api.put(`/orders/${order.id}/cancel`);
                     alert("Order cancelled successfully. Refund will be processed if payment was made.");
                     window.location.reload();
-                  } catch (err: any) {
-                    alert(err.response?.data?.message || "Failed to cancel order. Please contact support.");
+                  } catch (err) {
+                    alert(getApiErrorMessage(err, "Failed to cancel order. Please contact support."));
                   }
                 }}
-                className="w-full py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all"
+                className="flex w-full items-center justify-center gap-2 rounded-tag border-2 border-accent bg-transparent py-3 font-display text-lg uppercase leading-none tracking-[0.04em] text-accent transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-inverse hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
               >
                 Cancel Order
               </button>
@@ -604,12 +613,12 @@ const OrderDetail = () => {
 
             {/* Contact Support */}
             <a
-              href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER || "9779748477628"}?text=${encodeURIComponent(`Hi! I need help with my order #${order.orderNumber || order.id.slice(-8).toUpperCase()}`)}`}
+              href={whatsappUrl(`Hi! I need help with my order #${order.orderNumber || order.id.slice(-8).toUpperCase()}`)}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-3 bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#25D366] hover:text-white transition-all"
+              className="flex w-full items-center justify-center gap-2 rounded-tag border-2 border-pitch bg-transparent py-3 font-display text-lg uppercase leading-none tracking-[0.04em] text-pitch transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
             >
-              <MessageCircle className="w-4 h-4" />
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />
               Contact Support
             </a>
           </div>

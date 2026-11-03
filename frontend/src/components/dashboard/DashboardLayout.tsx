@@ -4,9 +4,11 @@ import DashboardSidebar, {
   DashboardProfileCard,
   DashboardHelpCard,
 } from "./DashboardSidebar";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 const DashboardLayout = () => {
+  const reduce = useReducedMotion();
+
   return (
     <div className="min-h-screen bg-primary pt-4 pb-20">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-8">
@@ -24,9 +26,9 @@ const DashboardLayout = () => {
 
           <div className="flex-1 w-full min-w-0">
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={reduce ? false : { opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
             >
               <Outlet />
             </motion.div>

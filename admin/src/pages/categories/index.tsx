@@ -14,6 +14,8 @@ export default function Categories() {
           options: [
             { value: 'clothing', label: 'Clothing (S, M, L, XL, XXL)' },
             { value: 'shoe', label: 'Shoes (UK 6-12)' },
+            { value: 'ball', label: 'Ball (Size 3, 4, 5)' },
+            { value: 'trophy', label: 'Trophy (6-24 in)' },
             { value: 'weight', label: 'Weight/Handle (Short, Long)' },
             { value: 'equipment', label: 'Equipment (One Size)' },
           ],

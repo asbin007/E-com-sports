@@ -3,6 +3,7 @@ import api from '@/services/api';
 import type { Category } from '@/types';
 import { Plus, Trash2, Loader2, X, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 interface ProductType {
   id: string;
@@ -55,8 +56,8 @@ export default function ProductTypes() {
       setDescription('');
       setCategoryId('');
       toast.success('Product type created');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to create'));
     } finally {
       setSaving(false);
     }
@@ -68,8 +69,8 @@ export default function ProductTypes() {
       await api.delete(`/product-types/${id}`);
       setItems((prev) => prev.filter((i) => i.id !== id));
       toast.success('Product type deleted');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to delete');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to delete'));
     }
   };
 
@@ -104,8 +105,8 @@ export default function ProductTypes() {
       <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
         <p className="text-sm text-orange-800 font-medium mb-1">How categories & types work:</p>
         <ul className="text-xs text-orange-700 space-y-1">
-          <li>• <strong>Category</strong> = broad group (Jerseys, Shoes, Cricket Equipment, Accessories)</li>
-          <li>• <strong>Product Type</strong> = specific type under a category (Jersey, Football Boot, Bat, Ball)</li>
+          <li>• <strong>Category</strong> = broad group (Football Boots, Club Jerseys, Trophies &amp; Medals, Bags)</li>
+          <li>• <strong>Product Type</strong> = specific type under a category (Firm Ground Boot, Away Jersey, Match Ball, Trophy)</li>
           <li>• The category determines the <strong>size system</strong> (clothing sizes, shoe sizes, etc.)</li>
           <li>• When adding a product, you pick category first → then type is filtered</li>
         </ul>

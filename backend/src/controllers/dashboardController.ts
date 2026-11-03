@@ -48,6 +48,26 @@ class DashboardController {
       });
       const monthlyRevenue = monthlyPayments.reduce((sum, p) => sum + Number(p.amount), 0);
 
+      // Today's and yesterday's revenue. The admin dashboard shows today's
+      // figure and the day-over-day change, so both have to be returned or the
+      // tile reads Rs 0 forever.
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const sumPaid = async (from: Date, to?: Date): Promise<number> => {
+        const createdAt = to
+          ? { [Op.gte]: from, [Op.lt]: to }
+          : { [Op.gte]: from };
+        const rows = await Payment.findAll({
+          where: { paymentStatus: "paid", createdAt },
+          attributes: ["amount"],
+        });
+        return rows.reduce((sum, p) => sum + Number(p.amount), 0);
+      };
+
+      const todayRevenue = await sumPaid(today);
+      const yesterdayRevenue = await sumPaid(yesterday, today);
+
       res.status(200).json({
         message: "Dashboard stats fetched successfully",
         data: {
@@ -59,6 +79,8 @@ class DashboardController {
           totalRevenue,
           pendingOrders,
           todayOrders,
+          todayRevenue,
+          yesterdayRevenue,
           monthlyRevenue,
         },
       });

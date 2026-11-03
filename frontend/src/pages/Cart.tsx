@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import type { Transition } from "framer-motion";
 import {
   Trash2,
   Plus,
@@ -7,12 +8,19 @@ import {
   ArrowRight,
   ShoppingBag,
   Truck,
-  ShieldCheck,
-  RotateCcw,
+  Banknote,
+  MapPin,
   ChevronRight,
 } from "lucide-react";
 import { useCart, type CartItem } from "../context/CartContext";
 import { pickProductImageUrl } from "../utils/placeholder";
+
+const CHIP =
+  "rounded-tag border-[1.5px] border-border-primary px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary";
+const STEPPER =
+  "flex h-11 w-11 items-center justify-center text-primary transition-colors duration-snap ease-snap hover:bg-surface-hover disabled:text-muted disabled:hover:bg-transparent disabled:cursor-not-allowed";
+const BTN_PRIMARY =
+  "flex w-full items-center justify-center gap-2 rounded-tag border-2 border-inverse bg-accent py-3 font-display text-xl uppercase leading-none tracking-[0.04em] text-inverse transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none";
 
 /**
  * Stock available for what is actually in the cart. Returns null when the item
@@ -35,48 +43,53 @@ function getAvailableStock(item: CartItem): number | null {
 const Cart = () => {
   const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
   const navigate = useNavigate();
+  const reduce = useReducedMotion();
+  const rise = reduce ? false : { opacity: 0, y: 12 };
+  const snap: Transition = { duration: 0.16, ease: [0.2, 0.7, 0.3, 1] };
 
   if (cart.length === 0) {
     return (
-      <div className="min-h-screen pt-4 pb-12 flex flex-col items-center justify-center bg-primary text-center px-4">
+      <div className="min-h-screen pt-4 pb-12 flex flex-col items-center justify-center bg-primary px-4 text-center">
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
+          initial={rise}
+          animate={{ opacity: 1, y: 0 }}
+          transition={snap}
           className="mb-8"
         >
-          <div className="w-24 h-24 bg-secondary rounded-3xl flex items-center justify-center mx-auto border border-border-primary">
-            <ShoppingBag className="w-12 h-12 text-muted" />
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-card border-2 border-inverse bg-card">
+            <ShoppingBag className="h-12 w-12 text-tertiary" aria-hidden="true" />
           </div>
         </motion.div>
 
-        <motion.h2
-          initial={{ opacity: 0, y: 10 }}
+        <motion.h1
+          initial={rise}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="text-2xl font-bold text-primary mb-3"
+          transition={{ ...snap, delay: 0.04 }}
+          className="mb-3 font-display text-[34px] font-semibold uppercase leading-none text-primary"
         >
           Your cart is empty
-        </motion.h2>
+        </motion.h1>
         <motion.p
-          initial={{ opacity: 0, y: 10 }}
+          initial={rise}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-tertiary mb-8 max-w-sm text-sm leading-relaxed"
+          transition={{ ...snap, delay: 0.08 }}
+          className="mb-8 max-w-sm text-sm leading-relaxed text-tertiary"
         >
-          Looks like you haven't added any products yet. Browse our collection to find something you'll love.
+          No kit in the cart yet. Browse jerseys, footballs, bats and boots — COD available,
+          delivery all over Nepal.
         </motion.p>
 
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={rise}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ ...snap, delay: 0.12 }}
         >
           <Link
             to="/shop"
-            className="flex items-center gap-2 px-8 py-4 bg-accent text-white rounded-2xl font-bold text-sm hover:bg-accent-hover transition-all active:scale-95 shadow-xl shadow-accent/20"
+            className="flex items-center gap-2 rounded-tag border-2 border-inverse bg-accent px-8 py-3 font-display text-xl uppercase leading-none tracking-[0.04em] text-inverse transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
           >
             Browse Products
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         </motion.div>
       </div>
@@ -87,113 +100,112 @@ const Cart = () => {
     <div className="min-h-screen bg-primary pt-4 pb-20">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-center justify-between py-8 gap-4 border-b border-border-primary"
-        >
+        <div className="flex flex-col justify-between gap-4 border-b-[3px] border-inverse py-8 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-2xl md:text-3xl font-black text-primary">
+            <p className="eyebrow mb-2">Your kit bag</p>
+            <h1 className="font-display text-[34px] font-semibold uppercase leading-none text-primary md:text-[44px]">
               Shopping Cart
             </h1>
-            <p className="text-sm text-tertiary mt-1">
+            <p className="mt-1 text-sm text-tertiary tabular-nums">
               {cart.length} item{cart.length !== 1 ? "s" : ""} in your cart
             </p>
           </div>
           <Link
             to="/shop"
-            className="flex items-center gap-1 text-sm font-bold text-accent hover:text-accent-hover transition-colors group"
+            className="group flex min-h-[44px] items-center gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-accent transition-colors duration-snap ease-snap hover:text-accent-hover"
           >
             Continue Shopping
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
-        </motion.div>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
+        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-12">
           {/* Cart Items */}
-          <div className="lg:col-span-8 space-y-4">
+          <div className="space-y-4 lg:col-span-8">
             <AnimatePresence mode="popLayout">
               {cart.map((item, idx) => {
                 const availableStock = getAvailableStock(item);
                 const atStockCap =
                   availableStock !== null && item.quantity >= availableStock;
+                const unitPrice = item.variantPrice || item.price || 0;
                 return (
                 <motion.div
                   key={item.variantId || item.id}
                   layout
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={rise}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -100 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className="bg-card rounded-2xl p-4 sm:p-6 border border-border-primary flex flex-col sm:flex-row gap-4 sm:gap-6 hover:shadow-lg hover:border-accent/20 transition-all duration-300"
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ ...snap, delay: idx * 0.04 }}
                 >
+                  {/* The lift lives on this inner element: framer owns the
+                      transform on the motion wrapper above. */}
+                  <div className="flex flex-col gap-4 rounded-card border-2 border-inverse bg-card p-4 transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard sm:flex-row sm:gap-6 sm:p-6">
                   {/* Image */}
                   <Link
                     to={`/product/${item.id}`}
-                    className="w-full sm:w-32 h-36 sm:h-32 bg-secondary rounded-xl overflow-hidden flex-shrink-0 group"
+                    className="h-36 w-full flex-shrink-0 overflow-hidden rounded-tag border-2 border-inverse bg-secondary sm:h-32 sm:w-32"
                   >
                     {item.images && item.images.length > 0 ? (
                       <img
                         src={pickProductImageUrl(item.images)}
                         alt={item.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted">
-                        <ShoppingBag className="w-8 h-8" />
+                      <div className="flex h-full w-full items-center justify-center text-tertiary">
+                        <ShoppingBag className="h-8 w-8" aria-hidden="true" />
                       </div>
                     )}
                   </Link>
 
                   {/* Details */}
-                  <div className="flex-1 flex flex-col justify-between">
-                    <div className="flex justify-between items-start gap-4">
+                  <div className="flex flex-1 flex-col justify-between">
+                    <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <p className="text-[10px] font-bold text-accent uppercase tracking-wider mb-1">
+                        <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
                           {item.Brand?.name || "Sports Gear"}
                         </p>
                         <Link
                           to={`/product/${item.id}`}
-                          className="text-base font-bold text-primary line-clamp-1 hover:text-accent transition-colors"
+                          className="line-clamp-1 font-display text-[29px] font-semibold uppercase leading-none text-primary transition-colors duration-snap ease-snap hover:text-accent"
                         >
                           {item.name}
                         </Link>
-                        <div className="flex flex-wrap gap-2 mt-2">
+                        <div className="mt-2 flex flex-wrap gap-2">
                           {item.selectedSize && (
-                            <span className="text-xs text-tertiary bg-secondary px-2.5 py-1 rounded-lg border border-border-primary">
-                              Size: <span className="font-bold text-primary">{item.selectedSize}</span>
+                            <span className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-tag border-2 border-inverse px-2 font-display text-base font-semibold uppercase leading-none tabular-nums text-primary">
+                              {item.selectedSize}
                             </span>
                           )}
                           {item.selectedColor && (
-                            <span className="text-xs text-tertiary bg-secondary px-2.5 py-1 rounded-lg border border-border-primary">
-                              Color: <span className="font-bold text-primary capitalize">{item.selectedColor}</span>
-                            </span>
+                            <span className={CHIP}>{item.selectedColor}</span>
                           )}
                         </div>
                       </div>
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
+                      <button
+                        type="button"
                         onClick={() => removeFromCart(item.id, item.variantId)}
-                        className="p-2.5 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all flex-shrink-0"
+                        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-tag text-tertiary transition-colors duration-snap ease-snap hover:bg-surface-hover hover:text-accent"
                         title="Remove item"
+                        aria-label={`Remove ${item.name} from cart`}
                       >
-                        <Trash2 className="w-5 h-5" />
-                      </motion.button>
+                        <Trash2 className="h-5 w-5" aria-hidden="true" />
+                      </button>
                     </div>
 
-                    <div className="flex justify-between items-center mt-4">
+                    <div className="mt-4 flex items-center justify-between">
                       {/* Quantity */}
                       <div>
-                        <div className="flex items-center bg-secondary rounded-xl border border-border-primary">
+                        <div className="flex items-center rounded-tag border-2 border-inverse bg-card">
                           <button
                             onClick={() => updateQuantity(item.id, item.variantId, item.quantity - 1)}
                             disabled={item.quantity <= 1}
                             aria-label={`Decrease quantity of ${item.name}`}
-                            className="w-10 h-10 flex items-center justify-center text-secondary hover:text-primary transition-colors disabled:opacity-30"
+                            className={STEPPER}
                           >
-                            <Minus className="w-4 h-4" />
+                            <Minus className="h-4 w-4" aria-hidden="true" />
                           </button>
-                          <span className="w-10 text-center text-sm font-bold text-primary">
+                          <span className="w-11 text-center font-display text-lg font-semibold leading-none tabular-nums text-primary">
                             {item.quantity}
                           </span>
                           {/* Clamped to stock: raising the quantity past what
@@ -211,15 +223,15 @@ const Cart = () => {
                             }
                             disabled={atStockCap}
                             aria-label={`Increase quantity of ${item.name}`}
-                            className="w-10 h-10 flex items-center justify-center text-secondary hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            className={STEPPER}
                           >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="h-4 w-4" aria-hidden="true" />
                           </button>
                         </div>
                         {availableStock !== null && (atStockCap || availableStock <= 5) && (
                           <p
-                            className={`text-[10px] mt-1.5 font-medium ${
-                              atStockCap ? "text-amber-600" : "text-muted"
+                            className={`mt-1.5 text-[11px] font-bold uppercase tracking-[0.12em] tabular-nums ${
+                              atStockCap ? "text-marigold" : "text-tertiary"
                             }`}
                           >
                             {availableStock === 0
@@ -233,89 +245,97 @@ const Cart = () => {
 
                       {/* Price */}
                       <div className="text-right">
-                        <p className="text-xl font-black text-primary">
-                          Rs {((item.variantPrice || item.price || 0) * item.quantity).toLocaleString()}
+                        <p className="font-display text-[29px] font-semibold leading-none tabular-nums text-primary">
+                          Rs {(unitPrice * item.quantity).toLocaleString()}
                         </p>
                         {item.quantity > 1 && (
-                          <p className="text-[10px] text-muted">
-                            Rs {(item.variantPrice || item.price || 0).toLocaleString()} each
+                          <p className="mt-0.5 text-[11px] font-bold uppercase tracking-[0.12em] tabular-nums text-tertiary">
+                            Rs {unitPrice.toLocaleString()} each
                           </p>
                         )}
                       </div>
                     </div>
+                  </div>
                   </div>
                 </motion.div>
                 );
               })}
             </AnimatePresence>
 
-            {/* Trust Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-8">
+            {/* What the shop actually offers */}
+            <div className="grid grid-cols-1 gap-4 pt-8 sm:grid-cols-3">
               {[
-                { icon: Truck, label: "Fast Delivery", desc: "All over Nepal", color: "text-blue-500" },
-                { icon: ShieldCheck, label: "100% Authentic", desc: "Genuine products only", color: "text-emerald-500" },
-                { icon: RotateCcw, label: "Easy Returns", desc: "7-day return policy", color: "text-purple-500" },
-              ].map((item, idx) => (
+                { icon: Truck, label: "Delivery", desc: "All over Nepal" },
+                { icon: Banknote, label: "COD available", desc: "Pay on delivery" },
+                { icon: MapPin, label: "Bardibas", desc: "Chaudhary Market" },
+              ].map((feature, idx) => (
                 <motion.div
-                  key={item.label}
-                  initial={{ opacity: 0, y: 20 }}
+                  key={feature.label}
+                  initial={rise}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + idx * 0.1 }}
-                  className="flex items-center gap-3 p-4 bg-secondary rounded-2xl border border-border-primary hover:border-accent/20 transition-all"
+                  transition={{ ...snap, delay: 0.12 + idx * 0.04 }}
                 >
-                  <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-                    <item.icon className={`w-5 h-5 ${item.color}`} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-primary">{item.label}</p>
-                    <p className="text-[10px] text-muted">{item.desc}</p>
+                  <div className="flex items-center gap-3 rounded-card border-2 border-inverse bg-card p-4">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-tag border-2 border-inverse bg-marigold-soft">
+                      <feature.icon className="h-5 w-5 text-marigold" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <p className="font-display text-lg font-semibold uppercase leading-none text-primary">
+                        {feature.label}
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                        {feature.desc}
+                      </p>
+                    </div>
                   </div>
                 </motion.div>
               ))}
             </div>
           </div>
 
-          {/* Order Summary */}
+          {/* Order Summary — printed receipt */}
           <div className="lg:col-span-4">
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-card rounded-3xl p-6 border border-border-primary sticky top-28 shadow-lg"
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={snap}
+              className="sticky top-28 rounded-card border-2 border-inverse bg-card p-6"
             >
-              <h2 className="text-lg font-bold text-primary mb-6">Order Summary</h2>
+              <p className="eyebrow mb-4">Receipt</p>
+              <h2 className="mb-6 font-display text-[29px] font-semibold uppercase leading-none text-primary">
+                Order Summary
+              </h2>
 
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-secondary">Subtotal ({cart.length} items)</span>
-                  <span className="font-semibold text-primary">Rs {cartTotal.toLocaleString()}</span>
+              <dl className="mb-6">
+                <div className="flex items-baseline justify-between border-b border-border-primary py-2.5 text-sm">
+                  <dt className="text-tertiary tabular-nums">Subtotal ({cart.length} items)</dt>
+                  <dd className="font-display text-lg font-semibold leading-none tabular-nums text-primary">
+                    Rs {cartTotal.toLocaleString()}
+                  </dd>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-secondary">Shipping</span>
-                  <span className="font-semibold text-primary">Calculated at checkout</span>
+                <div className="flex items-baseline justify-between border-b border-border-primary py-2.5 text-sm">
+                  <dt className="text-tertiary">Delivery charge</dt>
+                  <dd className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                    At checkout
+                  </dd>
                 </div>
-                <div className="border-t border-border-primary pt-4">
-                  <div className="flex justify-between">
-                    <span className="font-bold text-primary">Subtotal</span>
-                    <span className="text-2xl font-black text-primary">
-                      Rs {cartTotal.toLocaleString()}
-                    </span>
-                  </div>
+                <div className="mt-0 flex items-baseline justify-between border-t-2 border-inverse pt-3">
+                  <dt className="font-display text-xl font-semibold uppercase leading-none text-primary">
+                    Subtotal
+                  </dt>
+                  <dd className="font-display text-[34px] font-semibold leading-none tabular-nums text-primary">
+                    Rs {cartTotal.toLocaleString()}
+                  </dd>
                 </div>
-              </div>
+              </dl>
 
-              <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                onClick={() => navigate("/checkout")}
-                className="w-full py-4 bg-accent text-white rounded-2xl font-bold text-sm uppercase tracking-wider shadow-xl shadow-accent/20 hover:bg-accent-hover transition-all flex items-center justify-center gap-2"
-              >
+              <button type="button" onClick={() => navigate("/checkout")} className={BTN_PRIMARY}>
                 Proceed to Checkout
-                <ArrowRight className="w-4 h-4" />
-              </motion.button>
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
 
-              <p className="text-[10px] text-muted text-center mt-4">
-                Secure checkout • Delivery charge shown at checkout
+              <p className="mt-4 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                COD available · Delivery charge shown at checkout
               </p>
             </motion.div>
           </div>

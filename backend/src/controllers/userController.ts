@@ -52,6 +52,16 @@ class UserController {
         return;
       }
 
+      // Avatar is rendered as an <img src>; only accept a plain https URL.
+      if (avatar !== undefined && avatar !== null && avatar !== "") {
+        const isHttpsUrl =
+          typeof avatar === "string" && avatar.length <= 2048 && /^https:\/\/[^\s<>"']+$/i.test(avatar);
+        if (!isHttpsUrl) {
+          res.status(400).json({ message: "Avatar must be an https URL" });
+          return;
+        }
+      }
+
       const user = await User.findByPk(userId);
 
       if (!user) {

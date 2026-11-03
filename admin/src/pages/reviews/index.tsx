@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '@/services/api';
-import { Star, Check, Eye, EyeOff, Loader2, MessageSquare } from 'lucide-react';
+import { Star, Eye, EyeOff, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Review {
@@ -18,27 +18,27 @@ export default function Reviews() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ averageRating: 0, totalReviews: 0 });
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get('/admin/reviews');
-      setReviews(res.data?.data || []);
-      setStats(res.data?.stats || { averageRating: 0, totalReviews: 0 });
-    } catch (err) {
-      console.error('Failed to load reviews:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await api.get('/admin/reviews');
+        setReviews(res.data?.data || []);
+        setStats(res.data?.stats || { averageRating: 0, totalReviews: 0 });
+      } catch (err) {
+        console.error('Failed to load reviews:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   const toggleVisibility = async (review: Review) => {
     try {
       await api.put(`/admin/reviews/${review.id}/visibility`, { isVisible: !review.isVisible });
       setReviews((prev) => prev.map((r) => r.id === review.id ? { ...r, isVisible: !r.isVisible } : r));
       toast.success(review.isVisible ? 'Review hidden' : 'Review visible');
-    } catch (err: any) {
+    } catch {
       toast.error('Failed to update');
     }
   };

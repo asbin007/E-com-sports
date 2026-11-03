@@ -36,5 +36,5 @@ export const envConfig = {
         backendUrl: process.env.BACKEND_URL || 'http://localhost:1000',
         
     // WhatsApp
-    whatsappNumber: process.env.WHATSAPP_NUMBER || '9779748477628',
+    whatsappNumber: process.env.WHATSAPP_NUMBER || '9779817801199',
 }

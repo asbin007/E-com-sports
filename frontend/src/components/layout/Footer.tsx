@@ -1,60 +1,82 @@
 import { Link } from "react-router-dom";
-import {
-  Mail,
-  Phone,
-  MapPin,
-  MessageCircle,
-  Heart,
-} from "lucide-react";
+import { Phone, MapPin, MessageCircle, Heart, Facebook } from "lucide-react";
+import { STORE, whatsappUrl } from "../../data/store";
+import TikTokIcon from "../ui/TikTokIcon";
+
+/** Labels slugify to the seeded category slugs: "Trophies & Medals" → trophies-medals. */
+const categories = [
+  "Football Boots",
+  "Club Jerseys",
+  "Team Kits",
+  "Footballs",
+  "Trophies & Medals",
+  "Training Wear",
+  "Bags",
+];
+
+const COLUMN_HEADING =
+  "font-display text-[22px] font-semibold uppercase leading-none text-inverse";
+
+/** 44x44 minimum hit area on the icon-only social links (WCAG 2.5.5). */
+const SOCIAL_LINK =
+  "inline-flex h-11 w-11 items-center justify-center rounded-tag border-2 border-primary/30 text-inverse transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:border-accent hover:bg-accent hover:text-white";
+
+const LINK_ROW =
+  "flex min-h-[44px] items-center gap-3 text-sm text-inverse/70 transition duration-snap ease-snap hover:text-accent";
 
 const Footer = () => {
-  return (
-    <footer className="bg-inverse text-inverse relative overflow-hidden">
-      {/* Decorative Elements */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-accent/5 blur-[150px] rounded-full pointer-events-none" />
+  const socials = [
+    { icon: MessageCircle, label: "WhatsApp", href: whatsappUrl() },
+    { icon: Facebook, label: "Facebook", href: STORE.facebook },
+    { icon: TikTokIcon, label: "TikTok", href: STORE.tiktok },
+  ];
 
-      {/* Main Footer Content */}
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-16">
+  const contacts = [
+    {
+      icon: MessageCircle,
+      text: "Order on WhatsApp",
+      href: whatsappUrl("Hello Brothers Sports House! I'd like to order."),
+    },
+    { icon: Phone, text: `+977 ${STORE.phone.slice(3)}`, href: `tel:+${STORE.phone}` },
+    { icon: MapPin, text: STORE.location, href: null },
+  ];
+
+  return (
+    /* Ink ground under a 3px rule — no blur blob, no glow. */
+    <footer className="border-t-[3px] border-accent bg-inverse text-inverse">
+      <div className="mx-auto max-w-[1440px] px-4 py-16 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4 lg:gap-16">
           {/* Brand Column */}
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20">
-                <span className="text-white font-black text-lg italic">B</span>
-              </div>
-              <div>
-                <span className="text-lg font-black text-inverse tracking-tight uppercase italic leading-none block">
+              <span className="flex h-11 w-11 items-center justify-center rounded-tag border-2 border-primary/30 bg-accent font-display text-2xl font-bold leading-none text-white">
+                B
+              </span>
+              <span>
+                <span className="block font-display text-2xl font-bold uppercase leading-none text-inverse">
                   Brothers
                 </span>
-                <span className="text-[8px] font-bold text-accent uppercase tracking-[0.25em] leading-none">
+                <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
                   Sports House
                 </span>
-              </div>
+              </span>
             </div>
-            <p className="text-inverse/50 text-sm leading-relaxed">
-              Your one-stop destination for premium sports gear, equipment, and
-              accessories. Serving athletes across Nepal with quality and trust.
+            <p className="max-w-[62ch] text-sm leading-relaxed text-inverse/70">
+              Football boots, club jerseys, team kit, Kelme balls and trophies out of
+              Chaudhary Market in Bardibas, shipped across Nepal on cash on delivery.
             </p>
 
-            {/* Social Links */}
             <div className="flex gap-3">
-              {[
-                {
-                  icon: MessageCircle,
-                  label: "WhatsApp",
-                  hoverColor: "hover:bg-[#25D366] hover:border-[#25D366]",
-                  href: `https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER || "9779748477628"}`,
-                },
-              ].map((social) => (
+              {socials.map((social) => (
                 <a
                   key={social.label}
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`w-10 h-10 bg-primary/5 border border-border-primary/20 rounded-xl flex items-center justify-center ${social.hoverColor} transition-all hover:scale-110 hover:shadow-lg`}
+                  className={SOCIAL_LINK}
                   aria-label={social.label}
                 >
-                  <social.icon className="w-4 h-4" />
+                  <social.icon className="h-4 w-4" aria-hidden="true" />
                 </a>
               ))}
             </div>
@@ -62,85 +84,67 @@ const Footer = () => {
 
           {/* Shop Links */}
           <div>
-            <h4 className="text-inverse font-bold text-sm uppercase tracking-wider mb-6">
-              Shop by Sport
-            </h4>
-            <ul className="space-y-3.5">
-              {["Football", "Cricket", "Basketball", "Running", "Gym & Fitness", "Outdoor"].map(
-                (item) => (
-                  <li key={item}>
-                    <Link
-                      to={`/${item.toLowerCase().replace(/ & /g, "-").replace(/ /g, "-")}`}
-                      className="text-inverse/50 text-sm hover:text-accent transition-colors flex items-center gap-3 group"
-                    >
-                      <span className="w-1.5 h-1.5 bg-primary/20 rounded-full group-hover:bg-accent group-hover:scale-125 transition-all" />
-                      {item}
-                    </Link>
-                  </li>
-                )
-              )}
-            </ul>
-          </div>
-
-          {/* Support Links */}
-          <div>
-            <h4 className="text-inverse font-bold text-sm uppercase tracking-wider mb-6">
-              Customer Support
-            </h4>
-            <ul className="space-y-3.5">
-              {[{ label: "Order Tracking", to: "/dashboard/orders" }].map((item) => (
-                <li key={item.label}>
+            <h2 className={COLUMN_HEADING}>Shop by category</h2>
+            <ul className="mt-6">
+              {categories.map((item) => (
+                <li key={item}>
                   <Link
-                    to={item.to}
-                    className="text-inverse/50 text-sm hover:text-accent transition-colors flex items-center gap-3 group"
+                    to={`/${item.toLowerCase().replace(/ & /g, "-").replace(/ /g, "-")}`}
+                    className={LINK_ROW}
                   >
-                    <span className="w-1.5 h-1.5 bg-primary/20 rounded-full group-hover:bg-accent group-hover:scale-125 transition-all" />
-                    {item.label}
+                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-tag bg-accent" />
+                    {item}
                   </Link>
                 </li>
               ))}
             </ul>
           </div>
 
+          {/* Support Links */}
+          <div>
+            <h2 className={COLUMN_HEADING}>Customer support</h2>
+            <ul className="mt-6">
+              <li>
+                <Link to="/dashboard/orders" className={LINK_ROW}>
+                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-tag bg-accent" />
+                  Order tracking
+                </Link>
+              </li>
+            </ul>
+          </div>
+
           {/* Contact Info */}
           <div>
-            <h4 className="text-inverse font-bold text-sm uppercase tracking-wider mb-6">
-              Get in Touch
-            </h4>
-            <div className="space-y-5">
-              {[
-                { icon: Mail, text: "support@brotherssportshouse.com", href: "mailto:support@brotherssportshouse.com" },
-                { icon: Phone, text: "+977 9800000000", href: "tel:+9779800000000" },
-                { icon: MapPin, text: "Kathmandu, Nepal", href: null },
-              ].map((contact) => (
-                <div key={contact.text} className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/5 rounded-xl flex items-center justify-center">
-                    <contact.icon className="w-4 h-4 text-accent" />
-                  </div>
-                  {contact.href ? (
-                    <a
-                      href={contact.href}
-                      className="text-inverse/50 text-sm hover:text-accent transition-colors"
-                    >
-                      {contact.text}
-                    </a>
-                  ) : (
-                    <span className="text-inverse/50 text-sm">{contact.text}</span>
-                  )}
-                </div>
-              ))}
+            <h2 className={COLUMN_HEADING}>Get in touch</h2>
+            <div className="mt-6 space-y-2">
+              {contacts.map((contact) =>
+                contact.href ? (
+                  <a key={contact.text} href={contact.href} className={LINK_ROW}>
+                    <contact.icon className="h-4 w-4 flex-shrink-0 text-accent" aria-hidden="true" />
+                    {contact.text}
+                  </a>
+                ) : (
+                  <p
+                    key={contact.text}
+                    className="flex min-h-[44px] items-center gap-3 text-sm text-inverse/70"
+                  >
+                    <contact.icon className="h-4 w-4 flex-shrink-0 text-accent" aria-hidden="true" />
+                    {contact.text}
+                  </p>
+                )
+              )}
             </div>
 
             {/* Payment Methods */}
             <div className="mt-8">
-              <p className="text-[10px] font-bold text-inverse/30 uppercase tracking-wider mb-3">
-                We Accept
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-inverse/70">
+                We accept
               </p>
-              <div className="flex gap-2">
-                {["eSewa QR", "Cash on Delivery"].map((method) => (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {["Cash on Delivery", "eSewa QR", "Khalti QR", "Bank Transfer"].map((method) => (
                   <span
                     key={method}
-                    className="px-3 py-2 bg-primary/5 border border-border-primary/20 rounded-lg text-[10px] font-bold text-inverse/60"
+                    className="rounded-tag border-[1.5px] border-primary/30 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-inverse/70"
                   >
                     {method}
                   </span>
@@ -152,11 +156,13 @@ const Footer = () => {
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-border-primary/20 relative z-10">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-inverse/40 text-xs flex items-center gap-1">
-            &copy; {new Date().getFullYear()} Brothers Sports House. Made with{" "}
-            <Heart className="w-3 h-3 text-accent fill-accent inline" /> in Nepal.
+      <div className="border-t border-primary/20">
+        <div className="mx-auto flex max-w-[1440px] flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row sm:px-6 lg:px-8">
+          <p className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.12em] text-inverse/70">
+            <span className="tabular-nums">&copy; {new Date().getFullYear()}</span>{" "}
+            {STORE.name}. Made with{" "}
+            <Heart className="inline h-3 w-3 fill-accent text-accent" aria-hidden="true" /> in
+            Nepal.
           </p>
         </div>
       </div>

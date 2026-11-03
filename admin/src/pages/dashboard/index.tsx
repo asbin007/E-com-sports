@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import api from '@/services/api';
 import {
   Package, ShoppingCart, Users, TrendingUp, ArrowRight,
-  Clock, Truck, AlertTriangle, Trophy, ArrowUp, ArrowDown,
+  Clock, AlertTriangle, Trophy, ArrowUp, ArrowDown,
   RefreshCw, X,
 } from 'lucide-react';
-import type { Order } from '@/types';
+import type {
+  Order, DashboardStats, RevenuePoint, TopProduct, OrderStatusCount, LowStockVariant,
+} from '@/types';
 
 function RevenueChange({ today, yesterday }: { today: number; yesterday: number }) {
   if (!yesterday) return null;
@@ -32,19 +34,20 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<any>(null);
-  const [revenueChart, setRevenueChart] = useState<any[]>([]);
-  const [topProducts, setTopProducts] = useState<any[]>([]);
-  const [statusBreakdown, setStatusBreakdown] = useState<any[]>([]);
-  const [lowStock, setLowStock] = useState<any[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [revenueChart, setRevenueChart] = useState<RevenuePoint[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [statusBreakdown, setStatusBreakdown] = useState<OrderStatusCount[]>([]);
+  const [lowStock, setLowStock] = useState<LowStockVariant[]>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState<string[]>([]);
   const [errorDismissed, setErrorDismissed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // `refreshing` is only ever visible on the retry button, so the mount-time
+  // load never needs to raise it; `retry` does.
   const load = useCallback(async () => {
-    setRefreshing(true);
     const failures: string[] = [];
     const fetchOr = async <T,>(label: string, url: string, fallback: T): Promise<T> => {
       try {
@@ -58,12 +61,12 @@ export default function Dashboard() {
     };
 
     const [s, rc, tp, ro, sb, ls] = await Promise.all([
-      fetchOr<any>('Overview stats', '/dashboard/stats', null),
-      fetchOr<any[]>('Revenue chart', '/dashboard/revenue-chart?days=7', []),
-      fetchOr<any[]>('Top products', '/dashboard/top-products?limit=5', []),
+      fetchOr<DashboardStats | null>('Overview stats', '/dashboard/stats', null),
+      fetchOr<RevenuePoint[]>('Revenue chart', '/dashboard/revenue-chart?days=7', []),
+      fetchOr<TopProduct[]>('Top products', '/dashboard/top-products?limit=5', []),
       fetchOr<Order[]>('Recent orders', '/dashboard/recent-orders?limit=5', []),
-      fetchOr<any[]>('Order status breakdown', '/dashboard/orders-by-status', []),
-      fetchOr<any[]>('Low stock', '/admin/inventory/low-stock?threshold=5', []),
+      fetchOr<OrderStatusCount[]>('Order status breakdown', '/dashboard/orders-by-status', []),
+      fetchOr<LowStockVariant[]>('Low stock', '/admin/inventory/low-stock?threshold=5', []),
     ]);
 
     setStats(s);
@@ -79,8 +82,16 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    load();
+    const run = async () => {
+      await load();
+    };
+    run();
   }, [load]);
+
+  const retry = () => {
+    setRefreshing(true);
+    load();
+  };
 
   if (loading) {
     return (
@@ -90,7 +101,7 @@ export default function Dashboard() {
     );
   }
 
-  const maxRevenue = Math.max(...revenueChart.map((d: any) => d.revenue), 1);
+  const maxRevenue = Math.max(...revenueChart.map((d) => d.revenue), 1);
 
   return (
     <div className="space-y-6">
@@ -117,7 +128,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button
-              onClick={load}
+              onClick={retry}
               disabled={refreshing}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors disabled:opacity-60"
             >
@@ -137,7 +148,7 @@ export default function Dashboard() {
 
       {/* Alert banners */}
       <div className="space-y-3">
-        {stats?.pendingOrders > 0 && (
+        {stats && stats.pendingOrders > 0 && (
           <Link to="/orders" className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-xl hover:border-yellow-300 transition-all">
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-yellow-500" />
@@ -178,7 +189,8 @@ export default function Dashboard() {
               </div>
               <ArrowRight className="w-4 h-4 text-gray-400" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{card.label}</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">{card.value}</p>
             <div className="mt-0.5">{typeof card.sub === 'string' ? <p className="text-sm text-gray-500">{card.sub}</p> : card.sub}</div>
           </Link>
         ))}
@@ -193,7 +205,7 @@ export default function Dashboard() {
           ) : (
             <>
               <div className="flex h-36 items-end gap-1.5">
-                {revenueChart.map((d: any) => {
+                {revenueChart.map((d) => {
                   const heightPct = Math.max((d.revenue / maxRevenue) * 100, d.revenue > 0 ? 4 : 0);
                   const label = new Date(d.date).toLocaleDateString('en-NP', { weekday: 'short' });
                   return (
@@ -208,7 +220,7 @@ export default function Dashboard() {
                 })}
               </div>
               <p className="mt-2 text-right text-xs text-gray-500">
-                Total: Rs {revenueChart.reduce((s: number, d: any) => s + d.revenue, 0).toLocaleString()}
+                Total: Rs {revenueChart.reduce((s, d) => s + d.revenue, 0).toLocaleString()}
               </p>
             </>
           )}
@@ -220,8 +232,8 @@ export default function Dashboard() {
             <p className="text-sm text-gray-400">No orders to break down yet</p>
           ) : (
           <div className="space-y-3">
-            {[...statusBreakdown].sort((a: any, b: any) => b.count - a.count).map((item: any) => {
-              const total = statusBreakdown.reduce((s: number, i: any) => s + i.count, 0) || 1;
+            {[...statusBreakdown].sort((a, b) => b.count - a.count).map((item) => {
+              const total = statusBreakdown.reduce((s, i) => s + i.count, 0) || 1;
               return (
                 <div key={item.status}>
                   <div className="flex items-center justify-between text-xs mb-1">
@@ -249,7 +261,7 @@ export default function Dashboard() {
             <p className="text-sm text-gray-400">No sales data yet</p>
           ) : (
             <div className="space-y-3">
-              {topProducts.map((p: any, i: number) => (
+              {topProducts.map((p, i) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-yellow-100 text-yellow-600' : i === 1 ? 'bg-gray-100 text-gray-600' : i === 2 ? 'bg-orange-100 text-orange-600' : 'bg-gray-50 text-gray-400'}`}>
@@ -278,7 +290,7 @@ export default function Dashboard() {
             <p className="text-sm text-gray-400">All products well stocked</p>
           ) : (
             <div className="space-y-3">
-              {lowStock.map((item: any) => (
+              {lowStock.map((item) => (
                 <div key={item.variantId} className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{item.productName}</p>

@@ -17,13 +17,42 @@ import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import { useTheme } from "../../context/ThemeContext";
 
+/** cubic-bezier(.2,.7,.3,1) — the one easing in the system. */
+const EASE_SNAP: [number, number, number, number] = [0.2, 0.7, 0.3, 1];
+
+/** 44x44 minimum hit area on every icon-only control (WCAG 2.5.5). */
+const ICON_BUTTON =
+  "inline-flex h-11 w-11 items-center justify-center rounded-tag text-secondary transition duration-snap ease-snap hover:bg-surface-hover hover:text-primary";
+
 const navLinks = [
   { name: "Shop", path: "/shop" },
-  { name: "Football", path: "/football" },
-  { name: "Cricket", path: "/cricket" },
-  { name: "Basketball", path: "/basketball" },
-  { name: "Running", path: "/running" },
-  { name: "Gym", path: "/gym-fitness" },
+  { name: "Boots", path: "/football-boots" },
+  { name: "Jerseys", path: "/club-jerseys" },
+  { name: "Team Kits", path: "/team-kits" },
+  { name: "Footballs", path: "/footballs" },
+  { name: "Trophies", path: "/trophies-medals" },
+];
+
+/** Links that only appear in the mobile sheet. */
+const mobileExtraLinks = [
+  { name: "Training Wear", path: "/training-wear" },
+  { name: "Bags", path: "/bags" },
+  { name: "Accessories", path: "/accessories" },
+];
+
+/** What the shop actually says, in the order it says it. */
+const announcements = [
+  "COD available",
+  "Delivery all over Nepal",
+  "Bardibas · Chaudhary Market",
+];
+
+const popularSearches = [
+  "Club jerseys",
+  "Football size 5",
+  "Boots UK 8",
+  "Team kit set",
+  "Trophies",
 ];
 
 const Navbar = () => {
@@ -59,53 +88,44 @@ const Navbar = () => {
 
   return (
     <>
-      {/* Announcement Bar */}
-      <div className="bg-inverse text-inverse text-center py-2 text-[11px] font-medium tracking-wide relative z-50 overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex items-center justify-center gap-2"
-        >
-          <span className="inline-block animate-pulse">🏆</span>
-          <span>Fast Delivery All Over Nepal</span>
-          <span className="mx-2 text-white/30">|</span>
-          <span>7-Day Easy Returns</span>
-          <span className="mx-2 text-white/30">|</span>
-          <span>100% Authentic Products</span>
-        </motion.div>
+      {/* Announcement rule — the shop's own three facts, no emoji, no pulse */}
+      <div className="relative z-50 bg-inverse py-2 text-inverse">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 text-[11px] font-bold uppercase tracking-[0.12em]">
+          {announcements.map((line, idx) => (
+            <span key={line} className="flex items-center gap-3">
+              {idx > 0 && <span aria-hidden="true" className="h-3 w-px bg-primary/30" />}
+              {line}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Main Navigation */}
       <nav
         className={cn(
-          "sticky top-0 z-50 transition-all duration-500",
-          isScrolled
-            ? "glass shadow-lg shadow-black/5 border-b border-border-primary"
-            : "bg-primary"
+          "sticky top-0 z-50 bg-primary transition duration-snap ease-snap",
+          isScrolled ? "border-b-[3px] border-inverse" : "border-b-2 border-border-primary"
         )}
       >
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 lg:h-18">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2.5 group">
-              <motion.div
-                whileHover={{ rotate: -5, scale: 1.05 }}
-                className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20"
-              >
-                <span className="text-white font-black text-base italic">B</span>
-              </motion.div>
-              <div className="hidden sm:block leading-none">
-                <span className="text-sm font-black text-primary block tracking-tight uppercase">
+        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between lg:h-[72px]">
+            {/* Logo — a shirt number on a tag, never italic */}
+            <Link to="/" className="flex items-center gap-2.5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-tag border-2 border-inverse bg-accent font-display text-2xl font-bold leading-none text-white">
+                B
+              </span>
+              <span className="hidden sm:block">
+                <span className="block font-display text-xl font-bold uppercase leading-none text-primary">
                   Brothers
                 </span>
-                <span className="text-[8px] font-bold text-accent uppercase tracking-[0.2em]">
+                <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
                   Sports House
                 </span>
-              </div>
+              </span>
             </Link>
 
             {/* Center Nav Links */}
-            <div className="hidden lg:flex items-center gap-1">
+            <div className="hidden items-center gap-1 lg:flex">
               {navLinks.map((link) => {
                 const isActive = location.pathname === link.path;
                 return (
@@ -113,18 +133,18 @@ const Navbar = () => {
                     key={link.path}
                     to={link.path}
                     className={cn(
-                      "relative px-4 py-2 text-[13px] font-medium rounded-lg transition-all duration-300",
+                      "relative inline-flex h-11 items-center rounded-tag px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition duration-snap ease-snap",
                       isActive
                         ? "text-accent"
-                        : "text-secondary hover:text-primary hover:bg-surface-hover"
+                        : "text-secondary hover:bg-surface-hover hover:text-primary"
                     )}
                   >
                     {link.name}
                     {isActive && (
-                      <motion.div
+                      <motion.span
                         layoutId="activeNav"
-                        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-accent rounded-full"
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        className="absolute bottom-1.5 left-1/2 h-[3px] w-6 -translate-x-1/2 bg-accent"
+                        transition={{ duration: 0.12, ease: EASE_SNAP }}
                       />
                     )}
                   </Link>
@@ -134,109 +154,92 @@ const Navbar = () => {
 
             {/* Right Actions */}
             <div className="flex items-center gap-1">
-              {/* Search */}
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button
+                type="button"
                 onClick={() => setSearchOpen(true)}
-                className="p-2.5 text-secondary hover:text-primary rounded-xl hover:bg-surface-hover transition-all"
+                className={ICON_BUTTON}
+                aria-label="Search products"
               >
-                <Search className="w-[18px] h-[18px]" />
-              </motion.button>
+                <Search className="h-[18px] w-[18px]" aria-hidden="true" />
+              </button>
 
-              {/* Theme Toggle */}
-              <motion.button
-                whileTap={{ scale: 0.9, rotate: 180 }}
+              <button
+                type="button"
                 onClick={toggleTheme}
-                className="p-2.5 text-secondary hover:text-primary rounded-xl hover:bg-surface-hover transition-all"
+                className={ICON_BUTTON}
+                aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
               >
-                {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
-              </motion.button>
+                {isDark ? (
+                  <Sun className="h-[18px] w-[18px]" aria-hidden="true" />
+                ) : (
+                  <Moon className="h-[18px] w-[18px]" aria-hidden="true" />
+                )}
+              </button>
 
-              {/* Cart */}
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button
+                type="button"
                 onClick={() => setIsCartOpen(true)}
-                className="p-2.5 text-secondary hover:text-primary rounded-xl hover:bg-surface-hover transition-all relative"
+                className={cn(ICON_BUTTON, "relative")}
+                aria-label={`Open cart, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
               >
-                <ShoppingBag className="w-[18px] h-[18px]" />
-                <AnimatePresence>
-                  {cartCount > 0 && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-accent text-white text-[9px] font-bold flex items-center justify-center rounded-full shadow-sm"
-                    >
-                      {cartCount > 9 ? "9+" : cartCount}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.button>
+                <ShoppingBag className="h-[18px] w-[18px]" aria-hidden="true" />
+                {cartCount > 0 && (
+                  <span className="absolute right-1 top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-tag border-[1.5px] border-inverse bg-accent px-1 font-display text-xs font-bold leading-none tabular-nums text-white">
+                    {cartCount > 9 ? "9+" : cartCount}
+                  </span>
+                )}
+              </button>
 
               {/* Auth */}
               {isAuthenticated ? (
-                <div className="hidden sm:flex items-center gap-1 ml-1">
+                <div className="ml-1 hidden items-center gap-1 sm:flex">
                   <Link
                     to="/dashboard"
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-hover transition-all"
+                    className="inline-flex h-11 items-center gap-2 rounded-tag px-2 transition duration-snap ease-snap hover:bg-surface-hover"
                   >
-                    <div className="w-7 h-7 bg-accent/10 rounded-lg flex items-center justify-center">
-                      <span className="text-[11px] font-bold text-accent">
-                        {user?.username?.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <span className="text-xs font-semibold text-primary hidden md:block max-w-[80px] truncate">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-tag border-[1.5px] border-inverse bg-marigold-soft font-display text-sm font-bold leading-none text-marigold">
+                      {user?.username?.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="hidden max-w-[80px] truncate text-[11px] font-bold uppercase tracking-[0.12em] text-primary md:block">
                       {user?.username}
                     </span>
                   </Link>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => { logout(); navigate("/"); }}
-                    className="p-2 text-muted hover:text-red-500 rounded-xl hover:bg-red-500/5 transition-all"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      navigate("/");
+                    }}
+                    className={cn(ICON_BUTTON, "hover:text-accent")}
+                    aria-label="Log out"
                   >
-                    <LogOut className="w-4 h-4" />
-                  </motion.button>
+                    <LogOut className="h-4 w-4" aria-hidden="true" />
+                  </button>
                 </div>
               ) : (
                 <Link
                   to="/login"
-                  className="hidden sm:flex items-center gap-1.5 ml-2 px-4 py-2 bg-accent text-white rounded-xl text-xs font-bold hover:bg-accent-hover transition-all active:scale-95 shadow-lg shadow-accent/20"
+                  className="ml-2 hidden h-11 items-center gap-1.5 rounded-tag border-2 border-inverse bg-accent px-4 font-display text-base font-semibold uppercase leading-none text-white transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none sm:inline-flex"
                 >
-                  <User className="w-3.5 h-3.5" />
+                  <User className="h-3.5 w-3.5" aria-hidden="true" />
                   Login
                 </Link>
               )}
 
               {/* Mobile Menu Toggle */}
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button
+                type="button"
                 onClick={() => setMobileOpen(!mobileOpen)}
-                className="lg:hidden p-2.5 text-primary rounded-xl hover:bg-surface-hover ml-1"
+                className={cn(ICON_BUTTON, "ml-1 text-primary lg:hidden")}
+                aria-expanded={mobileOpen}
+                aria-label={mobileOpen ? "Close menu" : "Open menu"}
               >
-                <AnimatePresence mode="wait">
-                  {mobileOpen ? (
-                    <motion.div
-                      key="close"
-                      initial={{ rotate: -90, opacity: 0 }}
-                      animate={{ rotate: 0, opacity: 1 }}
-                      exit={{ rotate: 90, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <X className="w-5 h-5" />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="menu"
-                      initial={{ rotate: 90, opacity: 0 }}
-                      animate={{ rotate: 0, opacity: 1 }}
-                      exit={{ rotate: -90, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <Menu className="w-5 h-5" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.button>
+                {mobileOpen ? (
+                  <X className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <Menu className="h-5 w-5" aria-hidden="true" />
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -248,86 +251,59 @@ const Navbar = () => {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="lg:hidden bg-primary border-t border-border-primary overflow-hidden"
+              transition={{ duration: 0.16, ease: EASE_SNAP }}
+              className="overflow-hidden border-t-2 border-inverse bg-primary lg:hidden"
             >
-              <div className="px-4 py-6 space-y-2">
-                {navLinks.map((link, idx) => {
+              <div className="space-y-1 px-4 py-6">
+                {[...navLinks, ...mobileExtraLinks].map((link) => {
                   const isActive = location.pathname === link.path;
                   return (
-                    <motion.div
+                    <Link
                       key={link.path}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.05 }}
+                      to={link.path}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        "flex min-h-[44px] items-center justify-between rounded-tag px-4 text-[11px] font-bold uppercase tracking-[0.12em] transition duration-snap ease-snap",
+                        isActive
+                          ? "bg-marigold-soft text-marigold"
+                          : "text-secondary hover:bg-surface-hover hover:text-primary"
+                      )}
                     >
-                      <Link
-                        to={link.path}
-                        onClick={() => setMobileOpen(false)}
-                        className={cn(
-                          "flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all",
-                          isActive
-                            ? "bg-accent/10 text-accent"
-                            : "text-secondary hover:text-primary hover:bg-surface-hover"
-                        )}
-                      >
-                        <span>{link.name}</span>
-                        <ChevronRight className="w-4 h-4 opacity-40" />
-                      </Link>
-                    </motion.div>
+                      <span>{link.name}</span>
+                      <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                    </Link>
                   );
                 })}
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: navLinks.length * 0.05 }}
-                >
-                  <Link
-                    to="/outdoor"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium text-secondary hover:text-primary hover:bg-surface-hover transition-all"
-                  >
-                    <span>Outdoor</span>
-                    <ChevronRight className="w-4 h-4 opacity-40" />
-                  </Link>
-                </motion.div>
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: (navLinks.length + 1) * 0.05 }}
-                >
-                  <Link
-                    to="/accessories"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium text-secondary hover:text-primary hover:bg-surface-hover transition-all"
-                  >
-                    <span>Accessories</span>
-                    <ChevronRight className="w-4 h-4 opacity-40" />
-                  </Link>
-                </motion.div>
 
                 {/* Mobile Auth Section */}
-                <div className="pt-4 mt-4 border-t border-border-primary">
+                <div className="mt-4 border-t border-border-primary pt-4">
                   {isAuthenticated ? (
-                    <div className="flex items-center justify-between px-4">
+                    <div className="flex items-center justify-between gap-3 px-4">
                       <Link
                         to="/dashboard"
                         onClick={() => setMobileOpen(false)}
-                        className="flex items-center gap-3"
+                        className="flex min-h-[44px] items-center gap-3"
                       >
-                        <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center">
-                          <span className="text-sm font-bold text-accent">
-                            {user?.username?.charAt(0).toUpperCase()}
+                        <span className="flex h-10 w-10 items-center justify-center rounded-tag border-2 border-inverse bg-marigold-soft font-display text-lg font-bold leading-none text-marigold">
+                          {user?.username?.charAt(0).toUpperCase()}
+                        </span>
+                        <span>
+                          <span className="block font-display text-lg font-semibold uppercase leading-none text-primary">
+                            {user?.username}
                           </span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-primary">{user?.username}</p>
-                          <p className="text-[10px] text-muted">View Dashboard</p>
-                        </div>
+                          <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                            View dashboard
+                          </span>
+                        </span>
                       </Link>
                       <button
-                        onClick={() => { logout(); navigate("/"); setMobileOpen(false); }}
-                        className="px-4 py-2 text-sm font-medium text-red-500 bg-red-500/5 rounded-lg hover:bg-red-500/10 transition-colors"
+                        type="button"
+                        onClick={() => {
+                          logout();
+                          navigate("/");
+                          setMobileOpen(false);
+                        }}
+                        className="inline-flex min-h-[44px] items-center rounded-tag border-2 border-inverse bg-card px-4 font-display text-base font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:text-accent"
                       >
                         Logout
                       </button>
@@ -337,14 +313,14 @@ const Navbar = () => {
                       <Link
                         to="/login"
                         onClick={() => setMobileOpen(false)}
-                        className="flex-1 text-center py-3 bg-accent text-white rounded-xl text-sm font-bold"
+                        className="flex min-h-[44px] flex-1 items-center justify-center rounded-tag border-2 border-inverse bg-accent font-display text-base font-semibold uppercase leading-none text-white transition duration-snap ease-snap hover:bg-accent-hover"
                       >
                         Login
                       </Link>
                       <Link
                         to="/register"
                         onClick={() => setMobileOpen(false)}
-                        className="flex-1 text-center py-3 bg-secondary text-primary border border-border-primary rounded-xl text-sm font-bold"
+                        className="flex min-h-[44px] flex-1 items-center justify-center rounded-tag border-2 border-inverse bg-card font-display text-base font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:text-accent"
                       >
                         Register
                       </Link>
@@ -357,57 +333,69 @@ const Navbar = () => {
         </AnimatePresence>
       </nav>
 
-      {/* Search Overlay */}
+      {/* Search Overlay — a flat ink scrim, no backdrop blur */}
       <AnimatePresence>
         {searchOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-md flex items-start justify-center pt-[15vh]"
+            transition={{ duration: 0.12, ease: EASE_SNAP }}
+            className="fixed inset-0 z-[200] flex items-start justify-center bg-inverse/80 pt-[15vh]"
             onClick={() => setSearchOpen(false)}
           >
             <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="w-full max-w-2xl mx-4"
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.16, ease: EASE_SNAP }}
+              className="mx-4 w-full max-w-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <form onSubmit={handleSearch}>
                 <div className="relative">
-                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-muted w-5 h-5" />
+                  <Search
+                    className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-tertiary"
+                    aria-hidden="true"
+                  />
+                  <label className="sr-only" htmlFor="navbar-search">
+                    Search products
+                  </label>
                   <input
                     ref={searchRef}
+                    id="navbar-search"
                     type="text"
-                    placeholder="Search for football boots, cricket bats, running shoes..."
-                    className="w-full pl-14 pr-14 py-5 bg-card rounded-2xl text-primary text-base font-medium border border-border-primary shadow-2xl focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
+                    placeholder="Club jersey, boots UK 8, football size 5..."
+                    className="w-full rounded-card border-2 border-inverse bg-card py-4 pl-12 pr-14 text-base text-primary outline-none transition duration-snap ease-snap focus:border-accent"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                   <button
                     type="button"
                     onClick={() => setSearchOpen(false)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-primary rounded-lg hover:bg-surface-hover transition-colors"
+                    className="absolute right-2 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-tag text-tertiary transition duration-snap ease-snap hover:bg-surface-hover hover:text-primary"
+                    aria-label="Close search"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="h-5 w-5" aria-hidden="true" />
                   </button>
                 </div>
               </form>
 
-              {/* Search Suggestions */}
-              <div className="mt-4 px-2">
-                <p className="text-xs text-white/40 mb-3 font-medium">Popular searches</p>
-                <div className="flex flex-wrap gap-2">
-                  {["Football boots", "Cricket bat", "Running shoes", "Gym gloves", "Jersey"].map((term) => (
+              {/* Search Suggestions — real catalogue language */}
+              <div className="mt-6">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-inverse">
+                  Popular searches
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {popularSearches.map((term) => (
                     <button
                       key={term}
+                      type="button"
                       onClick={() => {
                         navigate(`/shop?q=${encodeURIComponent(term)}`);
                         setSearchOpen(false);
                       }}
-                      className="px-4 py-2 bg-white/10 backdrop-blur-sm text-white/80 rounded-lg text-xs font-medium hover:bg-accent hover:text-white transition-all"
+                      className="inline-flex min-h-[44px] items-center rounded-tag border-2 border-inverse bg-card px-4 text-[11px] font-bold uppercase tracking-[0.12em] text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-white hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
                     >
                       {term}
                     </button>

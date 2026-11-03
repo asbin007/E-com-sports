@@ -60,7 +60,7 @@ function buildEmailHtml(
             </div>
 
             <div style="border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-              <p style="color: #999; font-size: 12px;">Brothers Sports House • Kathmandu, Nepal</p>
+              <p style="color: #999; font-size: 12px;">Brothers Sports House • Bardibas, Nepal</p>
             </div>
           </div>
         `;

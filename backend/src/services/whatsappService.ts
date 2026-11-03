@@ -11,7 +11,7 @@
 const WAHA_URL = process.env.WAHA_URL;
 const SESSION = process.env.WAHA_SESSION || 'default';
 const WAHA_API_KEY = process.env.WAHA_API_KEY || '';
-const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || '9779748477628';
+const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || '9779817801199';
 
 function validateWahaConfig(): string | null {
   if (!WAHA_URL) return 'WAHA_URL not set';

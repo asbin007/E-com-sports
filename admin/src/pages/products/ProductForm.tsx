@@ -1,9 +1,17 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '@/services/api';
 import type { Category, Brand, Sport, ProductType, Product } from '@/types';
-import { ArrowLeft, Plus, Trash2, Upload, Star, Loader2, Wand2, X, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, Star, Loader2, X, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/utils/apiError';
+
+// Flag shared between handleSubmit and the "Save & Add Another" button.
+declare global {
+  interface Window {
+    __stayOnPage?: boolean;
+  }
+}
 
 interface VariantRow {
   size: string;
@@ -20,13 +28,15 @@ interface AttributeRow {
   value: string;
 }
 
-type SizeType = 'clothing' | 'shoe' | 'weight' | 'equipment' | null;
+type SizeType = 'clothing' | 'shoe' | 'weight' | 'equipment' | 'ball' | 'trophy' | null;
 
 const SIZE_PRESETS: Record<Exclude<SizeType, null>, string[]> = {
   shoe: ['UK 5', 'UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11', 'UK 12'],
   clothing: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
   weight: ['Short Handle', 'Long Handle', 'Harrow', 'Full Size'],
   equipment: ['Size 3', 'Size 4', 'Size 5', 'One Size'],
+  ball: ['Size 3', 'Size 4', 'Size 5'],
+  trophy: ['6 in', '8 in', '10 in', '12 in', '16 in', '20 in', '24 in'],
 };
 
 const COLOR_PRESETS = ['Black', 'White', 'Red', 'Blue', 'Navy', 'Green', 'Yellow', 'Grey', 'Maroon', 'Gold'];
@@ -35,6 +45,8 @@ const sizeLabel = (t: SizeType) => {
   if (t === 'shoe') return 'Shoe Size';
   if (t === 'weight') return 'Handle / Weight';
   if (t === 'equipment') return 'Variant';
+  if (t === 'ball') return 'Ball Size';
+  if (t === 'trophy') return 'Height';
   return 'Size';
 };
 
@@ -44,24 +56,51 @@ const blankVariant = (size = ''): VariantRow => ({
 
 const inputClass = 'w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500';
 
+// Seed left in sessionStorage by the Products page "Duplicate" action.
+interface DuplicateSeed {
+  name?: string;
+  description?: string;
+  brandId?: string;
+  categoryId?: string;
+  sportId?: string;
+  productTypeId?: string;
+  gender?: string;
+  isFeatured?: boolean;
+  allowCustomization?: boolean;
+  tags?: string[];
+  variants?: VariantRow[];
+}
+
+const readDuplicateSeed = (): DuplicateSeed | null => {
+  const raw = sessionStorage.getItem('duplicate_product');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as DuplicateSeed;
+  } catch {
+    return null;
+  }
+};
+
 // ─── Inline Create Select ───────────────────────────────────────────────────
-interface SelectWithCreateProps {
+interface SelectWithCreateProps<T extends { id: string; name: string }> {
   label: string;
   value: string;
-  onChange: (val: string) => void;
-  options: { id: string; name: string }[];
+  // `created` is passed when the selection comes from the inline-create modal,
+  // before the parent's option list has re-rendered with the new item.
+  onChange: (val: string, created?: T) => void;
+  options: T[];
   createEndpoint: string;
   createFields: { key: string; label: string; type?: 'text' | 'select'; options?: { value: string; label: string }[]; required?: boolean }[];
-  onCreated: (item: any) => void;
+  onCreated: (item: T) => void;
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
 }
 
-function SelectWithCreate({
+function SelectWithCreate<T extends { id: string; name: string }>({
   label, value, onChange, options, createEndpoint, createFields, onCreated,
   placeholder = 'Select...', required, disabled,
-}: SelectWithCreateProps) {
+}: SelectWithCreateProps<T>) {
   const [showCreate, setShowCreate] = useState(false);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -74,13 +113,13 @@ function SelectWithCreate({
       const newItem = res.data?.data;
       if (newItem) {
         onCreated(newItem);
-        onChange(newItem.id);
+        onChange(newItem.id, newItem);
         toast.success(`${label} created`);
       }
       setShowCreate(false);
       setFormData({});
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || `Failed to create ${label.toLowerCase()}`);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, `Failed to create ${label.toLowerCase()}`));
     } finally {
       setSaving(false);
     }
@@ -175,7 +214,9 @@ export default function ProductForm() {
   const isEdit = !!id;
 
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(isEdit);
+  // Edit mode shows the spinner until the product for the current id has loaded.
+  const [loadedId, setLoadedId] = useState<string | undefined>(undefined);
+  const initialLoading = isEdit && loadedId !== id;
 
   // Data
   const [categories, setCategories] = useState<Category[]>([]);
@@ -183,39 +224,36 @@ export default function ProductForm() {
   const [sports, setSports] = useState<Sport[]>([]);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
 
-  // Form
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [brandId, setBrandId] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [sportId, setSportId] = useState('');
-  const [productTypeId, setProductTypeId] = useState('');
-  const [gender, setGender] = useState('Unisex');
+  // Form — pre-filled from the "Duplicate" seed when creating, blank otherwise.
+  const [duplicateSeed] = useState(() => (isEdit ? null : readDuplicateSeed()));
+  const [name, setName] = useState(duplicateSeed?.name || '');
+  const [description, setDescription] = useState(duplicateSeed?.description || '');
+  const [brandId, setBrandId] = useState(duplicateSeed?.brandId || '');
+  const [categoryId, setCategoryId] = useState(duplicateSeed?.categoryId || '');
+  const [sportId, setSportId] = useState(duplicateSeed?.sportId || '');
+  const [productTypeId, setProductTypeId] = useState(duplicateSeed?.productTypeId || '');
+  const [gender, setGender] = useState(duplicateSeed?.gender || 'Unisex');
   const [isActive, setIsActive] = useState(true);
-  const [isFeatured, setIsFeatured] = useState(false);
-  const [allowCustomization, setAllowCustomization] = useState(false);
+  const [isFeatured, setIsFeatured] = useState(duplicateSeed?.isFeatured ?? false);
+  const [allowCustomization, setAllowCustomization] = useState(duplicateSeed?.allowCustomization ?? false);
 
   // Features & Attributes
   const [features, setFeatures] = useState<string[]>([]);
   const [featureInput, setFeatureInput] = useState('');
   const [customAttrs, setCustomAttrs] = useState<AttributeRow[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>(duplicateSeed?.tags || []);
   const [tagInput, setTagInput] = useState('');
 
   // Images
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [thumbnailIndex, setThumbnailIndex] = useState(0);
+  const [thumbnailIndex] = useState(0);
   const [existingImages, setExistingImages] = useState<{ id?: string; url: string; isThumbnail?: boolean }[]>([]);
 
   // Variants
-  const [variants, setVariants] = useState<VariantRow[]>([blankVariant()]);
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [generateColors, setGenerateColors] = useState<string[]>(['Black']);
-  const [generatePrice, setGeneratePrice] = useState(0);
-  const [generateOriginalPrice, setGenerateOriginalPrice] = useState(0);
-  const [generateCostPrice, setGenerateCostPrice] = useState(0);
-  const [generateStock, setGenerateStock] = useState(10);
+  const [variants, setVariants] = useState<VariantRow[]>(
+    duplicateSeed?.variants && duplicateSeed.variants.length > 0 ? duplicateSeed.variants : [blankVariant()]
+  );
 
   // Derived
   const selectedCategory = useMemo(() => categories.find((c) => c.id === categoryId), [categories, categoryId]);
@@ -248,9 +286,12 @@ export default function ProductForm() {
   // Load product for edit
   useEffect(() => {
     if (!isEdit || !id) return;
-    setInitialLoading(true);
-    api.get(`/products/${id}`)
+    // Ignore a stale response if the id changes before this request settles.
+    let cancelled = false;
+    const requestedId = id;
+    api.get(`/products/${requestedId}`)
       .then((res) => {
+        if (cancelled) return;
         const p: Product = res.data?.data;
         if (!p) return;
         setName(p.name || '');
@@ -284,54 +325,38 @@ export default function ProductForm() {
 
         if (p.tags) setTags(p.tags);
       })
-      .catch(() => toast.error('Failed to load product'))
-      .finally(() => setInitialLoading(false));
+      .catch(() => { if (!cancelled) toast.error('Failed to load product'); })
+      .finally(() => { if (!cancelled) setLoadedId(requestedId); });
+    return () => { cancelled = true; };
   }, [isEdit, id]);
 
-  // Load duplicate data if coming from "Duplicate" action
+  // The duplicate seed is one-shot: clear it once it has been consumed.
   useEffect(() => {
-    if (isEdit) return;
-    const raw = sessionStorage.getItem('duplicate_product');
-    if (!raw) return;
-    try {
-      const p = JSON.parse(raw);
-      sessionStorage.removeItem('duplicate_product');
-      setName(p.name || '');
-      setDescription(p.description || '');
-      setBrandId(p.brandId || '');
-      setCategoryId(p.categoryId || '');
-      setSportId(p.sportId || '');
-      setProductTypeId(p.productTypeId || '');
-      setGender(p.gender || 'Unisex');
-      setIsFeatured(p.isFeatured ?? false);
-      setAllowCustomization(p.allowCustomization ?? false);
-      if (p.tags) setTags(p.tags);
-      if (p.variants && p.variants.length > 0) {
-        setVariants(p.variants);
-      }
-    } catch { /* ignore */ }
-  }, [isEdit]);
+    if (duplicateSeed) sessionStorage.removeItem('duplicate_product');
+  }, [duplicateSeed]);
 
-  // Reset productTypeId when category changes (but not on initial set)
-  const prevCategoryIdRef = useRef('');
-  useEffect(() => {
-    // Skip the first run (initial load)
-    if (prevCategoryIdRef.current === '' && categoryId !== '') {
-      prevCategoryIdRef.current = categoryId;
-      return;
-    }
-    prevCategoryIdRef.current = categoryId;
+  // Changing category resets the product type and re-maps variant sizes onto
+  // the new category's preset — except for the first pick into an empty form,
+  // which keeps whatever is already there (matches the initial-load path).
+  const handleCategoryChange = (nextId: string, created?: Category) => {
+    if (nextId === categoryId) return;
+    const firstPick = categoryId === '' && nextId !== '';
+    setCategoryId(nextId);
+    if (firstPick) return;
 
     setProductTypeId('');
-    if (!needsSize) {
+    const next = created ?? categories.find((c) => c.id === nextId);
+    const nextSizeType: SizeType = (next?.sizeType as SizeType) ?? null;
+    const nextSizeOptions = nextSizeType ? SIZE_PRESETS[nextSizeType] : [];
+    if (!(next?.needsSize ?? true)) {
       setVariants((prev) => prev.map((v) => ({ ...v, size: 'One Size' })));
-    } else if (sizeOptions.length > 0) {
+    } else if (nextSizeOptions.length > 0) {
       setVariants((prev) => prev.map((v) => ({
         ...v,
-        size: sizeOptions.includes(v.size) ? v.size : sizeOptions[0],
+        size: nextSizeOptions.includes(v.size) ? v.size : nextSizeOptions[0],
       })));
     }
-  }, [categoryId]);
+  };
 
   // Handlers
   const addFeature = () => {
@@ -342,45 +367,8 @@ export default function ProductForm() {
     const t = tagInput.trim().toLowerCase();
     if (t && !tags.includes(t)) { setTags((prev) => [...prev, t]); setTagInput(''); }
   };
-  const addVariant = () => setVariants((prev) => [...prev, blankVariant(needsSize ? sizeOptions[0] || '' : 'One Size')]);
-  const removeVariant = (i: number) => { if (variants.length > 1) setVariants((prev) => prev.filter((_, idx) => idx !== i)); };
-  const updateVariant = (i: number, field: keyof VariantRow, val: any) => {
+  const updateVariant = (i: number, field: keyof VariantRow, val: VariantRow[keyof VariantRow]) => {
     setVariants((prev) => prev.map((v, idx) => idx === i ? { ...v, [field]: val } : v));
-  };
-
-  const generateVariants = () => {
-    const sizes = needsSize ? sizeOptions : ['One Size'];
-    const colors = generateColors.length > 0 ? generateColors : [''];
-    const newVars: VariantRow[] = [];
-    sizes.forEach((s) => colors.forEach((c) => newVars.push({
-      size: s,
-      color: c,
-      price: generatePrice,
-      originalPrice: generateOriginalPrice,
-      costPrice: generateCostPrice,
-      stock: generateStock,
-      isActive: true,
-    })));
-    setVariants(newVars);
-    setShowGenerateModal(false);
-    toast.success(`Generated ${newVars.length} variants`);
-  };
-
-  const openGenerateModal = () => {
-    // Pre-fill price from first existing variant
-    const firstVar = variants[0];
-    setGeneratePrice(firstVar?.price || 0);
-    setGenerateOriginalPrice(firstVar?.originalPrice || 0);
-    setGenerateCostPrice(firstVar?.costPrice || 0);
-    setGenerateStock(firstVar?.stock || 10);
-    setGenerateColors(['Black']);
-    setShowGenerateModal(true);
-  };
-
-  const toggleGenerateColor = (color: string) => {
-    setGenerateColors((prev) =>
-      prev.includes(color) ? prev.filter((c) => c !== color) : [...prev, color]
-    );
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -447,12 +435,12 @@ export default function ProductForm() {
         await api.post('/products', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
         toast.success('Product created');
       }
-      if (!(window as any).__stayOnPage) {
+      if (!window.__stayOnPage) {
         navigate('/products');
       }
-    } catch (err: any) {
-      (window as any).__stayOnPage = false; // Don't reset form on error
-      toast.error(err.response?.data?.message || 'Failed to save product');
+    } catch (err) {
+      window.__stayOnPage = false; // Don't reset form on error
+      toast.error(getApiErrorMessage(err, 'Failed to save product'));
     } finally {
       setLoading(false);
     }
@@ -520,7 +508,7 @@ export default function ProductForm() {
             <SelectWithCreate
               label="Category"
               value={categoryId}
-              onChange={setCategoryId}
+              onChange={handleCategoryChange}
               options={categories}
               createEndpoint="/categories"
               createFields={[
@@ -528,6 +516,8 @@ export default function ProductForm() {
                 { key: 'sizeType', label: 'Size Type', type: 'select', options: [
                   { value: 'clothing', label: 'Clothing (S/M/L/XL)' },
                   { value: 'shoe', label: 'Shoes (UK sizes)' },
+                  { value: 'ball', label: 'Ball (Size 3/4/5)' },
+                  { value: 'trophy', label: 'Trophy (height in inches)' },
                   { value: 'weight', label: 'Weight/Handle' },
                   { value: 'equipment', label: 'Equipment' },
                 ]},
@@ -902,18 +892,16 @@ export default function ProductForm() {
                 const form = (e.target as HTMLElement).closest('form');
                 if (!form) return;
                 const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-                // Temporarily override navigate to stay on page
-                const origNav = navigate;
-                (window as any).__stayOnPage = true;
+                window.__stayOnPage = true;
                 await handleSubmit(fakeEvent);
-                if ((window as any).__stayOnPage) {
+                if (window.__stayOnPage) {
                   // Reset form for next product
                   setName(''); setDescription(''); setImages([]); setImagePreviews([]);
                   setExistingImages([]); setVariants([blankVariant()]);
                   setFeatures([]); setCustomAttrs([]); setTags([]);
                   window.scrollTo(0, 0);
                 }
-                delete (window as any).__stayOnPage;
+                delete window.__stayOnPage;
               }}
               className="flex-1 py-2.5 border-2 border-orange-500 text-orange-600 rounded-lg text-sm font-medium hover:bg-orange-50 disabled:opacity-60 flex items-center justify-center gap-2"
             >

@@ -1,27 +1,35 @@
 import Hero from "../components/home/Hero";
 import SpecialOffers from "../components/home/SpecialOffers";
 import Recommendations from "../components/home/Recommendations";
+import TikTokFeed from "../components/home/TikTokFeed";
+import { whatsappUrl } from "../data/store";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
-  Shield,
+  Banknote,
   Truck,
-  RotateCcw,
+  MapPin,
   Headphones,
+  MessageCircle,
   ArrowRight,
   ChevronRight,
 } from "lucide-react";
 
-/* ===== BRAND MARQUEE ===== */
-const brands = ["Nike", "Adidas", "Puma", "Under Armour", "Asics", "New Balance", "Yonex", "Kookaburra"];
+/** cubic-bezier(.2,.7,.3,1) — the one easing in the system. */
+const EASE_SNAP: [number, number, number, number] = [0.2, 0.7, 0.3, 1];
+
+/* ===== BRAND MARQUEE =====
+   The brands actually on the shelf. The keyframes run at 45s in index.css. */
+const brands = ["Nike", "Adidas", "Puma", "New Balance", "Hummel", "Kelme", "Anda", "Mitre"];
 
 const BrandMarquee = () => (
-  <section className="py-10 bg-secondary border-y border-border-primary overflow-hidden">
+  <section className="overflow-hidden border-y-2 border-border-primary bg-secondary py-8">
+    <h2 className="sr-only">Brands we stock</h2>
     <div className="flex animate-marquee whitespace-nowrap">
       {[...brands, ...brands].map((brand, i) => (
         <span
           key={i}
-          className="mx-10 text-lg font-bold text-muted/50 uppercase tracking-[0.2em] select-none hover:text-accent transition-colors cursor-default"
+          className="mx-8 select-none font-display text-2xl font-semibold uppercase leading-none tracking-[0.12em] text-tertiary"
         >
           {brand}
         </span>
@@ -30,37 +38,37 @@ const BrandMarquee = () => (
   </section>
 );
 
-/* ===== TRUST STRIP ===== */
+/* ===== TRUST STRIP =====
+   Only what the shop says about itself: no returns window, no authenticity
+   claim, no review count. */
 const TrustStrip = () => {
+  const reduce = useReducedMotion();
   const features = [
-    { icon: Shield, label: "100% Authentic", desc: "Verified products" },
-    { icon: Truck, label: "Fast Delivery", desc: "Nepal wide" },
-    { icon: RotateCcw, label: "7-Day Returns", desc: "Easy policy" },
-    { icon: Headphones, label: "WhatsApp Support", desc: "24/7 available" },
+    { icon: Banknote, label: "COD available" },
+    { icon: Truck, label: "Delivery all over Nepal" },
+    { icon: MapPin, label: "Bardibas · Chaudhary Market" },
+    { icon: Headphones, label: "WhatsApp support" },
+    { icon: MessageCircle, label: "Order on WhatsApp" },
   ];
   return (
-    <section className="py-6 bg-primary border-b border-border-primary">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap justify-center gap-8 sm:gap-12">
+    <section className="border-b-2 border-border-primary bg-primary py-5">
+      <h2 className="sr-only">Why order from us</h2>
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+        <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
           {features.map((f, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="flex items-center gap-3 group cursor-default"
+            <motion.li
+              key={f.label}
+              // Mount-driven: nothing below the fold waits on an observer.
+              initial={reduce ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.16, ease: EASE_SNAP, delay: i * 0.04 }}
+              className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-primary"
             >
-              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
-                <f.icon className="w-4 h-4 text-accent" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-primary block">{f.label}</span>
-                <span className="text-[10px] text-muted">{f.desc}</span>
-              </div>
-            </motion.div>
+              <f.icon className="h-4 w-4 flex-shrink-0 text-pitch" aria-hidden="true" />
+              {f.label}
+            </motion.li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );
@@ -68,43 +76,44 @@ const TrustStrip = () => {
 
 /* ===== QUICK CATEGORY PILLS ===== */
 const categories = [
-  { name: "Football", slug: "football", emoji: "⚽" },
-  { name: "Cricket", slug: "cricket", emoji: "🏏" },
-  { name: "Basketball", slug: "basketball", emoji: "🏀" },
-  { name: "Running", slug: "running", emoji: "🏃" },
-  { name: "Gym & Fitness", slug: "gym-fitness", emoji: "💪" },
-  { name: "Outdoor", slug: "outdoor", emoji: "🏕️" },
-  { name: "Accessories", slug: "accessories", emoji: "🎽" },
+  { name: "Football Boots", slug: "football-boots" },
+  { name: "Club Jerseys", slug: "club-jerseys" },
+  { name: "Team Kits", slug: "team-kits" },
+  { name: "Footballs", slug: "footballs" },
+  { name: "Trophies & Medals", slug: "trophies-medals" },
+  { name: "Training Wear", slug: "training-wear" },
+  { name: "Bags", slug: "bags" },
+  { name: "Accessories", slug: "accessories" },
 ];
 
 const CategoryPills = () => {
   const navigate = useNavigate();
   return (
-    <section className="py-8 bg-primary">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+    <section className="bg-primary py-10">
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+        <p className="eyebrow">Shop by category</p>
+        <h2 className="mt-3 font-display font-semibold uppercase leading-none text-primary"
+          style={{ fontSize: "clamp(34px,6vw,56px)" }}
+        >
+          Pick your kit
+        </h2>
+        <div className="scrollbar-hide mt-6 flex gap-3 overflow-x-auto pb-2">
+          <button
+            type="button"
             onClick={() => navigate("/shop")}
-            className="flex-shrink-0 px-6 py-3 bg-accent text-white rounded-xl text-xs font-bold hover:bg-accent-hover transition-all shadow-lg shadow-accent/20"
+            className="inline-flex min-h-[44px] flex-shrink-0 items-center rounded-tag border-2 border-inverse bg-accent px-5 font-display text-base font-semibold uppercase leading-none text-white transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
           >
-            All Products
-          </motion.button>
-          {categories.map((cat, idx) => (
-            <motion.button
+            All products
+          </button>
+          {categories.map((cat) => (
+            <button
               key={cat.slug}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: idx * 0.05 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              type="button"
               onClick={() => navigate(`/${cat.slug}`)}
-              className="flex-shrink-0 px-5 py-3 bg-secondary border border-border-primary text-primary rounded-xl text-xs font-semibold hover:border-accent hover:text-accent hover:bg-accent/5 transition-all flex items-center gap-2"
+              className="inline-flex min-h-[44px] flex-shrink-0 items-center rounded-tag border-2 border-inverse bg-card px-5 font-display text-base font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
             >
-              <span>{cat.emoji}</span>
               {cat.name}
-            </motion.button>
+            </button>
           ))}
         </div>
       </div>
@@ -115,49 +124,51 @@ const CategoryPills = () => {
 /* ===== CTA BANNER ===== */
 const CTABanner = () => {
   const navigate = useNavigate();
+  const reduce = useReducedMotion();
   return (
-    <section className="py-20 bg-inverse text-inverse relative overflow-hidden">
-      {/* Decorative */}
-      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-accent/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
-
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+    <section className="bg-inverse py-16 text-inverse">
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="flex flex-col md:flex-row items-center justify-between gap-10"
+          // Mount-driven: nothing below the fold waits on an observer.
+          initial={reduce ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.16, ease: EASE_SNAP }}
+          className="flex flex-col items-start justify-between gap-10 md:flex-row md:items-end"
         >
-          <div className="text-center md:text-left">
-            <h2 className="text-3xl md:text-4xl font-black text-inverse uppercase tracking-tight">
-              Can't find what you{" "}
-              <span className="text-accent italic">need</span>?
+          <div>
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-inverse/70">
+              Not on the shelf?
+              <span aria-hidden="true" className="h-px w-12 bg-primary/30" />
+            </p>
+            <h2
+              className="mt-3 font-display font-semibold uppercase leading-none text-inverse"
+              style={{ fontSize: "clamp(34px,6vw,56px)" }}
+            >
+              We&apos;ll source it for you
             </h2>
-            <p className="text-inverse/50 mt-3 max-w-md text-sm leading-relaxed">
-              Message us on WhatsApp and we'll help you find the perfect gear. Custom orders welcome.
+            <p className="mt-3 max-w-[62ch] text-sm leading-relaxed text-inverse/70">
+              Message us on WhatsApp with the club, the size or the bat grade you need.
+              Custom orders welcome, cash on delivery across Nepal.
             </p>
           </div>
-          <div className="flex gap-4">
-            <motion.a
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER || "9779748477628"}?text=Hi!%20I'm%20looking%20for%20specific%20sports%20gear.`}
+          <div className="flex flex-wrap gap-3">
+            <a
+              href={whatsappUrl("Hi! I'm looking for specific sports gear.")}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-8 py-4 bg-[#25D366] text-white rounded-2xl font-bold text-sm hover:bg-[#20bd5a] transition-all shadow-xl shadow-[#25D366]/20 flex items-center gap-2"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-primary/30 bg-pitch px-6 font-display text-lg font-semibold uppercase leading-none text-inverse transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 active:translate-x-0 active:translate-y-0"
             >
-              WhatsApp Us
-              <ArrowRight className="w-4 h-4" />
-            </motion.a>
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+              WhatsApp us
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </a>
+            <button
+              type="button"
               onClick={() => navigate("/shop")}
-              className="px-8 py-4 bg-primary/10 text-inverse border border-border-primary/20 rounded-2xl font-bold text-sm hover:bg-primary/20 transition-all flex items-center gap-2"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-primary/30 bg-primary/10 px-6 font-display text-lg font-semibold uppercase leading-none text-inverse transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-primary/20 active:translate-x-0 active:translate-y-0"
             >
-              Browse All
-              <ChevronRight className="w-4 h-4" />
-            </motion.button>
+              Browse all
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
         </motion.div>
       </div>
@@ -172,28 +183,34 @@ const Home = () => {
       <Hero />
       <TrustStrip />
       <CategoryPills />
+      <div className="rule-section" />
       {/* Every band below is backed by a different /recommendations collection,
           so the same eight rows can no longer masquerade as five sections. */}
       <Recommendations
         title="New Arrivals"
-        subtitle="Just dropped — fresh gear from top brands"
+        subtitle="Just in — this week's jerseys, balls and boots"
         source="new-arrivals"
         limit={8}
       />
       <BrandMarquee />
       <Recommendations
         title="Recommended For You"
-        subtitle="A mix pulled from across the store"
+        subtitle="A mix pulled from across the shop"
         source="personalized"
         limit={4}
       />
+      <div className="rule-section" />
       <SpecialOffers title="Trending Now" />
+      <div className="rule-section" />
       <Recommendations
         title="Best Sellers"
-        subtitle="Our highest-selling gear of all time"
+        subtitle="What moves fastest off the shelf"
         source="best-sellers"
         limit={4}
       />
+      <div className="rule-section" />
+      <TikTokFeed />
+      <div className="rule-section" />
       <CTABanner />
     </div>
   );

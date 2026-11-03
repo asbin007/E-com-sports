@@ -4,6 +4,7 @@ import api from '@/services/api';
 import type { Product } from '@/types';
 import { Plus, Search, Edit, Trash2, Star, Package, Eye, EyeOff, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -14,19 +15,18 @@ export default function Products() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await api.get('/products', { params: { limit: 200 } });
+        setProducts(res.data?.data || []);
+      } catch (err) {
+        console.error('Failed to fetch products:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchProducts();
   }, []);
-
-  const fetchProducts = async () => {
-    try {
-      const res = await api.get('/products', { params: { limit: 200 } });
-      setProducts(res.data?.data || []);
-    } catch (err) {
-      console.error('Failed to fetch products:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this product?')) return;
@@ -34,8 +34,8 @@ export default function Products() {
       await api.delete(`/products/${id}`);
       setProducts((prev) => prev.filter((p) => p.id !== id));
       toast.success('Product deleted');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to delete product');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to delete product'));
     }
   };
 
@@ -44,7 +44,7 @@ export default function Products() {
       await api.put(`/products/${product.id}`, { isActive: !product.isActive });
       setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, isActive: !p.isActive } : p));
       toast.success(product.isActive ? 'Product hidden' : 'Product activated');
-    } catch (err: any) {
+    } catch {
       toast.error('Failed to update product');
     }
   };

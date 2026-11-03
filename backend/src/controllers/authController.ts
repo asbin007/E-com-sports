@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import User from "../database/models/userModel.js";
 import { sendOtp as sendResendOtp } from "../services/resendMail.js";
 import jwtService from "../services/jwtService.js";
+import { authCodeStore } from "../services/authCodeStore.js";
 
 class AuthController {
   async register(req: Request, res: Response): Promise<void> {
@@ -209,6 +210,13 @@ class AuthController {
         return;
       }
 
+      if (user.isActive === false) {
+        res.status(403).json({
+          message: "Account is deactivated",
+        });
+        return;
+      }
+
       if (!user.isVerified) {
         res.status(400).json({
           message: "Please verify your email first",
@@ -345,12 +353,33 @@ class AuthController {
         role: user.role,
       });
 
+      // Hand the browser a one-time code instead of the tokens themselves so
+      // the JWTs never land in browser history, referrers or access logs.
+      const code = authCodeStore.issue({ token, refreshToken });
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-      res.redirect(`${frontendUrl}/auth/callback?token=${token}&refreshToken=${refreshToken}`);
+      res.redirect(`${frontendUrl}/auth/callback?code=${encodeURIComponent(code)}`);
     } catch (error) {
       console.error("Google callback error:", error);
       res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}/login?error=auth_failed`);
     }
+  }
+
+  /** Redeem the one-time code issued by googleCallback for the real tokens. */
+  async exchangeCode(req: Request, res: Response): Promise<void> {
+    const { code } = req.body || {};
+
+    if (!code || typeof code !== "string") {
+      res.status(400).json({ message: "Authorization code is required" });
+      return;
+    }
+
+    const tokens = authCodeStore.redeem(code);
+    if (!tokens) {
+      res.status(401).json({ message: "Invalid or expired authorization code" });
+      return;
+    }
+
+    res.status(200).json({ message: "Login successful", ...tokens });
   }
 
   async me(req: Request, res: Response): Promise<void> {

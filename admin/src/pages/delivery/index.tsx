@@ -1,15 +1,9 @@
 import { useState, useEffect } from 'react';
 import api from '@/services/api';
-import { Truck, Plus, Trash2, Copy, Check, User, Eye, EyeOff } from 'lucide-react';
+import type { DeliveryBoy } from '@/types';
+import { Truck, Plus, Trash2, Copy, Check, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-interface DeliveryBoy {
-  id: string;
-  username: string;
-  email: string;
-  isVerified: boolean;
-  createdAt: string;
-}
+import { getApiErrorMessage } from '@/utils/apiError';
 
 export default function Delivery() {
   const [deliveryBoys, setDeliveryBoys] = useState<DeliveryBoy[]>([]);
@@ -21,8 +15,8 @@ export default function Delivery() {
   const [copied, setCopied] = useState(false);
   const [showPass, setShowPass] = useState(false);
 
+  // Callers that refetch after the initial mount set loading themselves.
   const load = async () => {
-    setLoading(true);
     try {
       const res = await api.get('/admin/delivery-boys');
       setDeliveryBoys(res.data?.data || []);
@@ -33,7 +27,12 @@ export default function Delivery() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const run = async () => {
+      await load();
+    };
+    run();
+  }, []);
 
   const generatePassword = () => {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -54,9 +53,10 @@ export default function Delivery() {
       setForm({ username: '', email: '', password: '', phoneNumber: '' });
       setShowForm(false);
       toast.success('Delivery boy account created');
+      setLoading(true);
       load();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to create'));
     } finally {
       setSubmitting(false);
     }
@@ -68,8 +68,8 @@ export default function Delivery() {
       await api.delete(`/admin/delivery-boys/${id}`);
       setDeliveryBoys((prev) => prev.filter((d) => d.id !== id));
       toast.success('Deleted');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to delete');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to delete'));
     }
   };
 

@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { AlertCircle, ChevronRight, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { productService } from "../../services/productService";
 import type { Product } from "../../services/productService";
 import { recommendationService } from "../../services/recommendationService";
 import ProductCard from "../product/ProductCard";
 import { ProductCardSkeleton } from "../ui/Skeleton";
+
+/** cubic-bezier(.2,.7,.3,1) — the one easing in the system. */
+const EASE_SNAP: [number, number, number, number] = [0.2, 0.7, 0.3, 1];
 
 export type RecommendationSource =
   | "new-arrivals"
@@ -64,6 +67,7 @@ const Recommendations = ({
   // so the strapline can stop claiming to be personal when it isn't.
   const [personalNote, setPersonalNote] = useState<string | null>(null);
   const navigate = useNavigate();
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     let cancelled = false;
@@ -124,42 +128,43 @@ const Recommendations = ({
     };
   }, [source, count, days, categoryId, search, attempt]);
 
+  /** Eyebrow + Teko heading, the one section-header shape in the system. */
   const header = (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      className="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-12 gap-4"
+      // Mount-driven: a header below the fold must never wait on an observer.
+      initial={reduce ? false : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.16, ease: EASE_SNAP }}
+      className="mb-10 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end"
     >
       <div>
-        <h2 className="text-3xl md:text-4xl font-black text-primary uppercase tracking-tight">
-          {title.split(" ").map((word, i, arr) => (
-            <span key={i} className={i === arr.length - 1 ? "text-accent italic" : ""}>
-              {word}{" "}
-            </span>
-          ))}
+        <p className="eyebrow">{personalNote ?? subtitle}</p>
+        <h2
+          className="mt-3 font-display font-semibold uppercase leading-none text-primary"
+          style={{ fontSize: "clamp(34px,6vw,56px)" }}
+        >
+          {title}
         </h2>
-        <p className="text-tertiary mt-2 text-sm">{personalNote ?? subtitle}</p>
       </div>
-      <motion.button
-        whileHover={{ x: 4 }}
+      <button
+        type="button"
         onClick={() => navigate("/shop")}
-        className="group flex items-center gap-2 text-sm font-bold text-accent hover:text-accent-hover transition-colors"
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-inverse bg-card px-5 font-display text-base font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
       >
-        View All
-        <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-      </motion.button>
+        View all
+        <ChevronRight className="h-4 w-4" aria-hidden="true" />
+      </button>
     </motion.div>
   );
 
   if (loading) {
     return (
-      <section className="py-20 bg-primary">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <div className="h-8 w-48 bg-secondary rounded-lg animate-pulse mb-3" />
-            <div className="h-4 w-64 bg-secondary rounded-lg animate-pulse" />
+      <section className="bg-primary py-16">
+        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+          {/* Flat holding bars, not an infinite pulse. */}
+          <div className="mb-10">
+            <div className="h-3 w-48 bg-secondary" />
+            <div className="mt-4 h-10 w-72 bg-secondary" />
           </div>
           <div className={PRODUCT_GRID}>
             {Array.from({ length: count }).map((_, i) => (
@@ -175,27 +180,27 @@ const Recommendations = ({
   // than silently deleting the section from the page.
   if (failed) {
     return (
-      <section className="py-20 bg-primary">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="bg-primary py-16">
+        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
           {header}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-border-primary bg-card px-6 py-6">
+          <div className="flex flex-col justify-between gap-4 rounded-card border-2 border-inverse bg-card px-6 py-6 sm:flex-row sm:items-center">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-accent" aria-hidden="true" />
               <div>
-                <p className="text-sm font-bold text-primary">
-                  We couldn't load this section
+                <p className="font-display text-xl font-semibold uppercase leading-none text-primary">
+                  We couldn&apos;t load this section
                 </p>
-                <p className="text-xs text-tertiary mt-1">
-                  The store didn't respond. Everything else on this page still works.
+                <p className="mt-2 max-w-[62ch] text-sm text-tertiary">
+                  The store didn&apos;t respond. Everything else on this page still works.
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setAttempt((n) => n + 1)}
-              className="self-start sm:self-auto flex-shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors active:scale-95"
+              className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-2 self-start rounded-tag border-2 border-inverse bg-accent px-5 font-display text-base font-semibold uppercase leading-none text-white transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none sm:self-auto"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
               Try again
             </button>
           </div>
@@ -208,8 +213,8 @@ const Recommendations = ({
   if (products.length === 0) return null;
 
   return (
-    <section className="py-20 bg-primary">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="bg-primary py-16">
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
         {header}
         <div className={PRODUCT_GRID}>
           {products.map((product, idx) => (

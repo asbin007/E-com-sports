@@ -2,7 +2,16 @@ import { useState } from "react";
 import { User, Mail, Shield, Save, Loader2, Lock, Eye, EyeOff } from "lucide-react";
 import { userService } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
-import { motion } from "framer-motion";
+import { getApiErrorMessage } from "../../utils/apiError";
+import { motion, useReducedMotion } from "framer-motion";
+
+const LABEL = "mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary";
+const INPUT =
+  "w-full min-h-[44px] rounded-tag border-2 border-border-primary bg-card py-3 text-sm text-primary transition-all duration-snap ease-snap placeholder:text-muted focus:border-accent";
+const EYE_BTN =
+  "absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-muted transition-colors duration-snap ease-snap hover:text-primary";
+const BTN_BASE =
+  "flex w-full items-center justify-center gap-2 rounded-tag border-2 border-inverse py-3 font-display text-lg uppercase leading-none tracking-[0.04em] transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none disabled:translate-x-0 disabled:translate-y-0 disabled:border-border-primary disabled:bg-secondary disabled:text-muted disabled:shadow-none";
 
 type FormMessage = { type: "" | "success" | "error"; text: string };
 
@@ -10,22 +19,22 @@ const EMPTY_MESSAGE: FormMessage = { type: "", text: "" };
 
 /** Announced banner, rendered inside the card whose form produced it. */
 const StatusBanner = ({ msg }: { msg: FormMessage }) => {
+  const reduce = useReducedMotion();
   if (!msg.text) return null;
   const isError = msg.type === "error";
   return (
     <motion.div
-      initial={{ opacity: 0, y: -6 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={reduce ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
       role={isError ? "alert" : "status"}
       aria-live={isError ? "assertive" : "polite"}
-      className={`mb-4 p-3 rounded-xl border flex items-center gap-3 ${
-        isError
-          ? "bg-red-500/10 border-red-500/20 text-red-500"
-          : "bg-green-500/10 border-green-500/20 text-green-600"
+      className={`mb-4 flex items-center gap-3 rounded-tag border-2 bg-card p-3 ${
+        isError ? "border-accent text-accent" : "border-pitch text-pitch"
       }`}
     >
-      <Shield className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-      <p className="text-sm font-medium">{msg.text}</p>
+      <Shield className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+      <p className="text-sm font-bold">{msg.text}</p>
     </motion.div>
   );
 };
@@ -61,10 +70,10 @@ const Profile = () => {
     try {
       await userService.updateProfile(profileData);
       setProfileMsg({ type: "success", text: "Profile updated successfully!" });
-    } catch (error: any) {
+    } catch (error) {
       setProfileMsg({
         type: "error",
-        text: error.response?.data?.message || "Failed to update profile",
+        text: getApiErrorMessage(error, "Failed to update profile"),
       });
     } finally {
       setProfileLoading(false);
@@ -90,10 +99,10 @@ const Profile = () => {
       });
       setPasswordMsg({ type: "success", text: "Password changed successfully!" });
       setPasswordData({ oldPassword: "", newPassword: "", confirmPassword: "" });
-    } catch (error: any) {
+    } catch (error) {
       setPasswordMsg({
         type: "error",
-        text: error.response?.data?.message || "Failed to change password",
+        text: getApiErrorMessage(error, "Failed to change password"),
       });
     } finally {
       setPasswordLoading(false);
@@ -104,62 +113,67 @@ const Profile = () => {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-primary">Profile Settings</h1>
-        <p className="text-sm text-tertiary mt-1">Manage your account information and security</p>
+        <p className="eyebrow mb-2">Settings</p>
+        <h1 className="font-display text-[34px] font-semibold uppercase leading-none text-primary">
+          Profile Settings
+        </h1>
+        <p className="mt-1 text-sm text-tertiary">Manage your account information and security</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Profile Info */}
-        <div className="bg-card rounded-xl border border-border-primary p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-9 h-9 bg-accent/10 rounded-xl flex items-center justify-center">
-              <User className="w-4.5 h-4.5 text-accent" />
+        <div className="rounded-card border-2 border-inverse bg-card p-6">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-tag border-2 border-inverse bg-card">
+              <User className="h-4 w-4 text-accent" aria-hidden="true" />
             </div>
-            <h2 className="text-base font-bold text-primary">Personal Information</h2>
+            <h2 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+              Personal Information
+            </h2>
           </div>
 
           <StatusBanner msg={profileMsg} />
 
           <form onSubmit={handleProfileUpdate} className="space-y-4">
             <div>
-              <label htmlFor="profile-username" className="text-xs font-medium text-secondary mb-1.5 block">
+              <label htmlFor="profile-username" className={LABEL}>
                 Username
               </label>
               <div className="relative">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" aria-hidden="true" />
+                <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
                 <input
                   id="profile-username"
                   type="text"
                   value={profileData.username}
                   onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all"
+                  className={`${INPUT} pl-10 pr-4`}
                 />
               </div>
             </div>
             <div>
-              <label htmlFor="profile-email" className="text-xs font-medium text-secondary mb-1.5 block">
+              <label htmlFor="profile-email" className={LABEL}>
                 Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" aria-hidden="true" />
+                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
                 <input
                   id="profile-email"
                   type="email"
                   value={profileData.email}
                   onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all"
+                  className={`${INPUT} pl-10 pr-4`}
                 />
               </div>
             </div>
             <button
               type="submit"
               disabled={profileLoading}
-              className="w-full py-3 bg-accent text-white rounded-xl font-bold text-sm hover:bg-accent-hover transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+              className={`${BTN_BASE} bg-accent text-inverse hover:bg-accent-hover`}
             >
               {profileLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (
-                <Save className="w-4 h-4" aria-hidden="true" />
+                <Save className="h-4 w-4" aria-hidden="true" />
               )}
               Save Changes
             </button>
@@ -167,23 +181,25 @@ const Profile = () => {
         </div>
 
         {/* Change Password */}
-        <div className="bg-card rounded-xl border border-border-primary p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-9 h-9 bg-accent/10 rounded-xl flex items-center justify-center">
-              <Lock className="w-4.5 h-4.5 text-accent" />
+        <div className="rounded-card border-2 border-inverse bg-card p-6">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-tag border-2 border-inverse bg-card">
+              <Lock className="h-4 w-4 text-accent" aria-hidden="true" />
             </div>
-            <h2 className="text-base font-bold text-primary">Change Password</h2>
+            <h2 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+              Change Password
+            </h2>
           </div>
 
           <StatusBanner msg={passwordMsg} />
 
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <div>
-              <label htmlFor="current-password" className="text-xs font-medium text-secondary mb-1.5 block">
+              <label htmlFor="current-password" className={LABEL}>
                 Current Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" aria-hidden="true" />
+                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
                 <input
                   id="current-password"
                   type={showOldPassword ? "text" : "password"}
@@ -191,7 +207,7 @@ const Profile = () => {
                   autoComplete="current-password"
                   value={passwordData.oldPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
-                  className="w-full pl-10 pr-10 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all placeholder:text-muted"
+                  className={`${INPUT} pl-10 pr-12`}
                 />
                 <button
                   type="button"
@@ -199,22 +215,22 @@ const Profile = () => {
                   aria-label={showOldPassword ? "Hide current password" : "Show current password"}
                   aria-pressed={showOldPassword}
                   aria-controls="current-password"
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                  className={EYE_BTN}
                 >
                   {showOldPassword ? (
-                    <EyeOff className="w-4 h-4" aria-hidden="true" />
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
                   ) : (
-                    <Eye className="w-4 h-4" aria-hidden="true" />
+                    <Eye className="h-4 w-4" aria-hidden="true" />
                   )}
                 </button>
               </div>
             </div>
             <div>
-              <label htmlFor="new-password" className="text-xs font-medium text-secondary mb-1.5 block">
+              <label htmlFor="new-password" className={LABEL}>
                 New Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" aria-hidden="true" />
+                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
                 <input
                   id="new-password"
                   type={showNewPassword ? "text" : "password"}
@@ -222,7 +238,7 @@ const Profile = () => {
                   autoComplete="new-password"
                   value={passwordData.newPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="w-full pl-10 pr-10 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all placeholder:text-muted"
+                  className={`${INPUT} pl-10 pr-12`}
                 />
                 <button
                   type="button"
@@ -230,18 +246,18 @@ const Profile = () => {
                   aria-label={showNewPassword ? "Hide new password" : "Show new password"}
                   aria-pressed={showNewPassword}
                   aria-controls="new-password"
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted hover:text-primary"
+                  className={EYE_BTN}
                 >
                   {showNewPassword ? (
-                    <EyeOff className="w-4 h-4" aria-hidden="true" />
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
                   ) : (
-                    <Eye className="w-4 h-4" aria-hidden="true" />
+                    <Eye className="h-4 w-4" aria-hidden="true" />
                   )}
                 </button>
               </div>
             </div>
             <div>
-              <label htmlFor="confirm-password" className="text-xs font-medium text-secondary mb-1.5 block">
+              <label htmlFor="confirm-password" className={LABEL}>
                 Confirm New Password
               </label>
               <input
@@ -251,18 +267,18 @@ const Profile = () => {
                 autoComplete="new-password"
                 value={passwordData.confirmPassword}
                 onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                className="w-full px-4 py-3 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all placeholder:text-muted"
+                className={`${INPUT} px-4`}
               />
             </div>
             <button
               type="submit"
               disabled={passwordLoading}
-              className="w-full py-3 bg-inverse text-inverse rounded-xl font-bold text-sm hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+              className={`${BTN_BASE} bg-inverse text-inverse`}
             >
               {passwordLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (
-                <Shield className="w-4 h-4" aria-hidden="true" />
+                <Shield className="h-4 w-4" aria-hidden="true" />
               )}
               Update Password
             </button>

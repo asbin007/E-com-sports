@@ -3,15 +3,17 @@ import Category from "../database/models/categoryModel.js";
 import Product from "../database/models/productModel.js";
 
 class CategoryController {
+  // Must stay identical to CATEGORIES in src/database/seeders/seedAll.ts —
+  // both seed the same table, and they used to disagree.
   categoryData = [
-    { name: "Football",      slug: "football",      needsSize: true,  sizeType: "clothing" },
-    { name: "Cricket",       slug: "cricket",       needsSize: true,  sizeType: "weight"   },
-    { name: "Basketball",    slug: "basketball",    needsSize: true,  sizeType: "clothing" },
-    { name: "Running",       slug: "running",       needsSize: true,  sizeType: "shoe"     },
-    { name: "Gym & Fitness", slug: "gym-fitness",   needsSize: true,  sizeType: "clothing" },
-    { name: "Outdoor",       slug: "outdoor",       needsSize: true,  sizeType: "shoe"     },
-    { name: "Equipment",     slug: "equipment",     needsSize: false, sizeType: "equipment"},
-    { name: "Accessories",   slug: "accessories",   needsSize: false, sizeType: null       },
+    { name: "Football Boots",    slug: "football-boots",  needsSize: true,  sizeType: "shoe"     },
+    { name: "Club Jerseys",      slug: "club-jerseys",    needsSize: true,  sizeType: "clothing" },
+    { name: "Team Kits",         slug: "team-kits",       needsSize: true,  sizeType: "clothing" },
+    { name: "Footballs",         slug: "footballs",       needsSize: true,  sizeType: "ball"     },
+    { name: "Trophies & Medals", slug: "trophies-medals", needsSize: true,  sizeType: "trophy"   },
+    { name: "Training Wear",     slug: "training-wear",   needsSize: true,  sizeType: "clothing" },
+    { name: "Bags",              slug: "bags",            needsSize: false, sizeType: null       },
+    { name: "Accessories",       slug: "accessories",     needsSize: false, sizeType: null       },
   ];
 
   async seedCategory(): Promise<void> {

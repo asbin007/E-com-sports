@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '@/services/api';
-import type { Order } from '@/types';
+import type { Order, DeliveryBoy } from '@/types';
 import {
   Search, Package, ChevronDown, ChevronLeft, ChevronRight, Truck, Download, Image,
   CheckCircle, XCircle, AlertTriangle, X, Clock, RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 const ALL_STATUSES = ['pending', 'confirmed', 'preparation', 'ontheway', 'delivered', 'cancelled'];
 
@@ -50,7 +51,7 @@ interface Pagination { total: number; page: number; limit: number; totalPages: n
 
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [deliveryBoys, setDeliveryBoys] = useState<any[]>([]);
+  const [deliveryBoys, setDeliveryBoys] = useState<DeliveryBoy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -69,8 +70,9 @@ export default function Orders() {
   const [exporting, setExporting] = useState(false);
   const mutatingRef = useRef(false);
 
+  // Foreground callers (page/filter change, retry) raise `loading` themselves
+  // at the trigger; the mount-time fetch starts with it already true.
   const fetchOrders = async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setLoading(true);
     try {
       const res = await api.get('/orders', {
         params: { page, limit: PAGE_SIZE, ...(statusFilter ? { status: statusFilter } : {}) },
@@ -79,12 +81,14 @@ export default function Orders() {
       const p = res.data?.pagination;
       if (p) setPagination({ total: p.total ?? 0, page: p.page ?? page, limit: p.limit ?? PAGE_SIZE, totalPages: p.totalPages ?? 1 });
       setError(null);
-    } catch (err: any) {
+    } catch (err) {
       // Only a foreground fetch surfaces an error panel; a failed background
       // poll must never wipe the list the operator is working from.
       if (!opts?.silent) {
         setOrders([]);
-        setError(err.response?.data?.message || err.message || 'Failed to load orders');
+        // A network/timeout error has no response body but a useful message.
+        const fallback = err instanceof Error && err.message ? err.message : 'Failed to load orders';
+        setError(getApiErrorMessage(err, fallback));
       }
     } finally {
       if (!opts?.silent) setLoading(false);
@@ -92,7 +96,10 @@ export default function Orders() {
   };
 
   useEffect(() => {
-    fetchOrders();
+    const run = async () => {
+      await fetchOrders();
+    };
+    run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, statusFilter]);
 
@@ -141,8 +148,8 @@ export default function Orders() {
         await api.patch(`/orders/${orderId}/status`, { status: newStatus });
         setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
         toast.success(`Status updated to ${newStatus}`);
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to update status');
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, 'Failed to update status'));
       }
     });
 
@@ -152,8 +159,8 @@ export default function Orders() {
         await api.patch(`/orders/${orderId}/assign`, { deliveryBoyId: deliveryBoyId || null });
         setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, deliveryBoyId: deliveryBoyId || undefined } : o));
         toast.success(deliveryBoyId ? 'Delivery boy assigned' : 'Assignment removed');
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to assign');
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, 'Failed to assign'));
       }
     });
 
@@ -164,8 +171,8 @@ export default function Orders() {
         setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, paymentStatus: 'paid' } : o));
         toast.success(`Payment verified for ${orderLabel(order)}`);
         setReview(null);
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to verify');
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, 'Failed to verify'));
       }
     });
 
@@ -176,8 +183,8 @@ export default function Orders() {
         setOrders((prev) => prev.map((o) => o.id === order.id ? { ...o, paymentStatus: 'failed' } : o));
         toast.success(`Payment rejected for ${orderLabel(order)}`);
         setReview(null);
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to reject');
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, 'Failed to reject'));
       }
     });
 
@@ -259,7 +266,7 @@ export default function Orders() {
           </div>
           <p className="text-xs text-gray-400 mt-1.5">Searches the {orders.length} orders on this page only — use the status filter and pages to narrow the full list.</p>
         </div>
-        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+        <select value={statusFilter} onChange={(e) => { setLoading(true); setStatusFilter(e.target.value); setPage(1); }}
           className="self-start px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500">
           <option value="">All Statuses</option>
           {ALL_STATUSES.map((s) => (<option key={s} value={s}>{s}</option>))}
@@ -279,7 +286,7 @@ export default function Orders() {
             <p className="text-xs text-gray-400 mt-1">This is a loading failure, not an empty list — orders may still be waiting.</p>
             <button
               type="button"
-              onClick={() => fetchOrders()}
+              onClick={() => { setLoading(true); fetchOrders(); }}
               className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-lg hover:bg-orange-600 transition-colors"
             >
               <RefreshCw className="w-4 h-4" /> Retry
@@ -317,7 +324,7 @@ export default function Orders() {
                   {order.deliveryBoyId && (
                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-xs font-medium text-orange-600">
                       <Truck className="w-3 h-3" />
-                      {deliveryBoys.find((b: any) => b.id === order.deliveryBoyId)?.username ?? 'Assigned'}
+                      {deliveryBoys.find((b) => b.id === order.deliveryBoyId)?.username ?? 'Assigned'}
                     </span>
                   )}
                   <span className="text-sm text-gray-500 hidden sm:inline">
@@ -452,7 +459,7 @@ export default function Orders() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-50"
                         >
                           <option value="">— Unassigned —</option>
-                          {deliveryBoys.map((b: any) => (<option key={b.id} value={b.id}>{b.username}</option>))}
+                          {deliveryBoys.map((b) => (<option key={b.id} value={b.id}>{b.username}</option>))}
                         </select>
                       </div>
                     </div>
@@ -474,7 +481,7 @@ export default function Orders() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => { const next = Math.max(1, page - 1); if (next !== page) { setLoading(true); setPage(next); } }}
               disabled={pagination.page <= 1}
               className="inline-flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -483,7 +490,7 @@ export default function Orders() {
             <span className="text-sm text-gray-600 px-1">Page {pagination.page} of {pagination.totalPages}</span>
             <button
               type="button"
-              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+              onClick={() => { const next = Math.min(pagination.totalPages, page + 1); if (next !== page) { setLoading(true); setPage(next); } }}
               disabled={pagination.page >= pagination.totalPages}
               className="inline-flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >

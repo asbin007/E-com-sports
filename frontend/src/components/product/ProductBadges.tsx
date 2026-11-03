@@ -1,5 +1,5 @@
-import { Sparkles, Star, Tag } from "lucide-react";
 import type { Product } from "../../services/productService";
+import { cn } from "../../utils/cn";
 
 const NEW_WINDOW_DAYS = 14;
 
@@ -18,6 +18,10 @@ const computeDiscountPercent = (product: Product): number => {
   return Math.round(((original - price) / original) * 100);
 };
 
+/** 11px uppercase, 1.5px border, 2px tag radius. Flat — these are printed tags. */
+const BADGE =
+  "inline-flex items-center rounded-tag border-[1.5px] px-1.5 py-0.5 text-[11px] font-bold uppercase leading-none tracking-[0.12em]";
+
 interface ProductBadgesProps {
   product: Product;
   /** "stack": badges stack vertically (good on cards). "row": laid out horizontally. */
@@ -32,30 +36,30 @@ const ProductBadges = ({ product, layout = "stack" }: ProductBadgesProps) => {
   if (!discount && !isNew && !isFeatured) return null;
 
   const wrapper =
-    layout === "stack" ? "flex flex-col gap-1.5" : "flex flex-wrap gap-1.5";
+    layout === "stack" ? "flex flex-col items-start gap-1.5" : "flex flex-wrap gap-1.5";
 
   return (
     <div className={wrapper}>
+      {/* An offer reads marigold on the soft marigold ground, never the accent. */}
       {discount > 0 && (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-sm">
-          <Tag className="w-3 h-3" />-{discount}%
+        <span className={cn(BADGE, "border-marigold bg-marigold-soft text-marigold")}>
+          <span className="tabular-nums">-{discount}</span>
+          <span>%</span>
         </span>
       )}
       {isFeatured && (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-sm">
-          <Star className="w-3 h-3 fill-current" />
+        <span className={cn(BADGE, "border-inverse bg-inverse text-inverse")}>
           Featured
         </span>
       )}
+      {/* Pitch is the shop's "good news" colour: new stock on the shelf. */}
       {isNew && (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-sm">
-          <Sparkles className="w-3 h-3" />
-          New
-        </span>
+        <span className={cn(BADGE, "border-pitch bg-card text-pitch")}>New in</span>
       )}
     </div>
   );
 };
 
 export default ProductBadges;
+// eslint-disable-next-line react-refresh/only-export-components
 export { computeDiscountPercent, isWithinNewWindow };

@@ -6,12 +6,11 @@ import {
   Filter,
   ShoppingBag,
   X,
-  ChevronDown,
   Loader2,
   Grid3X3,
   List,
 } from "lucide-react";
-import { productService, type Product } from "../services/productService";
+import { isProductSoldOut, productService, type Product } from "../services/productService";
 import {
   categoryService,
   brandService,
@@ -21,6 +20,7 @@ import {
   type ProductType,
 } from "../services/filterService";
 import { cn } from "../utils/cn";
+import ProductCard from "../components/product/ProductCard";
 import ProductBadges from "../components/product/ProductBadges";
 import { ProductGridSkeleton } from "../components/ui/Skeleton";
 import { pickProductImageUrl, NO_IMAGE_PLACEHOLDER } from "../utils/placeholder";
@@ -28,14 +28,12 @@ import { pickProductImageUrl, NO_IMAGE_PLACEHOLDER } from "../utils/placeholder"
 // Matches the backend default in getAllProducts (limit = 20).
 const PAGE_SIZE = 20;
 
-/** A product is sold out when every sellable variant has no stock left. */
-const isSoldOut = (product: Product): boolean => {
-  const variants = product.variants;
-  if (!variants || variants.length === 0) return false;
-  const sellable = variants.filter((v) => v.isActive !== false);
-  if (sellable.length === 0) return true;
-  return sellable.every((v) => (v.stock ?? 0) <= 0);
-};
+/** Reveal: 160ms, 12px of travel, visible at rest. */
+const REVEAL = { duration: 0.16, ease: [0.2, 0.7, 0.3, 1] } as const;
+
+/** A filter row is an interactive target, so it holds the 44px floor. */
+const FILTER_ROW =
+  "flex w-full min-h-[44px] items-center gap-3 rounded-tag px-3 py-2 text-left transition duration-snap ease-snap";
 
 /** Thumbnail first, then any usable image, then the inline placeholder. */
 const getProductImageUrl = (product: Product): string => {
@@ -218,77 +216,153 @@ const ProductListing = () => {
 
   const hasMore = products.length < total;
 
+  /** One removable chip per active filter; nothing when that filter is unset. */
+  const renderActiveChip = (
+    option: { id: string; name: string } | undefined,
+    current: string,
+    set: (v: string) => void
+  ) =>
+    option ? (
+      <button
+        type="button"
+        onClick={() => toggleFilter(current, set, option.id)}
+        className="flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-inverse bg-card px-3 text-[11px] font-bold uppercase tracking-[0.12em] text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-sm"
+      >
+        {option.name}
+        <X aria-hidden="true" className="h-3 w-3" />
+        <span className="sr-only">Remove this filter</span>
+      </button>
+    ) : null;
+
+  /** One filter group, rendered the same way in the sidebar and the drawer. */
+  const renderFilterGroup = (
+    label: string,
+    options: Array<{ id: string; name: string }>,
+    selectedId: string,
+    setSelectedId: (v: string) => void
+  ) => (
+    <div className="space-y-2">
+      <h3 className="eyebrow">{label}</h3>
+      <div className="space-y-1">
+        {options.map((option) => {
+          const isActive = selectedId === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => toggleFilter(selectedId, setSelectedId, option.id)}
+              className={cn(
+                FILTER_ROW,
+                isActive ? "bg-marigold-soft" : "hover:bg-surface-hover"
+              )}
+            >
+              {/* A square ink box, not a radio pill — and the fill is not the
+                  only signal: the label goes bold with it. */}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-tag border-2 transition duration-snap ease-snap",
+                  isActive ? "border-inverse bg-inverse" : "border-border-primary"
+                )}
+              />
+              <span
+                className={cn(
+                  "text-sm",
+                  isActive ? "font-bold text-primary" : "text-secondary"
+                )}
+              >
+                {option.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-primary pt-4 pb-12">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center py-8 gap-6 border-b border-border-primary">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black text-primary uppercase tracking-tight">
-              {urlCategory ? urlCategory.replace(/-/g, " ") : "All Products"}
-              <span className="text-accent ml-2 text-xl">({total})</span>
-            </h1>
-            <div className="flex items-center gap-2 text-sm text-tertiary mt-1">
-              <Link to="/" className="hover:text-accent transition-colors">
+    <div className="min-h-screen bg-primary pb-12 pt-4">
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="flex flex-col items-start justify-between gap-6 border-b-[3px] border-inverse py-8 md:flex-row md:items-end">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm text-tertiary">
+              <Link to="/" className="transition-colors duration-snap ease-snap hover:text-accent">
                 Home
               </Link>
-              <span>/</span>
-              <span className="text-primary capitalize font-medium">
+              <span aria-hidden="true">/</span>
+              <span className="font-bold capitalize text-primary">
                 {urlCategory ? urlCategory.replace(/-/g, " ") : "Shop"}
               </span>
             </div>
+            <h1 className="mt-1 font-display text-[clamp(34px,6vw,56px)] font-semibold uppercase leading-[0.92] text-primary">
+              {urlCategory ? urlCategory.replace(/-/g, " ") : "All products"}
+              <span className="ml-3 align-middle font-display text-[clamp(20px,3vw,30px)] tabular-nums text-accent">
+                {total}
+              </span>
+            </h1>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex w-full items-center gap-3 md:w-auto">
             {/* Search */}
             <div className="relative flex-1 md:w-72">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted w-4 h-4" />
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-tertiary"
+              />
               <input
                 type="text"
-                placeholder="Search products..."
-                className="w-full pl-10 pr-4 py-2.5 bg-secondary border border-border-primary rounded-xl text-primary text-sm font-medium focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all placeholder:text-muted"
+                aria-label="Search products"
+                placeholder="Search jerseys, boots, bats..."
+                className="min-h-[44px] w-full rounded-tag border-2 border-inverse bg-card pl-10 pr-3 text-sm text-primary outline-none transition duration-snap ease-snap placeholder:text-tertiary"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
             {/* View Toggle */}
-            <div className="hidden sm:flex items-center bg-secondary rounded-xl border border-border-primary p-1">
+            <div className="hidden items-center gap-1 sm:flex">
               <button
+                type="button"
                 onClick={() => setViewMode("grid")}
+                aria-pressed={viewMode === "grid"}
                 className={cn(
-                  "p-2 rounded-lg transition-all",
+                  "flex min-h-[44px] min-w-[44px] items-center justify-center rounded-tag border-2 transition duration-snap ease-snap",
                   viewMode === "grid"
-                    ? "bg-accent text-white shadow-sm"
-                    : "text-muted hover:text-primary"
+                    ? "border-inverse bg-inverse text-inverse"
+                    : "border-inverse bg-card text-primary hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-sm"
                 )}
                 aria-label="Grid view"
               >
-                <Grid3X3 className="w-4 h-4" />
+                <Grid3X3 className="h-4 w-4" />
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode("list")}
+                aria-pressed={viewMode === "list"}
                 className={cn(
-                  "p-2 rounded-lg transition-all",
+                  "flex min-h-[44px] min-w-[44px] items-center justify-center rounded-tag border-2 transition duration-snap ease-snap",
                   viewMode === "list"
-                    ? "bg-accent text-white shadow-sm"
-                    : "text-muted hover:text-primary"
+                    ? "border-inverse bg-inverse text-inverse"
+                    : "border-inverse bg-card text-primary hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-sm"
                 )}
                 aria-label="List view"
               >
-                <List className="w-4 h-4" />
+                <List className="h-4 w-4" />
               </button>
             </div>
 
             {/* Mobile Filter Toggle */}
             <button
+              type="button"
               onClick={() => setShowMobileFilters(true)}
-              className="lg:hidden flex items-center gap-2 px-4 py-2.5 bg-inverse text-inverse rounded-xl font-bold text-xs uppercase tracking-wider relative"
+              className="flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-inverse bg-inverse px-4 font-display text-[19px] font-semibold uppercase leading-none text-inverse transition duration-snap ease-snap lg:hidden"
             >
-              <Filter className="w-4 h-4" />
+              <Filter className="h-4 w-4" />
               Filters
               {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className="rounded-tag bg-accent px-1.5 py-0.5 text-[11px] font-bold tabular-nums leading-none text-inverse">
                   {activeFilterCount}
                 </span>
               )}
@@ -296,221 +370,62 @@ const ProductListing = () => {
           </div>
         </div>
 
-        <div className="flex gap-8 mt-8">
+        <div className="mt-8 flex gap-8">
           {/* Desktop Sidebar */}
-          <aside className="hidden lg:block w-64 flex-shrink-0 space-y-8 sticky top-28 h-[calc(100vh-140px)] overflow-y-auto pr-4 scrollbar-thin">
-            {/* Categories */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center justify-between">
-                Sport Categories
-                <ChevronDown className="w-3.5 h-3.5" />
-              </h3>
-              <div className="space-y-1">
-                {categories.map((category) => (
-                  <div
-                    key={category.id}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all",
-                      selectedCategoryId === category.id
-                        ? "bg-accent/10 border border-accent/20"
-                        : "hover:bg-surface-hover"
-                    )}
-                    onClick={() =>
-                      toggleFilter(selectedCategoryId, setSelectedCategoryId, category.id)
-                    }
-                  >
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center flex-shrink-0",
-                        selectedCategoryId === category.id
-                          ? "bg-accent border-accent"
-                          : "border-border-primary"
-                      )}
-                    >
-                      {selectedCategoryId === category.id && (
-                        <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        "text-sm font-medium transition-colors",
-                        selectedCategoryId === category.id
-                          ? "text-primary font-semibold"
-                          : "text-secondary"
-                      )}
-                    >
-                      {category.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
+          <aside className="scrollbar-thin sticky top-28 hidden h-[calc(100vh-140px)] w-64 flex-shrink-0 space-y-6 overflow-y-auto pr-4 lg:block">
+            {renderFilterGroup(
+              "Sport categories",
+              categories,
+              selectedCategoryId,
+              setSelectedCategoryId
+            )}
+            <div className="border-t-2 border-border-primary pt-6">
+              {renderFilterGroup("Brands", brands, selectedBrandId, setSelectedBrandId)}
+            </div>
+            <div className="border-t-2 border-border-primary pt-6">
+              {renderFilterGroup(
+                "Product type",
+                productTypes,
+                selectedProductTypeId,
+                setSelectedProductTypeId
+              )}
             </div>
 
-            {/* Brands */}
-            <div className="space-y-3 border-t border-border-primary pt-6">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
-                Brands
-              </h3>
-              <div className="space-y-1">
-                {brands.map((brand) => (
-                  <div
-                    key={brand.id}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all",
-                      selectedBrandId === brand.id
-                        ? "bg-accent/10 border border-accent/20"
-                        : "hover:bg-surface-hover"
-                    )}
-                    onClick={() =>
-                      toggleFilter(selectedBrandId, setSelectedBrandId, brand.id)
-                    }
-                  >
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center flex-shrink-0",
-                        selectedBrandId === brand.id
-                          ? "bg-accent border-accent"
-                          : "border-border-primary"
-                      )}
-                    >
-                      {selectedBrandId === brand.id && (
-                        <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        "text-sm font-medium transition-colors",
-                        selectedBrandId === brand.id
-                          ? "text-primary font-semibold"
-                          : "text-secondary"
-                      )}
-                    >
-                      {brand.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Product Types */}
-            <div className="space-y-3 border-t border-border-primary pt-6">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
-                Product Type
-              </h3>
-              <div className="space-y-1">
-                {productTypes.map((type) => (
-                  <div
-                    key={type.id}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all",
-                      selectedProductTypeId === type.id
-                        ? "bg-accent/10 border border-accent/20"
-                        : "hover:bg-surface-hover"
-                    )}
-                    onClick={() =>
-                      toggleFilter(
-                        selectedProductTypeId,
-                        setSelectedProductTypeId,
-                        type.id
-                      )
-                    }
-                  >
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center flex-shrink-0",
-                        selectedProductTypeId === type.id
-                          ? "bg-accent border-accent"
-                          : "border-border-primary"
-                      )}
-                    >
-                      {selectedProductTypeId === type.id && (
-                        <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        "text-sm font-medium transition-colors",
-                        selectedProductTypeId === type.id
-                          ? "text-primary font-semibold"
-                          : "text-secondary"
-                      )}
-                    >
-                      {type.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Clear All */}
             {activeFilterCount > 0 && (
               <button
+                type="button"
                 onClick={clearAllFilters}
-                className="w-full py-2.5 text-sm font-bold text-accent hover:bg-accent/10 rounded-xl transition-colors"
+                className="min-h-[44px] w-full rounded-tag border-2 border-inverse bg-card font-display text-[19px] font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
               >
-                Clear All Filters ({activeFilterCount})
+                Clear filters
+                <span className="ml-1.5 tabular-nums">({activeFilterCount})</span>
               </button>
             )}
           </aside>
 
           {/* Main Content */}
-          <main className="flex-1 min-w-0">
+          <main className="min-w-0 flex-1">
             {/* Active Filters Bar */}
             {activeFilterCount > 0 && (
-              <div className="flex flex-wrap gap-2 mb-6 items-center">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted mr-1">
-                  Active:
+              <div className="mb-6 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                  Active
                 </span>
-                {(() => {
-                  const category = categories.find((c) => c.id === selectedCategoryId);
-                  return category ? (
-                    <button
-                      onClick={() =>
-                        toggleFilter(
-                          selectedCategoryId,
-                          setSelectedCategoryId,
-                          category.id
-                        )
-                      }
-                      className="flex items-center gap-1.5 bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-accent/20 transition-all border border-accent/20"
-                    >
-                      {category.name}
-                      <X className="w-3 h-3" />
-                    </button>
-                  ) : null;
-                })()}
-                {(() => {
-                  const brand = brands.find((b) => b.id === selectedBrandId);
-                  return brand ? (
-                    <button
-                      onClick={() =>
-                        toggleFilter(selectedBrandId, setSelectedBrandId, brand.id)
-                      }
-                      className="flex items-center gap-1.5 bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-accent/20 transition-all border border-accent/20"
-                    >
-                      {brand.name}
-                      <X className="w-3 h-3" />
-                    </button>
-                  ) : null;
-                })()}
-                {(() => {
-                  const type = productTypes.find((t) => t.id === selectedProductTypeId);
-                  return type ? (
-                    <button
-                      onClick={() =>
-                        toggleFilter(
-                          selectedProductTypeId,
-                          setSelectedProductTypeId,
-                          type.id
-                        )
-                      }
-                      className="flex items-center gap-1.5 bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-accent/20 transition-all border border-accent/20"
-                    >
-                      {type.name}
-                      <X className="w-3 h-3" />
-                    </button>
-                  ) : null;
-                })()}
+                {renderActiveChip(
+                  categories.find((c) => c.id === selectedCategoryId),
+                  selectedCategoryId,
+                  setSelectedCategoryId
+                )}
+                {renderActiveChip(
+                  brands.find((b) => b.id === selectedBrandId),
+                  selectedBrandId,
+                  setSelectedBrandId
+                )}
+                {renderActiveChip(
+                  productTypes.find((t) => t.id === selectedProductTypeId),
+                  selectedProductTypeId,
+                  setSelectedProductTypeId
+                )}
               </div>
             )}
 
@@ -519,23 +434,28 @@ const ProductListing = () => {
               <ProductGridSkeleton count={6} />
             ) : products.length === 0 ? (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-24 bg-secondary rounded-2xl border border-border-primary"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={REVEAL}
+                className="rounded-card border-2 border-inverse bg-card px-6 py-20 text-center"
               >
-                <ShoppingBag className="w-12 h-12 text-muted mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-primary">No products found</h3>
-                <p className="text-tertiary mt-2 max-w-sm mx-auto">
-                  Try adjusting your filters or search to find what you're looking for.
+                <ShoppingBag aria-hidden="true" className="mx-auto mb-4 h-10 w-10 text-tertiary" />
+                <h2 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+                  Nothing on this shelf
+                </h2>
+                <p className="mx-auto mt-2 max-w-sm text-sm text-tertiary">
+                  Try another sport, brand or size — or ask us on WhatsApp and we will
+                  check the back room.
                 </p>
                 <button
+                  type="button"
                   onClick={() => {
                     clearAllFilters();
                     setSearch("");
                   }}
-                  className="mt-6 px-6 py-2.5 bg-accent text-white rounded-xl font-bold text-sm hover:bg-accent-hover transition-all active:scale-95"
+                  className="mt-6 min-h-[44px] rounded-tag border-2 border-inverse bg-accent px-6 font-display text-[19px] font-semibold uppercase leading-none text-inverse transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
                 >
-                  Clear Filters
+                  Clear filters
                 </button>
               </motion.div>
             ) : (
@@ -550,138 +470,108 @@ const ProductListing = () => {
                 >
                   <AnimatePresence mode="popLayout">
                     {products.map((product, idx) => {
-                      const soldOut = isSoldOut(product);
+                      const soldOut = isProductSoldOut(product.variants);
+
+                      // Grid uses the shared product card, so the size run and
+                      // the chips read identically everywhere in the shop.
+                      if (viewMode === "grid") {
+                        return (
+                          <motion.div key={product.id} layout exit={{ opacity: 0 }}>
+                            <ProductCard product={product} index={idx % PAGE_SIZE} />
+                          </motion.div>
+                        );
+                      }
+
                       return (
                         <motion.div
                           key={product.id}
                           layout
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          transition={{ delay: (idx % PAGE_SIZE) * 0.03 }}
-                          className={cn(
-                            "group cursor-pointer",
-                            viewMode === "list" &&
-                              "flex gap-6 p-4 bg-card rounded-2xl border border-border-primary hover:shadow-lg transition-all"
-                          )}
+                          // Opacity only: animating `y` leaves framer's inline
+                          // transform on the row, which would override the
+                          // Tailwind hover lift in the class list below.
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ ...REVEAL, delay: (idx % PAGE_SIZE) * 0.04 }}
+                          className="group flex gap-4 rounded-card border-2 border-inverse bg-card p-3 transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
                         >
                           {/* Image (its own link, so the CTA below is not nested in it) */}
-                          <div
-                            className={cn(
-                              "relative",
-                              viewMode === "grid" ? "mb-4" : "flex-shrink-0"
-                            )}
+                          <Link
+                            to={`/product/${product.id}`}
+                            className="block flex-shrink-0"
                           >
-                            <Link to={`/product/${product.id}`} className="block">
-                              <div
-                                className={cn(
-                                  "relative overflow-hidden bg-secondary rounded-2xl border border-border-primary group-hover:shadow-lg group-hover:border-accent/20 transition-all duration-300",
-                                  viewMode === "grid"
-                                    ? "aspect-[4/5]"
-                                    : "w-32 h-32"
-                                )}
-                              >
-                                {product.images && product.images.length > 0 ? (
-                                  <img
-                                    src={getProductImageUrl(product)}
-                                    alt={product.name}
-                                    loading="lazy"
-                                    onError={(e) => {
-                                      const img = e.currentTarget;
-                                      if (img.src !== NO_IMAGE_PLACEHOLDER) {
-                                        img.onerror = null;
-                                        img.src = NO_IMAGE_PLACEHOLDER;
-                                      }
-                                    }}
-                                    className={cn(
-                                      "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
-                                      soldOut && "opacity-40 grayscale"
-                                    )}
-                                  />
-                                ) : (
-                                  <div
-                                    className={cn(
-                                      "w-full h-full flex items-center justify-center text-muted",
-                                      soldOut && "opacity-40"
-                                    )}
-                                  >
-                                    <ShoppingBag className="w-8 h-8" />
-                                  </div>
-                                )}
-
-                                {/* Badge */}
-                                {viewMode === "grid" && (
-                                  <div className="absolute top-3 left-3">
-                                    <span className="bg-card/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] font-bold text-primary border border-border-primary">
-                                      {product.ProductType?.name ||
-                                        product.Category?.name ||
-                                        "Sport"}
-                                    </span>
-                                  </div>
-                                )}
-
-                                {/* Status badges (discount / featured / new) */}
-                                <div className="absolute top-3 right-3 z-10">
-                                  <ProductBadges product={product} layout="stack" />
-                                </div>
-
-                                {/* Out of stock */}
-                                {soldOut && (
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="bg-card/95 backdrop-blur-sm px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-tertiary border border-border-primary">
-                                      Out of stock
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </Link>
-
-                            {/* Quick View on hover (grid only) */}
-                            {viewMode === "grid" && !soldOut && (
-                              <div className="absolute bottom-4 left-4 right-4 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-                                <Link
-                                  to={`/product/${product.id}`}
-                                  className="block w-full py-3 text-center bg-accent text-white rounded-xl font-bold text-xs uppercase tracking-wider shadow-lg shadow-accent/30 hover:bg-accent-hover transition-colors active:scale-95"
+                            <div className="relative h-32 w-32 overflow-hidden rounded-tag border-2 border-inverse bg-secondary">
+                              {product.images && product.images.length > 0 ? (
+                                <img
+                                  src={getProductImageUrl(product)}
+                                  alt={product.name}
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    const img = e.currentTarget;
+                                    if (img.src !== NO_IMAGE_PLACEHOLDER) {
+                                      img.onerror = null;
+                                      img.src = NO_IMAGE_PLACEHOLDER;
+                                    }
+                                  }}
+                                  className={cn(
+                                    "h-full w-full object-cover",
+                                    soldOut && "opacity-50 grayscale"
+                                  )}
+                                />
+                              ) : (
+                                <div
+                                  className={cn(
+                                    "flex h-full w-full items-center justify-center text-tertiary",
+                                    soldOut && "opacity-50"
+                                  )}
                                 >
-                                  Quick View
-                                </Link>
-                              </div>
-                            )}
-                          </div>
+                                  <ShoppingBag aria-hidden="true" className="h-7 w-7" />
+                                </div>
+                              )}
+
+                              {soldOut && (
+                                <span className="absolute inset-x-0 bottom-0 bg-inverse px-1 py-0.5 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-inverse">
+                                  Sold out
+                                </span>
+                              )}
+                            </div>
+                          </Link>
 
                           {/* Info */}
                           <Link
                             to={`/product/${product.id}`}
-                            className={cn(
-                              "block space-y-1",
-                              viewMode === "list" && "flex-1 py-2"
-                            )}
+                            className="block min-w-0 flex-1 py-1"
                           >
-                            <p className="text-[10px] font-bold text-accent uppercase tracking-wider">
-                              {product.Brand?.name || "Premium Gear"}
-                            </p>
-                            <h3 className="font-bold text-primary text-sm line-clamp-1 group-hover:text-accent transition-colors">
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                                {product.Brand?.name ||
+                                  product.Category?.name ||
+                                  "Kit room"}
+                              </p>
+                              <ProductBadges product={product} layout="row" />
+                            </div>
+                            <h3 className="line-clamp-1 font-display text-[29px] font-semibold uppercase leading-[0.92] text-primary">
                               {product.name}
                             </h3>
-                            <p className="text-xs text-tertiary line-clamp-1">
-                              {product.Category?.name || "Athletic Collection"}
+                            <p className="line-clamp-1 text-sm text-tertiary">
+                              {product.ProductType?.name || product.Category?.name || ""}
                             </p>
-                            <div className="flex items-center gap-2 pt-1">
-                              <p className="text-base font-black text-primary">
+                            <div className="mt-1 flex items-baseline gap-2">
+                              <span className="font-display text-[23px] font-semibold leading-none tabular-nums text-primary">
                                 Rs{" "}
                                 {(
                                   product.price ||
                                   product.variants?.[0]?.price ||
                                   0
                                 ).toLocaleString()}
-                              </p>
+                              </span>
                               {(product.originalPrice ||
                                 product.variants?.[0]?.originalPrice) &&
                                 (product.originalPrice ||
                                   product.variants?.[0]?.originalPrice ||
                                   0) >
                                   (product.price || product.variants?.[0]?.price || 0) && (
-                                  <span className="text-xs text-muted line-through">
+                                  <span className="font-display text-[17px] leading-none tabular-nums text-muted line-through">
                                     Rs{" "}
                                     {(
                                       product.originalPrice ||
@@ -691,7 +581,7 @@ const ProductListing = () => {
                                   </span>
                                 )}
                               {soldOut && (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary">
+                                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
                                   Sold out
                                 </span>
                               )}
@@ -704,23 +594,25 @@ const ProductListing = () => {
                 </div>
 
                 {/* Load More */}
-                <div className="flex flex-col items-center gap-3 mt-10">
-                  <p className="text-xs text-tertiary">
-                    Showing {products.length} of {total}
+                <div className="mt-10 flex flex-col items-center gap-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                    Showing <span className="tabular-nums">{products.length}</span> of{" "}
+                    <span className="tabular-nums">{total}</span>
                   </p>
                   {hasMore && (
                     <button
+                      type="button"
                       onClick={() => setPage((prev) => prev + 1)}
                       disabled={loadingMore}
-                      className="flex items-center gap-2 px-8 py-3 bg-card border border-border-primary text-primary rounded-xl font-bold text-xs uppercase tracking-wider hover:border-accent hover:text-accent transition-all active:scale-95 disabled:opacity-60 disabled:active:scale-100"
+                      className="flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-inverse bg-card px-8 font-display text-[19px] font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard disabled:translate-x-0 disabled:translate-y-0 disabled:border-border-primary disabled:bg-secondary disabled:text-muted disabled:shadow-none"
                     >
                       {loadingMore ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                           Loading
                         </>
                       ) : (
-                        "Load More"
+                        "Load more"
                       )}
                     </button>
                   )}
@@ -739,118 +631,64 @@ const ProductListing = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
               onClick={() => setShowMobileFilters(false)}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]"
+              className="fixed inset-0 z-[60] bg-inverse/60"
             />
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-0 bottom-0 w-[85%] max-w-sm bg-primary z-[70] p-6 overflow-y-auto border-l border-border-primary"
+              transition={{ duration: 0.12, ease: [0.2, 0.7, 0.3, 1] }}
+              className="fixed bottom-0 right-0 top-0 z-[70] w-[85%] max-w-sm overflow-y-auto border-l-2 border-inverse bg-primary p-6"
             >
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-lg font-bold text-primary">Filters</h2>
+              <div className="mb-8 flex items-center justify-between">
+                <h2 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+                  Filters
+                </h2>
                 <button
+                  type="button"
                   onClick={() => setShowMobileFilters(false)}
-                  className="p-2 hover:bg-surface-hover rounded-xl transition-colors"
+                  aria-label="Close filters"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-tag border-2 border-inverse bg-card text-primary transition duration-snap ease-snap"
                 >
-                  <X className="w-5 h-5 text-primary" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="space-y-8">
-                {/* Categories */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
-                    Sport Categories
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {categories.map((category) => (
-                      <button
-                        key={category.id}
-                        onClick={() =>
-                          toggleFilter(
-                            selectedCategoryId,
-                            setSelectedCategoryId,
-                            category.id
-                          )
-                        }
-                        className={cn(
-                          "px-4 py-2 rounded-xl text-sm font-medium border transition-all",
-                          selectedCategoryId === category.id
-                            ? "bg-accent border-accent text-white"
-                            : "border-border-primary text-secondary hover:border-accent/50"
-                        )}
-                      >
-                        {category.name}
-                      </button>
-                    ))}
-                  </div>
+              <div className="space-y-6">
+                {renderFilterGroup(
+                  "Sport categories",
+                  categories,
+                  selectedCategoryId,
+                  setSelectedCategoryId
+                )}
+                <div className="border-t-2 border-border-primary pt-6">
+                  {renderFilterGroup(
+                    "Brands",
+                    brands,
+                    selectedBrandId,
+                    setSelectedBrandId
+                  )}
                 </div>
-
-                {/* Brands */}
-                <div className="space-y-3 border-t border-border-primary pt-6">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
-                    Brands
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {brands.map((brand) => (
-                      <button
-                        key={brand.id}
-                        onClick={() =>
-                          toggleFilter(selectedBrandId, setSelectedBrandId, brand.id)
-                        }
-                        className={cn(
-                          "px-4 py-2 rounded-xl text-sm font-medium border transition-all",
-                          selectedBrandId === brand.id
-                            ? "bg-accent border-accent text-white"
-                            : "border-border-primary text-secondary hover:border-accent/50"
-                        )}
-                      >
-                        {brand.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Product Types */}
-                <div className="space-y-3 border-t border-border-primary pt-6">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
-                    Product Types
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {productTypes.map((type) => (
-                      <button
-                        key={type.id}
-                        onClick={() =>
-                          toggleFilter(
-                            selectedProductTypeId,
-                            setSelectedProductTypeId,
-                            type.id
-                          )
-                        }
-                        className={cn(
-                          "px-4 py-2 rounded-xl text-sm font-medium border transition-all",
-                          selectedProductTypeId === type.id
-                            ? "bg-accent border-accent text-white"
-                            : "border-border-primary text-secondary hover:border-accent/50"
-                        )}
-                      >
-                        {type.name}
-                      </button>
-                    ))}
-                  </div>
+                <div className="border-t-2 border-border-primary pt-6">
+                  {renderFilterGroup(
+                    "Product types",
+                    productTypes,
+                    selectedProductTypeId,
+                    setSelectedProductTypeId
+                  )}
                 </div>
               </div>
 
               {/* Apply Button */}
-              <div className="sticky bottom-0 bg-primary pt-4 pb-6 mt-8 border-t border-border-primary">
+              <div className="sticky bottom-0 mt-8 border-t-2 border-inverse bg-primary pb-6 pt-4">
                 <button
+                  type="button"
                   onClick={() => setShowMobileFilters(false)}
-                  className="w-full py-3.5 bg-accent text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg active:scale-95 transition-all"
+                  className="min-h-[44px] w-full rounded-tag border-2 border-inverse bg-accent font-display text-[19px] font-semibold uppercase leading-none text-inverse transition duration-snap ease-snap hover:bg-accent-hover"
                 >
-                  Show {total} Results
+                  Show <span className="tabular-nums">{total}</span> results
                 </button>
               </div>
             </motion.div>

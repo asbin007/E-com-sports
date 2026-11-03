@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+
+# Local env files — commit the .env.example files instead
+.env
+.env.*
+!.env.example
+
+# Editor / tool state
+.cursor/
+.idea/
+.vscode/*
+!.vscode/settings.json
+.DS_Store
+*.log

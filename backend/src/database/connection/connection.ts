@@ -268,6 +268,16 @@ export const connectDB = async () => {
             `ALTER TABLE categories ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT true`
           );
         }
+        // "ball" (football sizes 3/4/5) and "trophy" (cup heights) joined the
+        // sizeType enum after the table was first synced. sync() runs with
+        // alter:false, so add the labels here or inserting them throws.
+        for (const label of ["ball", "trophy"]) {
+          await sequelize
+            .query(`ALTER TYPE "enum_categories_sizeType" ADD VALUE IF NOT EXISTS '${label}'`)
+            .catch(() => {
+              /* column is plain VARCHAR on older installs — nothing to widen */
+            });
+        }
       } catch (migrationError) {
         console.warn(
           "⚠️ categories schema migration skipped:",

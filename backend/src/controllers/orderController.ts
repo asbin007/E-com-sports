@@ -13,6 +13,7 @@ import Variant from "../database/models/variantModel.js";
 import StatusHistory from "../database/models/statusHistoryModel.js";
 import { generateOrderNumber } from "../utils/orderNumber.js";
 import { calculateDeliveryCharge } from "../utils/deliveryCharge.js";
+import { escapeCsvCell } from "../utils/csv.js";
 import { whatsappService } from "../services/whatsappService.js";
 import notificationService from "../services/notificationService.js";
 
@@ -331,6 +332,9 @@ class OrderController {
       const where: any = {};
       if (role === "customer") {
         where.userId = userId;
+      } else if (role === "delivery") {
+        // Delivery staff only see orders assigned to them
+        where.deliveryBoyId = userId;
       }
 
       // Filter by status if provided
@@ -398,6 +402,8 @@ class OrderController {
       const where: any = { id };
       if (role === "customer") {
         where.userId = userId;
+      } else if (role === "delivery") {
+        where.deliveryBoyId = userId;
       }
 
       const order = await Order.findOne({
@@ -641,17 +647,6 @@ class OrderController {
       res.status(500).json({ message: "Failed to export orders" });
     }
   }
-}
-
-function escapeCsvCell(value: any): string {
-  const raw = value === null || value === undefined ? '' : String(value);
-  const guarded = /^[=+\-@]/.test(raw) ? `\t${raw}` : raw;
-
-  if (/[",\n\r]/.test(guarded)) {
-    return `"${guarded.replace(/"/g, '""')}"`;
-  }
-
-  return guarded;
 }
 
 function generateWhatsAppMessage(order: any): string {

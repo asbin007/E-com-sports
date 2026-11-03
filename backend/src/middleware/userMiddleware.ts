@@ -62,6 +62,11 @@ class UserMiddleware {
         return;
       }
 
+      if (userData.isActive === false) {
+        res.status(403).json({ message: "Account is deactivated" });
+        return;
+      }
+
       req.user = {
         id: userData.id,
         username: userData.username,

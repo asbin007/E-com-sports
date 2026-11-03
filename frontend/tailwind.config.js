@@ -1,4 +1,7 @@
 /** @type {import('tailwindcss').Config} */
+/* Kit Room design system — see frontend/MASTER.md.
+   Colours resolve through the CSS custom properties in src/index.css so both
+   themes share one set of utility names. */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   darkMode: "class",
@@ -10,6 +13,14 @@ export default {
           hover: "rgb(var(--color-accent-hover) / <alpha-value>)",
           light: "rgb(var(--color-accent-light) / <alpha-value>)",
         },
+        // Semantic, deliberately not the accent: stock and delivery success
+        // read pitch, offers and festival moments read marigold.
+        marigold: {
+          DEFAULT: "rgb(var(--color-marigold) / <alpha-value>)",
+          bright: "rgb(var(--color-marigold-bright) / <alpha-value>)",
+          soft: "rgb(var(--color-marigold-bg) / <alpha-value>)",
+        },
+        pitch: "rgb(var(--color-pitch) / <alpha-value>)",
       },
       backgroundColor: {
         primary: "rgb(var(--color-bg-primary) / <alpha-value>)",
@@ -19,6 +30,12 @@ export default {
         elevated: "rgb(var(--color-bg-elevated) / <alpha-value>)",
         inverse: "rgb(var(--color-bg-inverse) / <alpha-value>)",
         "surface-hover": "rgb(var(--color-surface-hover) / <alpha-value>)",
+        "marigold-soft": "rgb(var(--color-marigold-bg) / <alpha-value>)",
+        "marigold-bright": "rgb(var(--color-marigold-bright) / <alpha-value>)",
+        // So `.eyebrow`'s trailing hairline and any divider can use the border
+        // token as a fill. Without this the utility does not exist and
+        // @apply fails at CSS compile time.
+        "border-primary": "rgb(var(--color-border-primary) / <alpha-value>)",
       },
       textColor: {
         primary: "rgb(var(--color-text-primary) / <alpha-value>)",
@@ -27,22 +44,47 @@ export default {
         muted: "rgb(var(--color-text-muted) / <alpha-value>)",
         inverse: "rgb(var(--color-text-inverse) / <alpha-value>)",
         accent: "rgb(var(--color-accent) / <alpha-value>)",
+        marigold: "rgb(var(--color-marigold) / <alpha-value>)",
+        pitch: "rgb(var(--color-pitch) / <alpha-value>)",
+        // The only text colour that is safe on a bright fill in BOTH themes.
+        "ink-fixed": "rgb(var(--color-ink-fixed) / <alpha-value>)",
       },
       borderColor: {
         "border-primary": "rgb(var(--color-border-primary) / <alpha-value>)",
         "border-secondary": "rgb(var(--color-border-secondary) / <alpha-value>)",
+        inverse: "rgb(var(--color-bg-inverse) / <alpha-value>)",
+        marigold: "rgb(var(--color-marigold) / <alpha-value>)",
+        pitch: "rgb(var(--color-pitch) / <alpha-value>)",
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Inter', 'system-ui', 'sans-serif'],
+        // Mukta and Teko both carry Devanagari as well as Latin, so Nepali and
+        // English set in the same voice instead of falling back to a system face.
+        sans: ["Mukta", "Segoe UI", "system-ui", "sans-serif"],
+        display: ["Teko", "Oswald", "Arial Narrow", "sans-serif"],
+      },
+      borderRadius: {
+        // Nothing rounder than a printed tag.
+        tag: "2px",
+        card: "4px",
+      },
+      boxShadow: {
+        // The only depth in the system: a hard offset, like a tag lifting off
+        // the page. No blur, ever.
+        hard: "4px 4px 0 rgb(var(--color-bg-inverse))",
+        "hard-sm": "2px 2px 0 rgb(var(--color-bg-inverse))",
+      },
+      transitionTimingFunction: {
+        snap: "cubic-bezier(.2, .7, .3, 1)",
+      },
+      transitionDuration: {
+        snap: "120ms",
       },
       animation: {
-        "fade-in": "fade-in 0.8s ease-out",
-        "slide-in": "slide-in 0.8s ease-out",
-        "scale-in": "scale-in 0.8s ease-out",
-        shimmer: "shimmer 2s infinite",
-        float: "float 3s ease-in-out infinite",
-        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        reveal: "reveal 160ms cubic-bezier(.2,.7,.3,1) both",
+        "fade-in": "reveal 160ms cubic-bezier(.2,.7,.3,1) both",
+        "slide-in": "slide-up 120ms cubic-bezier(.2,.7,.3,1) both",
+        "scale-in": "reveal 160ms cubic-bezier(.2,.7,.3,1) both",
+        shimmer: "shimmer 1.5s infinite",
       },
     },
   },

@@ -3,6 +3,7 @@ import api from '@/services/api';
 import type { User } from '@/types';
 import { Search, Trash2, Users as UsersIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
@@ -10,19 +11,18 @@ export default function Users() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await api.get('/users');
+        setUsers(res.data?.data || []);
+      } catch (err) {
+        console.error('Failed to fetch users:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchUsers();
   }, []);
-
-  const fetchUsers = async () => {
-    try {
-      const res = await api.get('/users');
-      setUsers(res.data?.data || []);
-    } catch (err) {
-      console.error('Failed to fetch users:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this user?')) return;
@@ -30,8 +30,8 @@ export default function Users() {
       await api.delete(`/users/${id}`);
       setUsers((prev) => prev.filter((u) => u.id !== id));
       toast.success('User deleted');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to delete user');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to delete user'));
     }
   };
 

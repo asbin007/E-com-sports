@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '@/services/api';
 import { Plus, Pencil, Trash2, Loader2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError';
 
 interface CrudItem {
   id: string;
   name: string;
   slug: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface CrudPageProps {
@@ -25,11 +26,7 @@ export default function CrudPage({ title, endpoint, fields, renderItem }: CrudPa
   const [saving, setSaving] = useState(false);
   const [editingItem, setEditingItem] = useState<CrudItem | null>(null);
 
-  useEffect(() => {
-    fetchItems();
-  }, []);
-
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     try {
       const res = await api.get(endpoint);
       setItems(res.data?.data || []);
@@ -38,7 +35,14 @@ export default function CrudPage({ title, endpoint, fields, renderItem }: CrudPa
     } finally {
       setLoading(false);
     }
-  };
+  }, [endpoint, title]);
+
+  useEffect(() => {
+    const run = async () => {
+      await fetchItems();
+    };
+    run();
+  }, [fetchItems]);
 
   const openCreate = () => {
     setEditingItem(null);
@@ -93,10 +97,9 @@ export default function CrudPage({ title, endpoint, fields, renderItem }: CrudPa
         toast.success(`${title} created`);
       }
       closeForm();
-    } catch (err: any) {
+    } catch (err) {
       toast.error(
-        err.response?.data?.message ||
-          `Failed to ${editingItem ? 'update' : 'create'} ${title.toLowerCase()}`
+        getApiErrorMessage(err, `Failed to ${editingItem ? 'update' : 'create'} ${title.toLowerCase()}`)
       );
     } finally {
       setSaving(false);
@@ -109,12 +112,11 @@ export default function CrudPage({ title, endpoint, fields, renderItem }: CrudPa
       await api.delete(`${endpoint}/${item.id}`);
       setItems((prev) => prev.filter((i) => i.id !== item.id));
       toast.success(`${item.name} deleted`);
-    } catch (err: any) {
-      const message = err.response?.data?.message;
+    } catch (err) {
       // 409 means the server refused because rows still depend on this one.
       // That message names the blocker, so give the operator time to read it.
-      toast.error(message || `Failed to delete "${item.name}"`, {
-        duration: err.response?.status === 409 ? 8000 : 4000,
+      toast.error(getApiErrorMessage(err, `Failed to delete "${item.name}"`), {
+        duration: getApiErrorStatus(err) === 409 ? 8000 : 4000,
       });
     }
   };

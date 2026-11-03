@@ -1,13 +1,115 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { ShoppingBag, Heart, Eye } from "lucide-react";
+import { useMemo, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { Product } from "../../services/productService";
+import {
+  isProductSoldOut,
+  isVariantSellable,
+  variantStock,
+  type Product,
+} from "../../services/productService";
 import { NO_IMAGE_PLACEHOLDER } from "../../utils/placeholder";
 import ProductBadges, { computeDiscountPercent } from "./ProductBadges";
 import { cn } from "../../utils/cn";
 
 const formatPrice = (n: number) => `Rs ${n.toLocaleString()}`;
+
+/** Chip shell: 11px uppercase, 1.5px border, nothing rounder than a printed tag. */
+const CHIP =
+  "inline-flex items-center rounded-tag border-[1.5px] px-1.5 py-0.5 text-[11px] font-bold uppercase leading-none tracking-[0.12em]";
+
+/** The printed kit run, for sizes that are letters rather than numbers. */
+const LETTER_RUN = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
+
+/**
+ * Numeric sizes (footballs 3/4/5, boots in UK sizes) sort numerically, kit sizes
+ * follow the printed run, and anything else (bat handles SH / H / LB) falls back
+ * to alphabetical so the order is at least stable.
+ */
+const compareSizes = (a: string, b: string): number => {
+  const na = Number.parseFloat(a.replace(/[^0-9.]/g, ""));
+  const nb = Number.parseFloat(b.replace(/[^0-9.]/g, ""));
+  if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+  const ia = LETTER_RUN.indexOf(a.toUpperCase());
+  const ib = LETTER_RUN.indexOf(b.toUpperCase());
+  if (ia !== -1 && ib !== -1) return ia - ib;
+  if (ia !== -1) return -1;
+  if (ib !== -1) return 1;
+  return a.localeCompare(b);
+};
+
+export interface SizeOption {
+  size: string;
+  inStock: boolean;
+}
+
+interface SizeRunProps {
+  sizes: SizeOption[];
+  selected?: string;
+  onSelect?: (size: string) => void;
+  /** Cards use the 32px box; the detail page sets a taller one. */
+  boxClassName?: string;
+  className?: string;
+}
+
+/**
+ * The size run — the structural idea of the whole storefront. A real shop shows
+ * what it has in your size before anything else, so every size the product
+ * actually carries gets a box: available, selected (inverted) or struck
+ * through. A sold-out box is `disabled`, so it can never be selected and
+ * therefore can never reach the cart.
+ */
+export const SizeRun = ({
+  sizes,
+  selected,
+  onSelect,
+  boxClassName,
+  className,
+}: SizeRunProps) => {
+  if (sizes.length === 0) return null;
+
+  return (
+    <div className={cn("flex flex-wrap gap-1.5", className)}>
+      {sizes.map(({ size, inStock }) => {
+        const isSelected = inStock && selected === size;
+        return (
+          <button
+            key={size}
+            type="button"
+            disabled={!inStock}
+            aria-pressed={isSelected}
+            aria-label={inStock ? `Size ${size}` : `Size ${size}, sold out`}
+            onClick={(event) => {
+              // Cards are clickable as a whole; a size box must not navigate.
+              event.stopPropagation();
+              onSelect?.(size);
+            }}
+            className={cn(
+              // WCAG 2.5.5: the tappable region never shrinks below 44x44.
+              "relative flex min-h-[44px] min-w-[44px] items-center justify-center px-2",
+              "rounded-tag border-2 font-display text-[19px] font-semibold leading-none tabular-nums",
+              "transition duration-snap ease-snap",
+              inStock
+                ? isSelected
+                  ? "border-inverse bg-inverse text-inverse"
+                  : "border-inverse text-primary hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-sm"
+                : "cursor-not-allowed border-border-primary text-muted",
+              boxClassName
+            )}
+          >
+            {size}
+            {!inStock && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute left-0.5 right-0.5 top-1/2 h-0.5 -translate-y-1/2 -rotate-[30deg] bg-inverse/40"
+              />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 const resolveImageUrl = (product: Product): string => {
   const imgs = (product.images ?? []) as Array<unknown>;
@@ -34,114 +136,150 @@ interface ProductCardProps {
 
 const ProductCard = ({ product, index = 0 }: ProductCardProps) => {
   const navigate = useNavigate();
+  const reduce = useReducedMotion();
   const [isLiked, setIsLiked] = useState(false);
+  const [selectedSize, setSelectedSize] = useState("");
+
   const price = product.price ?? product.variants?.[0]?.price ?? 0;
   const original = product.originalPrice ?? product.variants?.[0]?.originalPrice ?? 0;
   const discount = computeDiscountPercent(product);
 
+  // Sizes and stock come straight off the variant rows. A product with no sized
+  // variants gets no size run at all — nothing here invents a size.
+  const { sizes, stock } = useMemo(() => {
+    const all = product.variants ?? [];
+    const sellable = all.filter((v) => v.isActive !== false);
+    const named = [
+      ...new Set(
+        sellable
+          .map((v) => v.size)
+          .filter((s): s is string => !!s && s.toLowerCase() !== "one size")
+      ),
+    ].sort(compareSizes);
+    return {
+      sizes: named.map<SizeOption>((size) => ({
+        size,
+        // A size whose rows carry no `stock` field is unknown, so it stays
+        // selectable; only a reported count of zero strikes it through.
+        inStock: sellable.some((v) => v.size === size && isVariantSellable(v)),
+      })),
+      // Counts only the rows that actually report a number, so the chip never
+      // claims a figure the API did not send.
+      stock: sellable.reduce((sum, v) => sum + (variantStock(v) ?? 0), 0),
+    };
+  }, [product.variants]);
+
+  const soldOut = isProductSoldOut(product.variants);
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
-      viewport={{ once: true, margin: "-50px" }}
+      // Mount-driven, never observer-driven: a card below the fold must not sit
+      // at opacity 0 waiting for IntersectionObserver. Opacity only, because
+      // animating `y` leaves framer's inline transform on the element and the
+      // Tailwind hover lift in the class list below could never apply.
+      initial={reduce ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.16, delay: Math.min(index, 8) * 0.04, ease: [0.2, 0.7, 0.3, 1] }}
       onClick={() => navigate(`/product/${product.id}`)}
-      className="group cursor-pointer"
+      className="group cursor-pointer overflow-hidden rounded-card border-2 border-inverse bg-card transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
     >
-      {/* Image Container */}
-      <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-secondary border border-border-primary mb-4 transition-all duration-500 group-hover:shadow-2xl group-hover:shadow-accent/10 group-hover:border-accent/20 group-hover:-translate-y-1">
-        {/* Main Image - using CSS hover for better performance */}
+      {/* Image: 4:5 box closed off by a 2px ink rule */}
+      <div className="relative aspect-[4/5] overflow-hidden border-b-2 border-inverse bg-secondary">
         <img
           src={resolveImageUrl(product)}
           alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+          className={cn("h-full w-full object-cover", soldOut && "opacity-50 grayscale")}
         />
 
-        {/* Gradient Overlay on Hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-        {/* Badges */}
-        <div className="absolute top-3 left-3 z-10">
+        <div className="absolute left-2 top-2 z-10">
           <ProductBadges product={product} layout="stack" />
         </div>
 
-        {/* Wishlist Button */}
+        {/* NOTE: wishlist is local-only state, same as before — no service call. */}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
             setIsLiked(!isLiked);
           }}
           className={cn(
-            "absolute top-3 right-3 z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg",
-            "opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0",
+            "absolute right-2 top-2 z-10 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-tag border-2 transition duration-snap ease-snap",
             isLiked
-              ? "bg-red-500 text-white opacity-100 translate-x-0"
-              : "bg-white/90 backdrop-blur-sm text-gray-600 hover:bg-red-500 hover:text-white"
+              ? "border-accent bg-accent text-inverse"
+              : "border-inverse bg-card text-primary hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard-sm"
           )}
           aria-label={isLiked ? "Remove from wishlist" : "Add to wishlist"}
+          aria-pressed={isLiked}
         >
-          <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
+          <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
         </button>
 
-        {/* Quick Actions Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-100">
-          <div className="flex gap-2">
+        {soldOut && (
+          <span className="absolute inset-x-0 bottom-0 bg-inverse px-2 py-1 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-inverse">
+            Sold out
+          </span>
+        )}
+
+        {/* Single CTA, same destination as the card itself */}
+        {!soldOut && (
+          <div className="absolute inset-x-2 bottom-2 translate-y-1 opacity-0 transition duration-snap ease-snap group-hover:translate-y-0 group-hover:opacity-100">
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 navigate(`/product/${product.id}`);
               }}
-              className="flex-1 py-3.5 bg-accent text-white rounded-xl font-bold text-xs uppercase tracking-wider shadow-lg shadow-accent/40 hover:bg-accent-hover transition-colors flex items-center justify-center gap-2 active:scale-95"
+              className="min-h-[44px] w-full rounded-tag border-2 border-inverse bg-accent font-display text-[19px] font-semibold uppercase leading-none tracking-[0.04em] text-inverse transition duration-snap ease-snap hover:bg-accent-hover"
             >
-              <ShoppingBag className="w-4 h-4" />
-              Quick View
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/product/${product.id}`);
-              }}
-              className="w-12 py-3.5 bg-white/90 backdrop-blur-sm text-gray-800 rounded-xl font-bold shadow-lg hover:bg-white transition-colors flex items-center justify-center active:scale-95"
-              aria-label="View details"
-            >
-              <Eye className="w-4 h-4" />
+              View kit
             </button>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Product Info */}
-      <div className="space-y-2 px-1">
-        {/* Brand */}
-        <p className="text-[10px] font-bold text-accent uppercase tracking-[0.15em]">
-          {product.Brand?.name || "Premium Gear"}
+      {/* Body: club / brand, name, price, size run, chips */}
+      <div className="space-y-2 p-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+          {product.Brand?.name || product.Category?.name || "Kit room"}
         </p>
 
-        {/* Name */}
-        <h3 className="font-bold text-primary text-sm leading-tight line-clamp-2 group-hover:text-accent transition-colors duration-300 min-h-[2.5rem]">
+        <h3 className="line-clamp-2 font-display text-[29px] font-semibold uppercase leading-[0.92] text-primary">
           {product.name}
         </h3>
 
         {/* No rating shown: the card is only given a Product, which carries no
             review stats. A fabricated figure costs more trust than none. */}
 
-        {/* Price */}
-        <div className="flex items-baseline gap-2 pt-1">
-          <p className="text-lg font-black text-primary tracking-tight">
+        <div className="flex items-baseline gap-2">
+          <span className="font-display text-[23px] font-semibold leading-none tabular-nums text-primary">
             {formatPrice(price)}
-          </p>
+          </span>
           {discount > 0 && (
-            <>
-              <p className="text-xs text-muted line-through font-medium">
-                {formatPrice(original)}
-              </p>
-              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                {discount}% OFF
-              </span>
-            </>
+            <span className="font-display text-[17px] leading-none tabular-nums text-muted line-through">
+              {formatPrice(original)}
+            </span>
           )}
+        </div>
+
+        <SizeRun sizes={sizes} selected={selectedSize} onSelect={setSelectedSize} />
+
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          {stock > 0 && (
+            <span className={cn(CHIP, "border-pitch text-pitch")}>
+              <span className="tabular-nums">{stock}</span>
+              <span className="ml-1">in stock</span>
+            </span>
+          )}
+          {discount > 0 && (
+            <span className={cn(CHIP, "border-marigold bg-marigold-soft text-marigold")}>
+              <span className="tabular-nums">{discount}</span>
+              <span className="ml-1">% off</span>
+            </span>
+          )}
+          <span className={cn(CHIP, "border-border-primary text-tertiary")}>COD</span>
+          <span className={cn(CHIP, "border-border-primary text-tertiary")}>
+            Nepal delivery
+          </span>
         </div>
       </div>
     </motion.div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Star, User, ThumbsUp, ChevronDown, ChevronUp } from "lucide-react";
 import { reviewService, type Review, type ReviewStats } from "../../services/reviewService";
 import { cn } from "../../utils/cn";
@@ -7,67 +7,81 @@ interface ProductReviewsProps {
   productId: string;
 }
 
+const MICRO = "text-[11px] font-bold uppercase tracking-[0.12em]";
+
 const ReviewCard = ({ review }: { review: Review }) => {
   const [expanded, setExpanded] = useState(false);
   const isLongComment = review.comment && review.comment.length > 200;
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-6 hover:shadow-lg transition-shadow duration-300">
-      <div className="flex items-start justify-between mb-4">
+    <div className="rounded-card border-2 border-inverse bg-card p-6">
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-stone-950 flex items-center justify-center">
+          {/* A genuine avatar is the one thing allowed to stay round. */}
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-inverse bg-inverse">
             {review.User?.avatar ? (
-              <img src={review.User.avatar} alt={review.User.username} className="w-full h-full rounded-full object-cover" />
+              <img
+                src={review.User.avatar}
+                alt={review.User.username}
+                className="h-full w-full rounded-full object-cover"
+              />
             ) : (
-              <User className="w-5 h-5 text-white" />
+              <User className="h-5 w-5 text-inverse" aria-hidden="true" />
             )}
           </div>
           <div>
-            <p className="font-bold text-stone-950 text-sm">
+            <p className="font-display text-xl font-semibold uppercase leading-none text-primary">
               {review.User?.username || "Anonymous"}
             </p>
             {review.isVerifiedPurchase && (
-              <span className="text-[10px] font-black uppercase tracking-wider text-green-600 flex items-center gap-1">
-                <ThumbsUp className="w-3 h-3" /> Verified Purchase
+              <span className={`mt-1 flex items-center gap-1 ${MICRO} text-pitch`}>
+                <ThumbsUp className="h-3 w-3" aria-hidden="true" /> Verified Purchase
               </span>
             )}
           </div>
         </div>
-        <div className="flex text-orange-500">
+        <div className="flex flex-shrink-0" aria-label={`Rated ${review.rating} out of 5`}>
           {[1, 2, 3, 4, 5].map((i) => (
-            <Star key={i} className={cn("w-4 h-4", i <= review.rating ? "fill-current" : "text-gray-200")} />
+            <Star
+              key={i}
+              aria-hidden="true"
+              className={cn(
+                "h-4 w-4",
+                i <= review.rating ? "fill-marigold text-marigold" : "text-border-primary"
+              )}
+            />
           ))}
         </div>
       </div>
 
       {review.title && (
-        <p className="font-black text-stone-950 mb-2 italic uppercase text-sm tracking-tight">
+        <p className="mb-2 font-display text-xl font-semibold uppercase leading-none text-primary">
           {review.title}
         </p>
       )}
 
-      <p className="text-gray-600 text-sm leading-relaxed">
+      <p className="text-sm leading-relaxed text-tertiary">
         {expanded || !isLongComment ? review.comment : `${review.comment?.substring(0, 200)}...`}
       </p>
 
       {isLongComment && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="mt-2 text-xs font-bold text-orange-600 uppercase tracking-widest hover:opacity-70 transition-opacity flex items-center gap-1"
+          className={`mt-2 flex min-h-[44px] items-center gap-1 ${MICRO} text-accent transition-colors duration-snap ease-snap hover:text-accent-hover`}
         >
           {expanded ? (
             <>
-              Show Less <ChevronUp className="w-3 h-3" />
+              Show Less <ChevronUp className="h-3 w-3" aria-hidden="true" />
             </>
           ) : (
             <>
-              Read More <ChevronDown className="w-3 h-3" />
+              Read More <ChevronDown className="h-3 w-3" aria-hidden="true" />
             </>
           )}
         </button>
       )}
 
-      <p className="mt-4 text-xs text-gray-400">
+      <p className={`mt-4 tabular-nums ${MICRO} text-tertiary`}>
         {new Date(review.createdAt).toLocaleDateString("en-US", {
           year: "numeric",
           month: "long",
@@ -83,14 +97,16 @@ const RatingBar = ({ rating, count, total }: { rating: number; count: number; to
 
   return (
     <div className="flex items-center gap-3">
-      <span className="text-xs font-black text-stone-950 w-8">{rating} ★</span>
-      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+      <span className="w-10 font-display text-lg font-semibold leading-none tabular-nums text-primary">
+        {rating} ★
+      </span>
+      <div className="h-2 flex-1 overflow-hidden rounded-tag border border-border-primary bg-card">
         <div
-          className="h-full bg-orange-500 rounded-full transition-all duration-500"
+          className="h-full bg-marigold-bright transition-all duration-snap ease-snap"
           style={{ width: `${percentage}%` }}
         />
       </div>
-      <span className="text-xs text-gray-500 w-8">{count}</span>
+      <span className="w-8 text-right text-sm tabular-nums text-tertiary">{count}</span>
     </div>
   );
 };
@@ -102,11 +118,7 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  useEffect(() => {
-    fetchReviews();
-  }, [productId]);
-
-  const fetchReviews = async (pageNum = 1) => {
+  const fetchReviews = useCallback(async (pageNum = 1) => {
     setLoading(true);
     try {
       const response = await reviewService.getProductReviews(productId, pageNum);
@@ -123,7 +135,11 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [productId]);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
 
   const loadMore = () => {
     if (hasMore && !loading) {
@@ -133,8 +149,8 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
 
   if (loading && page === 1) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-600" />
+      <div className="flex items-center justify-center py-20" aria-busy="true">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-border-primary border-t-accent" />
       </div>
     );
   }
@@ -143,20 +159,32 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
     <div className="space-y-10">
       {/* Rating Summary */}
       {stats && (
-        <div className="bg-gray-50 rounded-[2rem] p-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="rounded-card border-2 border-inverse bg-card p-8">
+          <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
             {/* Overall Rating */}
             <div className="flex flex-col items-center justify-center text-center">
-              <span className="text-6xl font-black text-stone-950 italic">
+              <span className="font-display text-[56px] font-semibold leading-none tabular-nums text-primary">
                 {stats.averageRating.toFixed(1)}
               </span>
-              <div className="flex text-orange-500 my-3">
+              <div
+                className="my-3 flex"
+                aria-label={`Average rating ${stats.averageRating.toFixed(1)} out of 5`}
+              >
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} className={cn("w-5 h-5", i <= Math.round(stats.averageRating) ? "fill-current" : "text-gray-300")} />
+                  <Star
+                    key={i}
+                    aria-hidden="true"
+                    className={cn(
+                      "h-5 w-5",
+                      i <= Math.round(stats.averageRating)
+                        ? "fill-marigold text-marigold"
+                        : "text-border-primary"
+                    )}
+                  />
                 ))}
               </div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                {stats.totalReviews} Elite Reviews
+              <p className={`tabular-nums ${MICRO} text-tertiary`}>
+                {stats.totalReviews} {stats.totalReviews === 1 ? "Review" : "Reviews"}
               </p>
             </div>
 
@@ -178,9 +206,9 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
       {/* Reviews List */}
       <div className="space-y-4">
         {reviews.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">
-              No reviews yet. Be the first to review this product!
+          <div className="rounded-card border-2 border-border-primary bg-card py-12 text-center">
+            <p className={`${MICRO} text-tertiary`}>
+              No reviews yet. Be the first to review this product.
             </p>
           </div>
         ) : (
@@ -194,7 +222,7 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
           <button
             onClick={loadMore}
             disabled={loading}
-            className="px-8 py-3 bg-stone-950 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-orange-600 transition-colors disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-tag border-2 border-inverse bg-transparent px-8 font-display text-lg uppercase leading-none tracking-[0.04em] text-primary transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none disabled:translate-x-0 disabled:translate-y-0 disabled:border-border-primary disabled:bg-secondary disabled:text-muted disabled:shadow-none"
           >
             {loading ? "Loading..." : "Load More Reviews"}
           </button>

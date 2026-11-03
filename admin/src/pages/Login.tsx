@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Dumbbell, Loader, Eye, EyeOff, Lock } from 'lucide-react';
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError';
 
 interface LoginError {
   kind: 'rejected' | 'locked';
@@ -33,10 +34,10 @@ export default function Login() {
     try {
       await login(email, password);
       navigate(redirectTo, { replace: true });
-    } catch (err: any) {
+    } catch (err) {
       // 423 is the backend's lockout after 5 failed attempts — a different
       // problem from a wrong password, and retrying will not help.
-      if (err.response?.status === 423) {
+      if (getApiErrorStatus(err) === 423) {
         setError({
           kind: 'locked',
           message:
@@ -45,7 +46,7 @@ export default function Login() {
       } else {
         setError({
           kind: 'rejected',
-          message: err.response?.data?.message || 'Login failed. Check your credentials.',
+          message: getApiErrorMessage(err, 'Login failed. Check your credentials.'),
         });
       }
     } finally {

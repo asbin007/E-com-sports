@@ -2,64 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== BROTHERS SPORTS HOUSE — THEME SYSTEM ===== */
+/* ===== KIT ROOM — BROTHERS SPORTS HOUSE =====
+   Design system source of truth: frontend/MASTER.md
+   Token names are unchanged from the previous theme so every component keeps
+   working; only the values moved. Neutrals are biased green toward a pitch and
+   the accent is the flag crimson, not a stock orange. */
 @layer base {
   :root {
-    /* Light — Clean white with warm undertones */
-    --color-bg-primary: 255 255 255;
-    --color-bg-secondary: 247 247 248;
-    --color-bg-tertiary: 240 240 242;
+    /* Light — green-biased paper */
+    --color-bg-primary: 238 239 234;
+    --color-bg-secondary: 228 230 223;
+    --color-bg-tertiary: 218 221 211;
     --color-bg-card: 255 255 255;
     --color-bg-elevated: 255 255 255;
-    --color-bg-inverse: 17 17 17;
+    --color-bg-inverse: 22 24 15;
 
-    --color-text-primary: 17 17 17;
-    --color-text-secondary: 64 64 64;
-    --color-text-tertiary: 115 115 115;
-    --color-text-muted: 163 163 163;
-    --color-text-inverse: 255 255 255;
+    --color-text-primary: 22 24 15;
+    --color-text-secondary: 65 70 58;
+    /* Both clear WCAG AA (4.5:1) on paper, card and the secondary band. */
+    --color-text-tertiary: 79 85 72;
+    --color-text-muted: 100 104 92;
+    --color-text-inverse: 238 239 234;
 
-    --color-border-primary: 235 235 235;
-    --color-border-secondary: 245 245 245;
+    --color-border-primary: 207 211 198;
+    --color-border-secondary: 222 225 215;
 
-    --color-accent: 234 88 12;
-    --color-accent-hover: 249 115 22;
-    --color-accent-light: 255 237 213;
+    --color-accent: 200 16 46;
+    --color-accent-hover: 168 10 36;
+    --color-accent-light: 250 226 230;
 
-    --color-surface-hover: 247 247 248;
-    --color-overlay: 0 0 0;
+    /* Semantic — kept separate from the accent on purpose.
+       `marigold` is the text-safe value (4.5:1 on paper, card and the soft
+       ground); `marigold-bright` is decorative fill only and always carries
+       ink text on top. */
+    --color-marigold: 137 84 4;
+    --color-marigold-bright: 232 163 23;
+    --color-marigold-bg: 246 217 155;
+    --color-pitch: 31 61 43;
+
+    /* Ink that does NOT flip with the theme. The only safe text colour on a
+       bright fill (marigold flags, sale banners), which stays bright in both
+       themes while every other text token inverts. */
+    --color-ink-fixed: 22 24 15;
+
+    --color-surface-hover: 228 230 223;
+    --color-overlay: 22 24 15;
   }
 
   .dark {
-    /* Dark — Deep charcoal with electric orange accents */
-    --color-bg-primary: 13 13 13;
-    --color-bg-secondary: 23 23 23;
-    --color-bg-tertiary: 38 38 38;
-    --color-bg-card: 23 23 23;
-    --color-bg-elevated: 30 30 30;
-    --color-bg-inverse: 255 255 255;
+    /* Dark — floodlit pitch at night */
+    --color-bg-primary: 17 19 14;
+    --color-bg-secondary: 26 29 22;
+    --color-bg-tertiary: 35 39 29;
+    --color-bg-card: 26 29 22;
+    --color-bg-elevated: 35 39 29;
+    --color-bg-inverse: 237 239 230;
 
-    --color-text-primary: 245 245 245;
-    --color-text-secondary: 200 200 200;
-    --color-text-tertiary: 150 150 150;
-    --color-text-muted: 100 100 100;
-    --color-text-inverse: 13 13 13;
+    --color-text-primary: 237 239 230;
+    --color-text-secondary: 195 200 184;
+    --color-text-tertiary: 142 148 130;
+    --color-text-muted: 129 134 120;
+    --color-text-inverse: 17 19 14;
 
-    --color-border-primary: 38 38 38;
-    --color-border-secondary: 30 30 30;
+    --color-border-primary: 46 51 39;
+    --color-border-secondary: 35 39 29;
 
-    --color-accent: 249 115 22;
-    --color-accent-hover: 251 146 60;
-    --color-accent-light: 67 20 7;
+    --color-accent: 255 83 102;
+    --color-accent-hover: 255 120 134;
+    --color-accent-light: 74 18 26;
 
-    --color-surface-hover: 30 30 30;
+    --color-marigold: 255 194 71;
+    --color-marigold-bright: 255 194 71;
+    --color-marigold-bg: 74 55 8;
+    --color-pitch: 143 208 166;
+
+    /* Deliberately NOT inverted — see the light-theme note. */
+    --color-ink-fixed: 22 24 15;
+
+    --color-surface-hover: 35 39 29;
     --color-overlay: 0 0 0;
   }
 }
 
 @layer base {
   body {
-    @apply bg-primary text-primary transition-colors duration-300;
+    @apply bg-primary text-primary;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -67,25 +94,51 @@
   * {
     @apply border-border-primary;
   }
-  
-  /* Better focus styles */
+
+  /* Marigold focus ring, so it never disappears against a crimson control */
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-accent;
+    outline: 3px solid rgb(var(--color-marigold));
+    outline-offset: 2px;
+  }
+
+  /* Display type is condensed and athletic; it never leans and never fakes a
+     weight Teko does not have. */
+  .font-display {
+    font-synthesis-weight: none;
+    font-style: normal;
   }
 }
 
-/* ===== ANIMATIONS ===== */
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(16px); }
+@layer components {
+  /* Eyebrow: a micro-label trailed by a hairline that fills the row, the way a
+     team sheet rules off a section. */
+  .eyebrow {
+    @apply flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-tertiary;
+  }
+  .eyebrow::after {
+    content: "";
+    @apply h-px flex-1;
+    /* `border-primary` is mapped under borderColor only, so there is no
+       `bg-border-primary` utility to @apply — read the token directly. */
+    background-color: rgb(var(--color-border-primary));
+  }
+
+  /* 3px ink rule between page sections. */
+  .rule-section {
+    @apply h-[3px] w-full bg-inverse;
+  }
+}
+
+/* ===== ANIMATIONS =====
+   Short, flat, finite. Nothing loops forever, nothing travels more than 12px,
+   nothing runs longer than 300ms. */
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 @keyframes marquee {
   0% { transform: translateX(0); }
@@ -95,24 +148,32 @@
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
-.animate-fade-in { animation: fade-in 0.6s ease-out; }
-.animate-scale-in { animation: scale-in 0.5s ease-out; }
-.animate-float { animation: float 3s ease-in-out infinite; }
-.animate-marquee { animation: marquee 30s linear infinite; }
+.animate-reveal { animation: reveal 160ms cubic-bezier(.2, .7, .3, 1) both; }
+.animate-fade-in { animation: reveal 160ms cubic-bezier(.2, .7, .3, 1) both; }
+.animate-slide-up { animation: slide-up 120ms cubic-bezier(.2, .7, .3, 1) both; }
+.animate-scale-in { animation: reveal 160ms cubic-bezier(.2, .7, .3, 1) both; }
+.animate-marquee { animation: marquee 45s linear infinite; }
 .animate-shimmer { animation: shimmer 1.5s ease-in-out infinite; }
-.animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
-.animate-slide-up { animation: slide-up 0.4s ease-out; }
 
-/* ===== SCROLLBAR STYLES ===== */
+/* Retired: float and pulse-glow. Infinite ambient motion is on the banned list
+   in MASTER.md. These no-op aliases keep any stale usage from breaking layout. */
+.animate-float,
+.animate-pulse-soft,
+.animate-pulse-glow { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===== SCROLLBAR ===== */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -122,33 +183,20 @@
 .scrollbar-thin { scrollbar-width: thin; }
 .scrollbar-thin::-webkit-scrollbar { width: 4px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgb(var(--color-accent) / 0.2);
-  border-radius: 20px;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--color-accent) / 0.4);
-}
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgb(var(--color-border-primary)); }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgb(var(--color-text-muted)); }
 
-/* ===== GLASS EFFECT ===== */
-.glass {
-  background: rgb(var(--color-bg-card) / 0.8);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-}
-
-/* ===== SELECTION COLOR ===== */
+/* ===== SELECTION ===== */
 ::selection {
-  background-color: rgb(var(--color-accent) / 0.15);
-  color: rgb(var(--color-text-primary));
+  background-color: rgb(var(--color-accent));
+  color: rgb(var(--color-bg-primary));
 }
 
-/* ===== SMOOTH SCROLLING ===== */
 html {
   scroll-behavior: smooth;
 }
 
-/* ===== LINE CLAMP UTILITIES ===== */
+/* ===== LINE CLAMP ===== */
 .line-clamp-1 {
   display: -webkit-box;
   -webkit-line-clamp: 1;

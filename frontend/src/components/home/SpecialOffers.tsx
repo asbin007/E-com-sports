@@ -6,14 +6,19 @@ import {
   ChevronRight,
   RefreshCw,
   ShoppingBag,
-  Star,
-  Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { recommendationService } from "../../services/recommendationService";
 import type { Product } from "../../services/productService";
 import { NO_IMAGE_PLACEHOLDER, pickProductImageUrl } from "../../utils/placeholder";
 import { SpecialOffersSkeleton } from "../ui/Skeleton";
+
+/** cubic-bezier(.2,.7,.3,1) — the one easing in the system. */
+const EASE_SNAP: [number, number, number, number] = [0.2, 0.7, 0.3, 1];
+
+/** 48px square, so it clears the 44px hit-area floor. */
+const CAROUSEL_BUTTON =
+  "inline-flex h-12 w-12 items-center justify-center rounded-tag border-2 border-primary/30 text-inverse transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:border-accent hover:bg-accent hover:text-white active:translate-x-0 active:translate-y-0";
 
 interface SpecialOffersProps {
   title?: string;
@@ -79,11 +84,23 @@ const SpecialOffers = ({
     setCurrentIdx((prev) => (prev - 1 + products.length) % products.length);
   };
 
-  const heading = title.split(" ").map((word, i, arr) => (
-    <span key={i} className={i === arr.length - 1 ? "text-accent italic" : ""}>
-      {word}{" "}
-    </span>
-  ));
+  /* The eyebrow is hand-rolled rather than `.eyebrow` because this band sits on
+     ink, where the shared tertiary colour would drop below 4.5:1. */
+  const eyebrow = (label: string) => (
+    <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-inverse/70">
+      {label}
+      <span aria-hidden="true" className="h-px w-12 bg-primary/30" />
+    </p>
+  );
+
+  const heading = (
+    <h2
+      className="mt-3 font-display font-semibold uppercase leading-none text-inverse"
+      style={{ fontSize: "clamp(34px,6vw,56px)" }}
+    >
+      {title}
+    </h2>
+  );
 
   if (loading) {
     return <SpecialOffersSkeleton />;
@@ -93,29 +110,28 @@ const SpecialOffers = ({
   // instead of quietly dropping a whole band out of the homepage.
   if (failed) {
     return (
-      <section className="py-20 bg-inverse text-inverse">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl md:text-5xl font-black text-inverse uppercase tracking-tight mb-8">
-            {heading}
-          </h2>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-border-primary/20 bg-primary/5 px-6 py-6">
+      <section className="bg-inverse py-16 text-inverse">
+        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+          {eyebrow("Most ordered, last 30 days")}
+          {heading}
+          <div className="mt-10 flex flex-col justify-between gap-4 rounded-card border-2 border-primary/30 px-6 py-6 sm:flex-row sm:items-center">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-accent" aria-hidden="true" />
               <div>
-                <p className="text-sm font-bold text-inverse">
-                  We couldn't load this section
+                <p className="font-display text-xl font-semibold uppercase leading-none text-inverse">
+                  We couldn&apos;t load this section
                 </p>
-                <p className="text-xs text-inverse/50 mt-1">
-                  The store didn't respond. Everything else on this page still works.
+                <p className="mt-2 max-w-[62ch] text-sm text-inverse/70">
+                  The store didn&apos;t respond. Everything else on this page still works.
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setAttempt((n) => n + 1)}
-              className="self-start sm:self-auto flex-shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors active:scale-95"
+              className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-2 self-start rounded-tag border-2 border-primary/30 bg-accent px-5 font-display text-base font-semibold uppercase leading-none text-white transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover active:translate-x-0 active:translate-y-0 sm:self-auto"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
               Try again
             </button>
           </div>
@@ -126,37 +142,34 @@ const SpecialOffers = ({
 
   if (products.length === 0) return null;
 
-  return (
-    <section className="py-20 bg-inverse text-inverse overflow-hidden relative">
-      {/* Background */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 blur-[120px] rounded-full pointer-events-none"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/5 blur-[120px] rounded-full pointer-events-none"></div>
+  const current = products[currentIdx];
+  const currentPrice = current.price || current.variants?.[0]?.price || 0;
 
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+  return (
+    <section className="overflow-hidden bg-inverse py-16 text-inverse">
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-12 gap-6">
+        <div className="mb-10 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
           <div>
-            <h2 className="text-3xl md:text-5xl font-black text-inverse uppercase tracking-tight">
-              {heading}
-            </h2>
-            <p className="text-inverse/50 mt-2">
-              Most wanted gear and high-performance drops of the season.
-            </p>
+            {eyebrow("Most ordered, last 30 days")}
+            {heading}
           </div>
           <div className="flex gap-3">
             <button
+              type="button"
               onClick={handlePrev}
-              className="w-12 h-12 bg-primary/5 border border-border-primary/20 rounded-xl flex items-center justify-center text-inverse hover:bg-accent hover:border-accent hover:text-white transition-all active:scale-95"
-              aria-label="Previous"
+              className={CAROUSEL_BUTTON}
+              aria-label="Previous product"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
             </button>
             <button
+              type="button"
               onClick={handleNext}
-              className="w-12 h-12 bg-primary/5 border border-border-primary/20 rounded-xl flex items-center justify-center text-inverse hover:bg-accent hover:border-accent hover:text-white transition-all active:scale-95"
-              aria-label="Next"
+              className={CAROUSEL_BUTTON}
+              aria-label="Next product"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -166,83 +179,63 @@ const SpecialOffers = ({
           <AnimatePresence mode="wait">
             <motion.div
               key={currentIdx}
-              initial={{ opacity: 0, x: 80 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -80 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="relative min-h-[550px] md:min-h-0 md:absolute md:inset-0 bg-primary/5 backdrop-blur-sm rounded-3xl border border-border-primary/20 overflow-hidden"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16, ease: EASE_SNAP }}
+              className="relative min-h-[550px] overflow-hidden rounded-card border-2 border-primary/30 md:absolute md:inset-0 md:min-h-0"
             >
-              <div className="flex flex-col md:flex-row h-auto md:h-full">
+              <div className="flex h-auto flex-col md:h-full md:flex-row">
                 {/* Content */}
-                <div className="w-full md:w-1/2 p-6 sm:p-8 md:p-12 lg:p-16 flex flex-col justify-center">
-                  <div className="flex items-center gap-2 mb-6 text-accent font-bold text-xs uppercase tracking-wider">
-                    <Zap className="w-4 h-4 fill-current" />
-                    Featured Drop
-                  </div>
-
-                  <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-inverse leading-tight uppercase tracking-tight">
-                    {products[currentIdx].name}
-                  </h3>
-
-                  <p className="text-inverse/50 mt-4 line-clamp-2 leading-relaxed">
-                    {products[currentIdx].description ||
-                      "Premium quality sports gear engineered for peak performance."}
+                <div className="flex w-full flex-col justify-center p-6 sm:p-8 md:w-1/2 md:p-12 lg:p-16">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
+                    Featured drop
                   </p>
 
-                  <div className="flex flex-wrap items-center gap-4 sm:gap-6 mt-6 sm:mt-8">
-                    <div className="bg-accent text-white px-6 py-3 rounded-xl font-black text-xl">
-                      Rs.{" "}
-                      {(
-                        products[currentIdx].price ||
-                        products[currentIdx].variants?.[0]?.price ||
-                        0
-                      ).toLocaleString()}
-                    </div>
-                    <div className="flex items-center gap-1 text-accent">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 fill-current" />
-                      ))}
-                    </div>
-                  </div>
+                  <h3 className="mt-4 font-display font-semibold uppercase leading-none text-inverse"
+                    style={{ fontSize: "clamp(29px,5vw,48px)" }}
+                  >
+                    {current.name}
+                  </h3>
 
-                  <div className="flex gap-3 mt-6 sm:mt-8">
+                  <p className="mt-4 line-clamp-2 max-w-[62ch] text-sm leading-relaxed text-inverse/70">
+                    {current.description ||
+                      "Match kit from the shelf in Chaudhary Market, Bardibas."}
+                  </p>
+
+                  <p className="mt-6">
+                    <span className="inline-block rounded-tag border-2 border-primary/30 bg-accent px-5 py-2 font-display text-3xl font-bold leading-none tabular-nums text-white">
+                      Rs {currentPrice.toLocaleString()}
+                    </span>
+                  </p>
+
+                  <div className="mt-8 flex gap-3">
                     <button
-                      onClick={() =>
-                        navigate(`/product/${products[currentIdx].id}`)
-                      }
-                      className="bg-primary text-primary px-8 py-3.5 rounded-xl font-bold text-sm uppercase tracking-wider hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center gap-2"
+                      type="button"
+                      onClick={() => navigate(`/product/${current.id}`)}
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-primary/30 bg-primary px-6 font-display text-lg font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-white active:translate-x-0 active:translate-y-0"
                     >
-                      <ShoppingBag className="w-4 h-4" />
-                      View Product
+                      <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+                      View product
                     </button>
                   </div>
                 </div>
 
                 {/* Image */}
-                <div className="w-full md:w-1/2 relative bg-primary/5 flex items-center justify-center p-8 overflow-hidden aspect-[4/3] sm:aspect-[16/9] md:aspect-auto md:h-full">
-                  <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-transparent"></div>
-
-                  <motion.img
-                    initial={{ scale: 0.9, rotate: 5 }}
-                    animate={{ scale: 1.05, rotate: 0 }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
+                <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden border-t-2 border-primary/30 p-8 sm:aspect-[16/9] md:aspect-auto md:h-full md:w-1/2 md:border-l-2 md:border-t-0">
+                  <img
                     src={
-                      products[currentIdx]?.images &&
-                      products[currentIdx].images.length > 0
-                        ? pickProductImageUrl(products[currentIdx].images)
+                      current.images && current.images.length > 0
+                        ? pickProductImageUrl(current.images)
                         : NO_IMAGE_PLACEHOLDER
                     }
-                    alt={products[currentIdx].name}
-                    className="w-full h-full object-contain relative z-10 drop-shadow-2xl"
+                    alt={current.name}
+                    className="relative z-10 h-full w-full object-contain"
                   />
 
-                  <div className="absolute top-6 right-6 z-20">
-                    <span className="bg-inverse/50 backdrop-blur-md px-4 py-2 rounded-full border border-border-primary/20 font-bold text-xs text-inverse uppercase tracking-wider">
-                      {products[currentIdx].ProductType?.name ||
-                        products[currentIdx].Category?.name ||
-                        "Sport"}
-                    </span>
-                  </div>
+                  <span className="absolute right-6 top-6 z-20 rounded-tag border-[1.5px] border-primary/30 bg-inverse px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-inverse">
+                    {current.ProductType?.name || current.Category?.name || "Kit"}
+                  </span>
                 </div>
               </div>
             </motion.div>
@@ -250,20 +243,19 @@ const SpecialOffers = ({
         </div>
 
         {/* Dots */}
-        <div className="flex justify-center mt-4">
+        <div className="mt-4 flex justify-center">
           {products.map((_, idx) => (
             <button
               key={idx}
+              type="button"
               onClick={() => setCurrentIdx(idx)}
-              className="group min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center"
               aria-label={`Go to slide ${idx + 1}`}
               aria-current={idx === currentIdx}
             >
               <span
-                className={`block h-2 transition-all duration-300 rounded-full ${
-                  idx === currentIdx
-                    ? "w-8 bg-accent"
-                    : "w-2 bg-primary/20 group-hover:bg-primary/40"
+                className={`block h-2 rounded-tag transition duration-snap ease-snap ${
+                  idx === currentIdx ? "w-8 bg-accent" : "w-2 bg-primary/30"
                 }`}
               />
             </button>

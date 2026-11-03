@@ -52,7 +52,7 @@ class RecommendationController {
           { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
           { model: Category, attributes: ["id", "name"] },
-          { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color"], limit: 1 },
+          { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color", "stock", "isActive"] },
         ],
       });
 
@@ -76,20 +76,34 @@ class RecommendationController {
       const daysAgo = new Date();
       daysAgo.setDate(daysAgo.getDate() - Number(days));
 
-      const products = await Product.findAll({
+      const include = [
+        { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
+        { model: Brand, attributes: ["id", "name"] },
+        { model: Category, attributes: ["id", "name"] },
+        { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color", "stock", "isActive"] },
+      ];
+
+      let products = await Product.findAll({
         where: {
           isActive: true,
           createdAt: { [Op.gte]: daysAgo },
         },
-        include: [
-          { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
-          { model: Brand, attributes: ["id", "name"] },
-          { model: Category, attributes: ["id", "name"] },
-          { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color"], limit: 1 },
-        ],
+        include,
         order: [["createdAt", "DESC"]],
         limit: Number(limit),
       });
+
+      // A shop that has not added stock this month still has newest items, and
+      // an empty "New arrivals" shelf reads as a broken page rather than an
+      // honest one. Fall back to the most recently added products.
+      if (products.length === 0) {
+        products = await Product.findAll({
+          where: { isActive: true },
+          include,
+          order: [["createdAt", "DESC"]],
+          limit: Number(limit),
+        });
+      }
 
       res.status(200).json({
         message: "New arrivals fetched successfully",
@@ -129,7 +143,7 @@ class RecommendationController {
           { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
           { model: Category, attributes: ["id", "name"] },
-          { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color"], limit: 1 },
+          { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color", "stock", "isActive"] },
         ],
       });
 
@@ -209,7 +223,7 @@ class RecommendationController {
         include: [
           { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
-          { model: Variant, attributes: ["id", "price", "originalPrice"], limit: 1 },
+          { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color", "stock", "isActive"] },
         ],
         order: [["createdAt", "DESC"]],
         limit: limitNum,
@@ -233,7 +247,7 @@ class RecommendationController {
         include: [
           { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
-          { model: Variant, where: { originalPrice: { [Op.ne]: null } }, attributes: ["id", "price", "originalPrice"], limit: 1 },
+          { model: Variant, where: { originalPrice: { [Op.ne]: null } }, attributes: ["id", "price", "originalPrice", "size", "color", "stock", "isActive"] },
         ],
         limit: limitNum,
       });
@@ -244,7 +258,7 @@ class RecommendationController {
         include: [
           { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
           { model: Brand, attributes: ["id", "name"] },
-          { model: Variant, attributes: ["id", "price", "originalPrice"], limit: 1 },
+          { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color", "stock", "isActive"] },
         ],
         order: Sequelize.literal("RANDOM()"),
         limit: limitNum,
@@ -320,7 +334,7 @@ class RecommendationController {
               { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
               { model: Brand, attributes: ["id", "name"] },
               { model: Category, attributes: ["id", "name"] },
-              { model: Variant, attributes: ["id", "price", "originalPrice"], limit: 1 },
+              { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color", "stock", "isActive"] },
             ],
             order: Sequelize.literal("RANDOM()"),
             limit: Number(limit),
@@ -336,7 +350,7 @@ class RecommendationController {
             { model: ProductImage, attributes: ["id", "url", "isThumbnail"], limit: 1 },
             { model: Brand, attributes: ["id", "name"] },
             { model: Category, attributes: ["id", "name"] },
-            { model: Variant, attributes: ["id", "price", "originalPrice"], limit: 1 },
+            { model: Variant, attributes: ["id", "price", "originalPrice", "size", "color", "stock", "isActive"] },
           ],
           order: Sequelize.literal("RANDOM()"),
           limit: Number(limit),

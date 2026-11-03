@@ -2,7 +2,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
 import { useCart, type CartItem } from "../../context/CartContext";
 import { useNavigate } from "react-router-dom";
+import { cn } from "../../utils/cn";
 import { pickProductImageUrl } from "../../utils/placeholder";
+
+/** Icon-only controls hold the 44px floor (WCAG 2.5.5). */
+const ICON_BUTTON =
+  "flex min-h-[44px] min-w-[44px] items-center justify-center rounded-tag border-2 transition duration-snap ease-snap";
 
 /**
  * Stock available for what is actually in the cart. Returns null when the item
@@ -37,13 +42,14 @@ const CartDrawer = () => {
     <AnimatePresence>
       {isCartOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — a plain ink scrim, no blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
             onClick={() => setIsCartOpen(false)}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 z-[100] bg-inverse/60"
           />
 
           {/* Drawer */}
@@ -51,49 +57,50 @@ const CartDrawer = () => {
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-primary z-[110] flex flex-col shadow-2xl border-l border-border-primary"
+            transition={{ duration: 0.12, ease: [0.2, 0.7, 0.3, 1] }}
+            className="fixed bottom-0 right-0 top-0 z-[110] flex w-full flex-col border-l-2 border-inverse bg-primary sm:w-[420px]"
           >
             {/* Header */}
-            <div className="p-5 border-b border-border-primary flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-accent/10 rounded-xl flex items-center justify-center">
-                  <ShoppingBag className="w-5 h-5 text-accent" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-primary">Your Cart</h2>
-                  <p className="text-xs text-muted">{cart.length} item{cart.length !== 1 ? "s" : ""}</p>
-                </div>
+            <div className="flex items-center justify-between gap-3 border-b-[3px] border-inverse p-4">
+              <div className="min-w-0">
+                <p className="eyebrow">Your cart</p>
+                <h2 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+                  <span className="tabular-nums">{cart.length}</span> item
+                  {cart.length !== 1 ? "s" : ""}
+                </h2>
               </div>
               <button
+                type="button"
                 onClick={() => setIsCartOpen(false)}
-                className="p-2 hover:bg-surface-hover rounded-xl transition-colors text-secondary"
+                aria-label="Close cart"
+                className={cn(ICON_BUTTON, "border-inverse bg-card text-primary")}
               >
-                <X className="w-5 h-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
+            <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto p-4">
               {cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center space-y-4 py-12">
-                  <div className="w-16 h-16 bg-secondary rounded-2xl flex items-center justify-center">
-                    <ShoppingBag className="w-8 h-8 text-muted" />
-                  </div>
+                <div className="flex h-full flex-col items-center justify-center gap-4 py-12 text-center">
+                  <ShoppingBag aria-hidden="true" className="h-10 w-10 text-tertiary" />
                   <div>
-                    <h3 className="text-base font-bold text-primary">Cart is empty</h3>
-                    <p className="text-sm text-tertiary mt-1">
-                      Add some products to get started
+                    <h3 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+                      Cart is empty
+                    </h3>
+                    <p className="mt-1 text-sm text-tertiary">
+                      Jerseys, boots, balls and bats are a tap away.
                     </p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => {
                       setIsCartOpen(false);
                       navigate("/shop");
                     }}
-                    className="px-6 py-2.5 bg-accent text-white rounded-xl font-bold text-sm hover:bg-accent-hover transition-all active:scale-95"
+                    className="min-h-[44px] rounded-tag border-2 border-inverse bg-accent px-6 font-display text-[19px] font-semibold uppercase leading-none text-inverse transition duration-snap ease-snap hover:bg-accent-hover"
                   >
-                    Browse Products
+                    Browse the shop
                   </button>
                 </div>
               ) : (
@@ -105,69 +112,80 @@ const CartDrawer = () => {
                   <motion.div
                     key={item.variantId || item.id}
                     layout
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-secondary rounded-xl p-3 border border-border-primary flex gap-3 group"
+                    transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
+                    className="flex gap-3 rounded-card border-2 border-inverse bg-card p-2"
                   >
                     {/* Image */}
-                    <div className="w-18 h-20 bg-tertiary rounded-lg overflow-hidden shrink-0">
+                    <div className="h-20 w-16 shrink-0 overflow-hidden rounded-tag border-2 border-border-primary bg-secondary">
                       {item.images && item.images.length > 0 ? (
                         <img
                           src={pickProductImageUrl(item.images)}
                           alt={item.name}
-                          className="w-full h-full object-cover"
+                          className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted">
-                          <ShoppingBag className="w-5 h-5" />
+                        <div className="flex h-full w-full items-center justify-center text-tertiary">
+                          <ShoppingBag aria-hidden="true" className="h-5 w-5" />
                         </div>
                       )}
                     </div>
 
                     {/* Details */}
-                    <div className="flex-1 flex flex-col justify-between min-w-0">
-                      <div className="flex justify-between items-start gap-2">
+                    <div className="flex min-w-0 flex-1 flex-col justify-between">
+                      <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <h4 className="font-semibold text-sm text-primary truncate">
+                          <h4 className="truncate font-display text-[23px] font-semibold uppercase leading-none text-primary">
                             {item.name}
                           </h4>
-                          <div className="flex gap-2 mt-0.5">
+                          <div className="mt-1 flex flex-wrap gap-1.5">
                             {item.selectedSize && (
-                              <span className="text-[10px] font-medium text-tertiary">
-                                Size: {item.selectedSize}
+                              <span className="inline-flex items-center rounded-tag border-[1.5px] border-border-primary px-1.5 py-0.5 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-tertiary">
+                                Size{" "}
+                                <span className="ml-1 tabular-nums">
+                                  {item.selectedSize}
+                                </span>
                               </span>
                             )}
                             {item.selectedColor && (
-                              <span className="text-[10px] font-medium text-tertiary">
-                                Color: {item.selectedColor}
+                              <span className="inline-flex items-center rounded-tag border-[1.5px] border-border-primary px-1.5 py-0.5 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-tertiary">
+                                {item.selectedColor}
                               </span>
                             )}
                           </div>
                         </div>
                         <button
+                          type="button"
                           onClick={() => removeFromCart(item.id, item.variantId)}
-                          className="p-1.5 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all flex-shrink-0"
+                          aria-label={`Remove ${item.name} from cart`}
+                          className={cn(
+                            ICON_BUTTON,
+                            "shrink-0 border-border-primary text-tertiary hover:border-accent hover:text-accent"
+                          )}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
 
-                      <div className="flex justify-between items-center mt-2">
-                        <div className="flex items-center gap-2 bg-primary rounded-lg p-0.5 border border-border-primary">
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center rounded-tag border-2 border-inverse">
                           <button
+                            type="button"
                             onClick={() =>
                               updateQuantity(item.id, item.variantId, item.quantity - 1)
                             }
                             aria-label={`Decrease quantity of ${item.name}`}
-                            className="w-6 h-6 flex items-center justify-center rounded-md text-secondary hover:bg-surface-hover transition-colors"
+                            className="flex min-h-[44px] min-w-[44px] items-center justify-center text-primary transition duration-snap ease-snap"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Minus className="h-3.5 w-3.5" />
                           </button>
-                          <span className="text-xs font-bold text-primary w-4 text-center">
+                          <span className="w-7 text-center font-display text-[19px] font-semibold leading-none tabular-nums text-primary">
                             {item.quantity}
                           </span>
                           {/* Clamped to stock — see Cart.tsx. */}
                           <button
+                            type="button"
                             onClick={() =>
                               updateQuantity(
                                 item.id,
@@ -179,21 +197,23 @@ const CartDrawer = () => {
                             }
                             disabled={atStockCap}
                             aria-label={`Increase quantity of ${item.name}`}
-                            className="w-6 h-6 flex items-center justify-center rounded-md text-secondary hover:bg-surface-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="flex min-h-[44px] min-w-[44px] items-center justify-center text-primary transition duration-snap ease-snap disabled:text-muted"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <p className="font-bold text-sm text-primary">
-                          Rs {((item.variantPrice || item.price || 0) * item.quantity).toLocaleString()}
+                        <p className="font-display text-[23px] font-semibold leading-none tabular-nums text-primary">
+                          Rs{" "}
+                          {((item.variantPrice || item.price || 0) * item.quantity).toLocaleString()}
                         </p>
                       </div>
 
                       {availableStock !== null && (atStockCap || availableStock <= 5) && (
                         <p
-                          className={`text-[10px] mt-1 font-medium ${
-                            atStockCap ? "text-amber-600" : "text-muted"
-                          }`}
+                          className={cn(
+                            "mt-1 text-[11px] font-bold uppercase tracking-[0.12em]",
+                            atStockCap ? "text-marigold" : "text-tertiary"
+                          )}
                         >
                           {availableStock === 0
                             ? "Out of stock"
@@ -211,32 +231,38 @@ const CartDrawer = () => {
 
             {/* Footer */}
             {cart.length > 0 && (
-              <div className="p-5 border-t border-border-primary space-y-4">
-                <div className="flex justify-between items-center">
-                  <p className="text-sm text-secondary font-medium">Subtotal</p>
-                  <p className="text-xl font-black text-primary">
+              <div className="space-y-3 border-t-[3px] border-inverse p-4">
+                <div className="flex items-baseline justify-between">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-tertiary">
+                    Subtotal
+                  </p>
+                  <p className="font-display text-[29px] font-semibold leading-none tabular-nums text-primary">
                     Rs {cartTotal.toLocaleString()}
                   </p>
                 </div>
-                <p className="text-xs text-muted">Shipping calculated at checkout</p>
-                <div className="flex gap-3">
+                <p className="text-sm text-tertiary">
+                  Shipping calculated at checkout. COD available all over Nepal.
+                </p>
+                <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => {
                       setIsCartOpen(false);
                       navigate("/cart");
                     }}
-                    className="flex-1 py-3 bg-secondary border border-border-primary text-primary rounded-xl font-semibold text-sm hover:bg-surface-hover transition-all active:scale-95"
+                    className="min-h-[48px] flex-1 rounded-tag border-2 border-inverse bg-card font-display text-[19px] font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
                   >
-                    View Cart
+                    View cart
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       setIsCartOpen(false);
                       navigate("/checkout");
                     }}
-                    className="flex-[2] py-3 bg-accent text-white rounded-xl font-bold text-sm hover:bg-accent-hover transition-all active:scale-95 shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
+                    className="flex min-h-[48px] flex-[2] items-center justify-center gap-2 rounded-tag border-2 border-inverse bg-accent font-display text-[19px] font-semibold uppercase leading-none text-inverse transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard"
                   >
-                    Checkout <ArrowRight className="w-4 h-4" />
+                    Checkout <ArrowRight aria-hidden="true" className="h-4 w-4" />
                   </button>
                 </div>
               </div>

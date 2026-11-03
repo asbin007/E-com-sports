@@ -35,11 +35,18 @@ class Category extends Model {
   declare needsSize: boolean;
 
   @Column({
-    type: DataType.ENUM("clothing", "shoe", "weight", "equipment"),
+    type: DataType.ENUM("clothing", "shoe", "weight", "equipment", "ball", "trophy"),
     allowNull: true,
     defaultValue: null,
   })
-  declare sizeType: "clothing" | "shoe" | "weight" | "equipment" | null;
+  declare sizeType:
+    | "clothing"
+    | "shoe"
+    | "weight"
+    | "equipment"
+    | "ball"
+    | "trophy"
+    | null;
 
   @Column({
     type: DataType.BOOLEAN,

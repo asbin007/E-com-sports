@@ -4,7 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import passport from "./config/passport.js";
 import "./database/connection/connection.js";
-import { rateLimiter, authRateLimiter } from "./middleware/rateLimiter.js";
+import { rateLimiter } from "./middleware/rateLimiter.js";
 import { sanitizeInput } from "./middleware/validation.js";
 import authRoute from "./routes/authRoute.js";
 import categoryRoute from "./routes/categoryRoute.js";

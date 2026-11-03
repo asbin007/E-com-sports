@@ -42,6 +42,11 @@ export const requireRole = (allowedRoles: Role[]) => {
         return;
       }
 
+      if (user.isActive === false) {
+        res.status(403).json({ message: "Account is deactivated" });
+        return;
+      }
+
       if (!allowedRoles.includes(user.role as Role)) {
         res.status(403).json({
           message: `Access denied. Required roles: ${allowedRoles.join(

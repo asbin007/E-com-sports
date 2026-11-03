@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Loader, CheckCircle, XCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import api from "../../services/api";
 
 const PaymentSuccess = () => {
@@ -11,6 +11,7 @@ const PaymentSuccess = () => {
     "verifying",
   );
   const pidx = searchParams.get("pidx");
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     const verifyPayment = async () => {
@@ -34,53 +35,58 @@ const PaymentSuccess = () => {
   }, [pidx, navigate, searchParams]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-primary p-4">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white p-12 rounded-[3.5rem] border border-gray-100 shadow-xl max-w-sm w-full text-center"
+        initial={reduce ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
+        className="w-full max-w-sm rounded-card border-2 border-inverse bg-card p-8 text-center"
       >
         {status === "verifying" && (
           <>
-            <Loader className="w-16 h-16 text-orange-600 animate-spin mx-auto mb-6" />
-            <h2 className="text-2xl font-black text-stone-950 uppercase italic tracking-tighter">
-              Verifying Payment
-            </h2>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-2">
-              Executing Transaction Protocol...
+            <Loader className="mx-auto mb-6 h-16 w-16 animate-spin text-marigold" aria-hidden="true" />
+            <h1 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+              Checking your payment
+            </h1>
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-marigold">
+              Please wait, do not close this page
             </p>
           </>
         )}
 
         {status === "success" && (
           <>
-            <div className="w-20 h-20 bg-green-100 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-10 h-10 text-green-600" />
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-tag border-2 border-pitch bg-card">
+              <CheckCircle className="h-10 w-10 text-pitch" aria-hidden="true" />
             </div>
-            <h2 className="text-2xl font-black text-stone-950 uppercase italic tracking-tighter">
-              Transaction Approved
-            </h2>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-2">Gear deployment initiated.</p>
-            <p className="text-[10px] text-orange-600 font-bold uppercase tracking-widest mt-6 bg-orange-50 py-2 px-4 rounded-xl inline-block">
-              Redirecting Command...
+            <h1 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+              Payment received
+            </h1>
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-pitch">
+              Your order is on its way
+            </p>
+            <p className="mt-6 inline-block rounded-tag border-2 border-inverse bg-marigold-soft px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+              Taking you back to the shop
             </p>
           </>
         )}
 
         {status === "failed" && (
           <>
-            <div className="w-20 h-20 bg-red-100 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
-              <XCircle className="w-10 h-10 text-red-600" />
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-tag border-2 border-accent bg-card">
+              <XCircle className="h-10 w-10 text-accent" aria-hidden="true" />
             </div>
-            <h2 className="text-2xl font-black text-stone-950 uppercase italic tracking-tighter">Protocol Failed</h2>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-2">
-              Transaction rejected. Please verify your credentials.
+            <h1 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
+              Payment not confirmed
+            </h1>
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-accent">
+              We could not verify this payment. Nothing was charged by us.
             </p>
             <button
               onClick={() => navigate("/checkout")}
-              className="mt-8 w-full bg-stone-950 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] italic hover:bg-orange-600 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-stone-950/10"
+              className="mt-8 flex w-full items-center justify-center rounded-tag border-2 border-inverse bg-accent py-3 font-display text-xl uppercase leading-none tracking-[0.04em] text-inverse transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
             >
-              Re-initiate Payment
+              Back to Checkout
             </button>
           </>
         )}
