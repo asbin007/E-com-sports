@@ -13,12 +13,19 @@ interface CrudItem {
 
 interface CrudPageProps {
   title: string;
+  /** Collection path, with NO query string — `${endpoint}/${id}` is used for writes. */
   endpoint: string;
+  /**
+   * Query string appended to the LIST request only (e.g. `includeInactive=true`).
+   * Keeping it out of `endpoint` matters: the edit and delete URLs append the id,
+   * so a query string there would produce `/categories?x=1/<id>`.
+   */
+  listQuery?: string;
   fields: { key: string; label: string; type?: 'text' | 'select'; options?: { value: string; label: string }[]; required?: boolean }[];
   renderItem?: (item: CrudItem) => React.ReactNode;
 }
 
-export default function CrudPage({ title, endpoint, fields, renderItem }: CrudPageProps) {
+export default function CrudPage({ title, endpoint, listQuery, fields, renderItem }: CrudPageProps) {
   const [items, setItems] = useState<CrudItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -28,14 +35,14 @@ export default function CrudPage({ title, endpoint, fields, renderItem }: CrudPa
 
   const fetchItems = useCallback(async () => {
     try {
-      const res = await api.get(endpoint);
+      const res = await api.get(listQuery ? `${endpoint}?${listQuery}` : endpoint);
       setItems(res.data?.data || []);
     } catch (err) {
       console.error(`Failed to fetch ${title}:`, err);
     } finally {
       setLoading(false);
     }
-  }, [endpoint, title]);
+  }, [endpoint, listQuery, title]);
 
   useEffect(() => {
     const run = async () => {

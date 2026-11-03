@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import Category from "../database/models/categoryModel.js";
 import Product from "../database/models/productModel.js";
+import { slugify } from "../utils/slugify.js";
 
 class CategoryController {
   // Must stay identical to CATEGORIES in src/database/seeders/seedAll.ts —
@@ -71,13 +72,37 @@ class CategoryController {
   }
 
   async createCategory(req: Request, res: Response): Promise<void> {
-    const { name, slug, needsSize, sizeType } = req.body;
-    if (!name || !slug) {
-      res.status(400).json({ message: "Please provide category name and slug" });
+    const { name, needsSize, sizeType } = req.body;
+    if (!name || typeof name !== "string" || !name.trim()) {
+      res.status(400).json({ message: "Please provide a category name" });
       return;
     }
-    const category = await Category.create({ name, slug, needsSize: needsSize ?? true, sizeType: sizeType ?? null });
-    res.status(200).json({ message: "Category created successfully", data: category });
+
+    // The admin form asks for a name, not a URL slug — nobody running a shop
+    // should have to invent one. Requiring it here meant creating a category
+    // from the panel always failed with a 400.
+    const slug = (typeof req.body.slug === "string" && req.body.slug.trim())
+      ? slugify(req.body.slug)
+      : slugify(name);
+
+    if (!slug) {
+      res.status(400).json({ message: "Category name must contain letters or numbers" });
+      return;
+    }
+
+    const existing = await Category.findOne({ where: { slug } });
+    if (existing) {
+      res.status(409).json({ message: `A category with the slug "${slug}" already exists` });
+      return;
+    }
+
+    const category = await Category.create({
+      name: name.trim(),
+      slug,
+      needsSize: needsSize === undefined ? true : needsSize === true || needsSize === "true",
+      sizeType: sizeType || null,
+    });
+    res.status(201).json({ message: "Category created successfully", data: category });
   }
 
   async deleteCategory(req: Request, res: Response): Promise<void> {

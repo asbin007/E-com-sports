@@ -4,8 +4,10 @@ export default function Categories() {
   return (
     <CrudPage
       title="Categories"
+      endpoint="/categories"
       // Admin manages hidden categories too, so ask for the inactive ones.
-      endpoint="/categories?includeInactive=true"
+      // This goes on the list request only — writes append /:id to `endpoint`.
+      listQuery="includeInactive=true"
       fields={[
         { key: 'name', label: 'Category Name', required: true },
         {
