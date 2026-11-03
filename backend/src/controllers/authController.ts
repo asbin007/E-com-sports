@@ -4,6 +4,11 @@ import User from "../database/models/userModel.js";
 import { sendOtp as sendResendOtp } from "../services/resendMail.js";
 import jwtService from "../services/jwtService.js";
 import { authCodeStore } from "../services/authCodeStore.js";
+import {
+  clearRefreshCookie,
+  REFRESH_COOKIE_NAME,
+  setRefreshCookie,
+} from "../services/authCookie.js";
 
 class AuthController {
   async register(req: Request, res: Response): Promise<void> {
@@ -115,11 +120,12 @@ class AuthController {
 
       await user.update({ isVerified: true, otp: null as any, otpExpiration: null as any });
 
-      const token = jwtService.generateAccessToken({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      });
+      const payload = { userId: user.id, email: user.email, role: user.role };
+      const token = jwtService.generateAccessToken(payload);
+
+      // Verifying the OTP signs the user in, so it needs the refresh cookie
+      // login sets — without it the next reload drops the new account.
+      setRefreshCookie(res, jwtService.generateRefreshToken(payload));
 
       res.status(200).json({
         message: "OTP verified successfully",
@@ -255,22 +261,17 @@ class AuthController {
 
       await user.update({ failedLoginAttempts: 0, lockedUntil: null as any });
 
-      const token = jwtService.generateAccessToken({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      });
+      const payload = { userId: user.id, email: user.email, role: user.role };
+      const token = jwtService.generateAccessToken(payload);
 
-      const refreshToken = jwtService.generateRefreshToken({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      });
+      // The refresh token goes into an httpOnly cookie and never into the
+      // body: a token in the JSON response ends up in web storage sooner or
+      // later, and from there any injected script can read it.
+      setRefreshCookie(res, jwtService.generateRefreshToken(payload));
 
       res.status(200).json({
         message: "Login successful",
         token,
-        refreshToken,
         user: {
           id: user.id,
           username: user.username,
@@ -289,11 +290,16 @@ class AuthController {
 
   async refresh(req: Request, res: Response): Promise<void> {
     try {
-      const { refreshToken } = req.body || {};
+      // Cookie only. Accepting the refresh token from the request body would
+      // hand it back to any script running on the page, which is exactly what
+      // the httpOnly cookie exists to prevent.
+      const cookies = req.cookies as Record<string, string | undefined> | undefined;
+      const refreshToken = cookies?.[REFRESH_COOKIE_NAME];
 
       if (!refreshToken) {
-        res.status(400).json({
-          message: "Refresh token is required",
+        clearRefreshCookie(res);
+        res.status(401).json({
+          message: "Not authenticated",
         });
         return;
       }
@@ -303,23 +309,28 @@ class AuthController {
         const user = await User.findByPk(decoded.userId);
 
         if (!user) {
-          res.status(404).json({
-            message: "User not found",
+          clearRefreshCookie(res);
+          res.status(401).json({
+            message: "Invalid refresh token",
           });
           return;
         }
 
-        const newToken = jwtService.generateAccessToken({
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-        });
+        const payload = { userId: user.id, email: user.email, role: user.role };
+
+        // Rotate on every use so an active session's 7 days slide forward
+        // instead of expiring mid-visit.
+        // ponytail: the previous token stays valid until it expires — a
+        // stateless JWT cannot be revoked. Add a refresh-token store if
+        // single-use enforcement is ever needed.
+        setRefreshCookie(res, jwtService.generateRefreshToken(payload));
 
         res.status(200).json({
           message: "Token refreshed successfully",
-          token: newToken,
+          token: jwtService.generateAccessToken(payload),
         });
-      } catch (error: any) {
+      } catch {
+        clearRefreshCookie(res);
         res.status(401).json({
           message: "Invalid refresh token",
         });
@@ -379,7 +390,20 @@ class AuthController {
       return;
     }
 
-    res.status(200).json({ message: "Login successful", ...tokens });
+    // Same contract as login: refresh token into the cookie, access token in
+    // the body. Spreading `tokens` here would leak tokens.refreshToken.
+    setRefreshCookie(res, tokens.refreshToken);
+
+    res.status(200).json({ message: "Login successful", token: tokens.token });
+  }
+
+  /**
+   * Drop the refresh cookie. Deliberately unauthenticated: a caller whose
+   * access token already expired must still be able to end its session.
+   */
+  async logout(_req: Request, res: Response): Promise<void> {
+    clearRefreshCookie(res);
+    res.status(200).json({ message: "Logged out" });
   }
 
   async me(req: Request, res: Response): Promise<void> {

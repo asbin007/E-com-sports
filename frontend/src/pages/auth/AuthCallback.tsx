@@ -22,9 +22,9 @@ const AuthCallback = () => {
 
     const finishLogin = async () => {
       let token: string;
-      let refreshToken: string;
       try {
-        ({ token, refreshToken } = await authService.exchangeCode(code));
+        // Access token only — the refresh token arrived as an httpOnly cookie.
+        ({ token } = await authService.exchangeCode(code));
       } catch {
         navigate("/login?error=validation_failed");
         return;
@@ -37,7 +37,7 @@ const AuthCallback = () => {
         );
         if (response.ok) {
           const data = await response.json();
-          login(token, data.user, refreshToken);
+          login(token, data.user);
           navigate("/");
         } else {
           navigate("/login?error=validation_failed");

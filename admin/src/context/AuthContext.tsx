@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { isAxiosError } from 'axios';
-import api, { SESSION_EXPIRED_EVENT } from '@/services/api';
+import api, { SESSION_EXPIRED_EVENT, refreshAccessToken, setAccessToken } from '@/services/api';
 import type { User } from '@/types';
 
 interface AuthContextType {
@@ -17,24 +17,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const initAuth = async () => {
-      const storedToken = localStorage.getItem('token');
-      if (storedToken) {
+      // The httpOnly refresh cookie is the only thing that survives a reload.
+      // No valid cookie means the operator is simply signed out, which is a
+      // normal state and not an error worth surfacing.
+      const freshToken = await refreshAccessToken();
+      if (freshToken) {
         try {
           const res = await api.get('/auth/me');
           setUser(res.data.user);
-          setToken(storedToken);
+          setToken(freshToken);
         } catch (err) {
           // Only a 401 proves the token is bad. A 500, a timeout or a network
           // blip says nothing about it, so keep the token and let the operator
           // retry instead of silently signing them out.
           if (isAxiosError(err) && err.response?.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            setAccessToken(null);
             setToken(null);
             setUser(null);
           }
@@ -46,8 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // The api interceptor has already cleared storage; mirror that into state
-    // so the router can send the operator to /login without a page reload.
+    // The api interceptor has already cleared the in-memory token; mirror that
+    // into state so the router can send the operator to /login without a page
+    // reload.
     const handleSessionExpired = () => {
       setToken(null);
       setUser(null);
@@ -59,15 +62,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const res = await api.post('/auth/login', { email, password });
     const { token: newToken, user: userData } = res.data;
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(userData));
+    // Memory only. The server already put the refresh token in an httpOnly
+    // cookie, which is the part that has to survive a reload.
+    setAccessToken(newToken);
     setToken(newToken);
     setUser(userData);
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    // Clear the cookie server-side too, or the next reload would quietly sign
+    // the operator back in. Not awaited: the local session ends either way.
+    api.post('/auth/logout').catch(() => {
+      /* already signed out as far as this browser is concerned */
+    });
+    setAccessToken(null);
     setToken(null);
     setUser(null);
   };

@@ -7,8 +7,15 @@ export const authService = {
    * Uses plain axios so the 401 interceptor in api.ts (refresh + hard
    * redirect to /login) does not fire on an expired code.
    */
-  async exchangeCode(code: string): Promise<{ token: string; refreshToken: string }> {
-    const response = await axios.post(`${api.defaults.baseURL}/auth/exchange`, { code });
+  async exchangeCode(code: string): Promise<{ token: string }> {
+    const response = await axios.post(
+      `${api.defaults.baseURL}/auth/exchange`,
+      { code },
+      // The exchange sets the httpOnly refresh cookie; without credentials the
+      // browser would throw the Set-Cookie away and the session would not
+      // survive a reload.
+      { withCredentials: true }
+    );
     return response.data;
   },
 

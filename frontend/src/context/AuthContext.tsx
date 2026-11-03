@@ -5,6 +5,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
+import api, { refreshAccessToken, setAccessToken } from "../services/api";
 import { authService } from "../services/authService";
 
 interface User {
@@ -17,7 +18,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (token: string, user: User, refreshToken?: string) => void;
+  login: (token: string, user: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -27,38 +28,42 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(
-    localStorage.getItem("token"),
-  );
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const login = (newToken: string, newUser: User, refreshToken?: string) => {
-    localStorage.setItem("token", newToken);
-    if (refreshToken) {
-      localStorage.setItem("refreshToken", refreshToken);
-    }
+  const login = (newToken: string, newUser: User) => {
+    // Memory only. The server already put the refresh token in an httpOnly
+    // cookie, which is the part that has to survive a reload.
+    setAccessToken(newToken);
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("refreshToken");
+    // Clear the cookie server-side too, or the next reload would quietly sign
+    // the user back in. Not awaited: the local session ends either way.
+    api.post("/auth/logout").catch(() => {
+      /* already signed out as far as this browser is concerned */
+    });
+    setAccessToken(null);
     setToken(null);
     setUser(null);
   };
 
   useEffect(() => {
     const initAuth = async () => {
-      const storedToken = localStorage.getItem("token");
-      if (storedToken) {
+      // The refresh cookie is the only thing that survives a reload. No valid
+      // cookie means the visitor is anonymous — a normal state, not an error,
+      // so nothing is logged and nothing is shown.
+      const freshToken = await refreshAccessToken();
+      if (freshToken) {
         try {
           const userData = await authService.getMe();
           setUser(userData);
-          setToken(storedToken);
+          setToken(freshToken);
         } catch (error) {
           console.error("Failed to fetch user profile", error);
-          logout();
+          setAccessToken(null);
         }
       }
       setIsLoading(false);

@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import passport from "./config/passport.js";
 import "./database/connection/connection.js";
@@ -34,6 +35,9 @@ app.use(helmet({
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// Populates req.cookies, which /auth/refresh and /auth/logout read the
+// httpOnly refresh cookie from. Must be mounted before the routes.
+app.use(cookieParser());
 app.use(sanitizeInput);
 
 const allowedOrigins = [

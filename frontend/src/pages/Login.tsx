@@ -41,7 +41,7 @@ const Login = () => {
 
     try {
       const data = await authService.login({ email, password });
-      login(data.token, data.user, data.refreshToken);
+      login(data.token, data.user);
       // Checkout sends people here with ?redirect=/checkout. Dropping them on
       // the home page with a full cart loses the sale.
       navigate(redirectTo, { replace: true });

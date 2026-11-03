@@ -15,6 +15,9 @@ router.post("/resend-otp", authRateLimiter, errorHandler(authController.resendOt
 router.post("/login", authRateLimiter, errorHandler(authController.login.bind(authController)));
 router.post("/exchange", authRateLimiter, errorHandler(authController.exchangeCode.bind(authController)));
 router.post("/refresh", errorHandler(authController.refresh.bind(authController)));
+// Unauthenticated on purpose: clearing the refresh cookie must work even
+// once the access token has expired.
+router.post("/logout", errorHandler(authController.logout.bind(authController)));
 router.get("/me", userMiddleware.isUserLoggedIn, errorHandler(authController.me.bind(authController)));
 
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"], session: false }));
