@@ -11,6 +11,48 @@ import ProductAttribute from "../database/models/productAttributeModel.js";
 import CollectionProduct from "../database/models/collectionProductModel.js";
 import sequelize from "../database/connection/connection.js";
 
+/**
+ * Variants come back in whatever order Postgres hands them over — there is no
+ * ORDER BY on a hasMany include — so `variants[0]` was a different row between
+ * requests and the price on a card could change on reload. Sort by creation so
+ * the order is stable, and read the headline price off a variant a shopper can
+ * actually buy rather than whichever row arrived first.
+ */
+const sortVariants = (list: any[]): any[] =>
+  [...list].sort((a, b) => {
+    const at = new Date(a?.createdAt ?? 0).getTime();
+    const bt = new Date(b?.createdAt ?? 0).getTime();
+    if (at !== bt) return at - bt;
+    return String(a?.id ?? "").localeCompare(String(b?.id ?? ""));
+  });
+
+const priceSource = (variants: any[]): any =>
+  variants.find((v) => v.isActive !== false && Number(v.stock) > 0) ??
+  variants.find((v) => v.isActive !== false) ??
+  variants[0];
+
+/** Flattens Sequelize's alias keys and attaches the headline price. */
+const normalizeProduct = (json: any) => {
+  const variantsList = sortVariants(
+    json.variants?.length ? json.variants : (json.Variants ?? []),
+  );
+  const imagesList = json.ProductImages?.length ? json.ProductImages : (json.images ?? []);
+  const attributesList = json.ProductAttributes?.length
+    ? json.ProductAttributes
+    : (json.attributes ?? []);
+  const { Variants, ProductImages, ProductAttributes, variants, images, attributes, ...rest } = json;
+  const headline = priceSource(variantsList);
+
+  return {
+    ...rest,
+    variants: variantsList,
+    images: imagesList,
+    attributes: attributesList,
+    price: headline?.price || 0,
+    originalPrice: headline?.originalPrice || null,
+  };
+};
+
 class ProductController {
   async getAllProducts(req: Request, res: Response): Promise<void> {
     try {
@@ -68,7 +110,7 @@ class ProductController {
           {
             model: Variant,
             as: "variants",
-            attributes: ["id", "size", "color", "price", "originalPrice", "costPrice", "stock", "isActive"],
+            attributes: ["id", "size", "color", "price", "originalPrice", "costPrice", "stock", "isActive", "createdAt"],
           },
           {
             model: ProductImage,
@@ -90,22 +132,7 @@ class ProductController {
         distinct: true,
       });
 
-      // Normalize response — remove duplicate keys from toJSON, then set canonical names
-      const normalizedProducts = products.map((p: any) => {
-        const json = p.toJSON();
-        const variantsList = json.variants?.length ? json.variants : (json.Variants ?? []);
-        const imagesList = json.ProductImages?.length ? json.ProductImages : (json.images ?? []);
-        const attributesList = json.ProductAttributes?.length ? json.ProductAttributes : (json.attributes ?? []);
-        const { Variants, ProductImages, ProductAttributes, variants, images, attributes, ...rest } = json;
-        return {
-          ...rest,
-          variants: variantsList,
-          images: imagesList,
-          attributes: attributesList,
-          price: variantsList[0]?.price || 0,
-          originalPrice: variantsList[0]?.originalPrice || null,
-        };
-      });
+      const normalizedProducts = products.map((p: any) => normalizeProduct(p.toJSON()));
 
       res.status(200).json({
         message: "Products fetched successfully",
@@ -149,7 +176,7 @@ class ProductController {
           {
             model: Variant,
             as: "variants",
-            attributes: ["id", "size", "color", "price", "originalPrice", "costPrice", "stock", "isActive"],
+            attributes: ["id", "size", "color", "price", "originalPrice", "costPrice", "stock", "isActive", "createdAt"],
           },
           {
             model: ProductImage,
@@ -174,20 +201,7 @@ class ProductController {
       // Normalize for frontend compatibility — Sequelize attaches HasMany rows
       // under the alias used in the include (`Variants`, `ProductImages`,
       // `ProductAttributes`). Older clients reading lowercase keys also work.
-      const json = product.toJSON() as any;
-      const variantsList = json.variants?.length ? json.variants : (json.Variants ?? []);
-      const imagesList = json.ProductImages?.length ? json.ProductImages : (json.images ?? []);
-      const attributesList = json.ProductAttributes?.length ? json.ProductAttributes : (json.attributes ?? []);
-      const { Variants, ProductImages, ProductAttributes, variants, images, attributes, ...rest } = json;
-
-      const normalizedProduct = {
-        ...rest,
-        variants: variantsList,
-        images: imagesList,
-        attributes: attributesList,
-        price: variantsList[0]?.price || 0,
-        originalPrice: variantsList[0]?.originalPrice || null,
-      };
+      const normalizedProduct = normalizeProduct(product.toJSON());
 
       res.status(200).json({
         message: "Product fetched successfully",
@@ -362,12 +376,24 @@ class ProductController {
         tags: req.body.tags !== undefined ? (typeof req.body.tags === "string" ? JSON.parse(req.body.tags) : req.body.tags) : product.tags,
       }, { transaction });
 
-      // Replace variants if provided
+      // Reconcile variants in place rather than deleting and recreating them.
+      // `order_items.variantId` is ON DELETE SET NULL, so a delete-and-recreate
+      // silently cut every past order loose from its variant — and the stock
+      // restore in orderStatusService only runs `if (item.variantId)`, so
+      // cancelling one of those orders put nothing back and still reported
+      // success. Matching rows keep their ids, and a variant the admin dropped
+      // is deactivated instead of deleted so the history survives.
       if (variants.length > 0) {
-        await Variant.destroy({ where: { productId: product.id }, transaction });
-        await Promise.all(variants.map((v: any) =>
-          Variant.create({
-            productId: product.id,
+        const existing = await Variant.findAll({ where: { productId: product.id }, transaction });
+        const keyOf = (size: unknown, color: unknown) =>
+          `${size ?? ""}::${color ?? ""}`.toLowerCase();
+
+        const byId = new Map(existing.map((v) => [String(v.id), v]));
+        const byKey = new Map(existing.map((v) => [keyOf(v.size, v.color), v]));
+        const kept = new Set<string>();
+
+        for (const v of variants) {
+          const fields = {
             size: v.size || null,
             color: v.color || null,
             price: parseFloat(v.price) || 0,
@@ -375,8 +401,32 @@ class ProductController {
             costPrice: v.costPrice ? parseFloat(v.costPrice) : null,
             stock: parseInt(v.stock) || 0,
             isActive: v.isActive !== false,
-          }, { transaction })
-        ));
+          };
+
+          // An id the client echoed back wins; otherwise the same size+colour
+          // is the same variant as far as a shopkeeper is concerned.
+          const match =
+            (v.id && byId.get(String(v.id))) || byKey.get(keyOf(fields.size, fields.color));
+
+          if (match) {
+            await match.update(fields, { transaction });
+            kept.add(String(match.id));
+          } else {
+            const created = await Variant.create(
+              { productId: product.id, ...fields },
+              { transaction },
+            );
+            kept.add(String(created.id));
+          }
+        }
+
+        const dropped = existing.filter((v) => !kept.has(String(v.id)));
+        if (dropped.length > 0) {
+          await Variant.update(
+            { isActive: false, stock: 0 },
+            { where: { id: dropped.map((v) => v.id) }, transaction },
+          );
+        }
       }
 
       // Replace attributes if provided

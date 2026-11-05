@@ -10,6 +10,7 @@ import Product from "../database/models/productModel.js";
 import ProductImage from "../database/models/productImageModel.js";
 import Category from "../database/models/categoryModel.js";
 import Variant from "../database/models/variantModel.js";
+import { parseQuantity, QUANTITY_ERROR } from "../utils/quantity.js";
 import StatusHistory from "../database/models/statusHistoryModel.js";
 import { generateOrderNumber } from "../utils/orderNumber.js";
 import { calculateDeliveryCharge } from "../utils/deliveryCharge.js";
@@ -82,6 +83,15 @@ class OrderController {
 
       if (items && Array.isArray(items) && items.length > 0) {
         for (const item of items) {
+          // Nothing downstream re-checks this. A negative quantity passes the
+          // `stock < quantity` guard and then *credits* stock on decrement,
+          // while subtracting from the order total.
+          const quantity = parseQuantity(item.quantity);
+          if (quantity === null) {
+            res.status(400).json({ message: QUANTITY_ERROR });
+            return;
+          }
+
           const product = await Product.findByPk(item.productId, {
             include: [
               { model: Category, attributes: ["needsSize"] },
@@ -94,6 +104,14 @@ class OrderController {
             return;
           }
 
+          // Deleting a product only flips isActive, and this path — unlike the
+          // cart — never checked it, so a withdrawn product stayed buyable by
+          // direct link.
+          if (!product.isActive) {
+            res.status(400).json({ message: `${product.name} is no longer available` });
+            return;
+          }
+
           const needsSize = (product as any).Category?.needsSize ?? true;
           if (needsSize && !item.size) {
             res.status(400).json({ message: `Size required for ${product.name}` });
@@ -102,16 +120,19 @@ class OrderController {
 
           let targetVariant: any = null;
 
+          // An inactive variant is one the shop has withdrawn: never sell it.
+          const sellable = ((product as any).variants ?? []).filter(
+            (v: any) => v.isActive !== false,
+          );
+
           if (item.variantId) {
-            targetVariant = (product as any).variants?.find(
-              (v: any) => v.id === item.variantId,
-            );
+            targetVariant = sellable.find((v: any) => v.id === item.variantId);
           } else if (needsSize && item.size) {
-            targetVariant = (product as any).variants?.find(
+            targetVariant = sellable.find(
               (v: any) => v.size === item.size && (!item.color || v.color === item.color),
             );
           } else {
-            targetVariant = (product as any).variants?.[0];
+            targetVariant = sellable[0];
           }
 
           if (!targetVariant) {
@@ -119,7 +140,7 @@ class OrderController {
             return;
           }
 
-          if (targetVariant.stock < item.quantity) {
+          if (targetVariant.stock < quantity) {
             res.status(400).json({
               message: `Insufficient stock for ${product.name}. Only ${targetVariant.stock} left.`,
             });
@@ -127,7 +148,7 @@ class OrderController {
           }
 
           const price = targetVariant.price;
-          const itemTotal = price * item.quantity;
+          const itemTotal = price * quantity;
           subtotal += itemTotal;
 
           orderItemsData.push({
@@ -136,7 +157,7 @@ class OrderController {
             sku: null,
             size: item.size || null,
             color: targetVariant.color || null,
-            quantity: item.quantity,
+            quantity,
             variantId: targetVariant.id,
             price,
             totalPrice: itemTotal,
@@ -165,18 +186,39 @@ class OrderController {
           const product = (cartItem as any).Product as Product;
           if (!product) continue;
 
+          // A row already in the cart can predate the product being withdrawn.
+          if (!product.isActive) {
+            res.status(400).json({
+              message: `${product.name} is no longer available. Please remove it from your cart.`,
+            });
+            return;
+          }
+
+          // Rows written before quantities were validated, or edited straight
+          // in the database, must not reach the stock maths either.
+          const quantity = parseQuantity(cartItem.quantity);
+          if (quantity === null) {
+            res.status(400).json({
+              message: `${product.name}: ${QUANTITY_ERROR.toLowerCase()}`,
+            });
+            return;
+          }
+
           const needsSize = (product as any).Category?.needsSize ?? true;
+          const sellable = ((product as any).variants ?? []).filter(
+            (v: any) => v.isActive !== false,
+          );
           let targetVariant: any = null;
 
           if (needsSize && cartItem.size) {
-            targetVariant = (product as any).variants?.find((v: any) => v.size === cartItem.size);
+            targetVariant = sellable.find((v: any) => v.size === cartItem.size);
           } else {
-            targetVariant = (product as any).variants?.[0];
+            targetVariant = sellable[0];
           }
 
           if (!targetVariant) continue;
 
-          if (targetVariant.stock < cartItem.quantity) {
+          if (targetVariant.stock < quantity) {
             res.status(400).json({
               message: `Insufficient stock for ${product.name}. Only ${targetVariant.stock} left.`,
             });
@@ -184,7 +226,7 @@ class OrderController {
           }
 
           const price = targetVariant.price;
-          const itemTotal = price * cartItem.quantity;
+          const itemTotal = price * quantity;
           subtotal += itemTotal;
 
           orderItemsData.push({
@@ -193,7 +235,7 @@ class OrderController {
             sku: null,
             size: cartItem.size || null,
             color: targetVariant.color || null,
-            quantity: cartItem.quantity,
+            quantity,
             variantId: targetVariant.id,
             price,
             totalPrice: itemTotal,

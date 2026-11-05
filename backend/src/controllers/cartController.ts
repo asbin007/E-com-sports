@@ -4,12 +4,17 @@ import Product from "../database/models/productModel.js";
 import Brand from "../database/models/brandModel.js";
 import Category from "../database/models/categoryModel.js";
 import Variant from "../database/models/variantModel.js";
+import { parseQuantity, MAX_QUANTITY, QUANTITY_ERROR } from "../utils/quantity.js";
 
 class CartController {
   async addToCart(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user?.id;
-      const { productId, size, quantity = 1 } = req.body;
+      const { productId, size } = req.body;
+      // Unvalidated, a negative quantity sails past `targetStock < quantity`
+      // and lands a negative row in the cart, which then subtracts from the
+      // order total at checkout.
+      const quantity = parseQuantity(req.body.quantity ?? 1);
 
       if (!userId) {
         res.status(401).json({ message: "Unauthorized" });
@@ -18,6 +23,11 @@ class CartController {
 
       if (!productId) {
         res.status(400).json({ message: "productId is required" });
+        return;
+      }
+
+      if (quantity === null) {
+        res.status(400).json({ message: QUANTITY_ERROR });
         return;
       }
 
@@ -51,8 +61,12 @@ class CartController {
       let variantPrice = 0;
       let targetStock = 0;
 
+      const sellable = ((product as any).variants ?? []).filter(
+        (v: any) => v.isActive !== false,
+      );
+
       if (needsSize) {
-        const variant = (product as any).variants?.find((v: any) => v.size === size);
+        const variant = sellable.find((v: any) => v.size === size);
         if (!variant) {
           res.status(400).json({ message: `Size ${size} is not available` });
           return;
@@ -61,7 +75,7 @@ class CartController {
         variantPrice = variant.price;
       } else {
         // Find default variant if no size needed
-        const variant = (product as any).variants?.[0];
+        const variant = sellable[0];
         if (!variant) {
           res.status(400).json({ message: "No active variant found" });
           return;
@@ -86,6 +100,10 @@ class CartController {
 
       if (existingItem) {
         const newQty = existingItem.quantity + quantity;
+        if (newQty > MAX_QUANTITY) {
+          res.status(400).json({ message: QUANTITY_ERROR });
+          return;
+        }
         if (targetStock < newQty) {
           res.status(400).json({ message: "Insufficient stock for requested quantity" });
           return;
@@ -140,7 +158,8 @@ class CartController {
       const { quantity } = req.body;
 
       if (!userId) { res.status(401).json({ message: "Unauthorized" }); return; }
-      if (!quantity || quantity < 1) { res.status(400).json({ message: "Quantity must be at least 1" }); return; }
+      const parsedQuantity = parseQuantity(quantity);
+      if (parsedQuantity === null) { res.status(400).json({ message: QUANTITY_ERROR }); return; }
 
       const cartItem = await CartItem.findOne({ 
         where: { id, userId }, 
@@ -152,15 +171,16 @@ class CartController {
       if (!cartItem) { res.status(404).json({ message: "Cart item not found" }); return; }
 
       const product = cartItem.Product as any;
-      const variant = product.variants?.find((v: any) => v.size === cartItem.size) || product.variants?.[0];
+      const sellable = (product.variants ?? []).filter((v: any) => v.isActive !== false);
+      const variant = sellable.find((v: any) => v.size === cartItem.size) || sellable[0];
       const targetStock = variant ? variant.stock : 0;
 
-      if (targetStock < quantity) {
+      if (targetStock < parsedQuantity) {
         res.status(400).json({ message: "Insufficient stock available" });
         return;
       }
 
-      await cartItem.update({ quantity });
+      await cartItem.update({ quantity: parsedQuantity });
       res.status(200).json({ message: "Cart updated successfully", data: cartItem });
     } catch (error: any) {
       console.error(error);
