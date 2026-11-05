@@ -10,7 +10,7 @@ import Payment from "../database/models/paymentModel.js";
 import ProductReview from "../database/models/productReviewModel.js";
 import User from "../database/models/userModel.js";
 import StatusHistory from "../database/models/statusHistoryModel.js";
-import inventoryService from "../services/inventoryService.js";
+import { changeOrderStatus } from "../services/orderStatusService.js";
 import notificationService from "../services/notificationService.js";
 import { whatsappService } from "../services/whatsappService.js";
 import sequelize from "../database/connection/connection.js";
@@ -268,14 +268,12 @@ class AdminController {
           res.status(400).json({ message: "Invalid order status" });
           return;
         }
-        await order.update({ orderStatus });
-
-        // Create status history entry
-        await StatusHistory.create({
-          orderId: order.id,
-          status: orderStatus,
-          note: note || `Status updated to ${orderStatus}`,
-        });
+        const changed = await changeOrderStatus(id, orderStatus, note || `Status updated to ${orderStatus}`);
+        if (!changed) {
+          res.status(400).json({ message: "This order is cancelled and can't be changed" });
+          return;
+        }
+        await order.reload();
 
         // Send WhatsApp notification
         whatsappService.notifyStatusUpdate(order, orderStatus).catch(() => {});
@@ -283,19 +281,6 @@ class AdminController {
         // Send email notification
         if (order.email) {
           notificationService.sendOrderStatusEmail(order.email, order.firstName || "Customer", order.id, orderStatus);
-        }
-
-        if (orderStatus === OrderStatus.Cancelled) {
-          const orderItems = await OrderItem.findAll({ where: { orderId: id } });
-          for (const item of orderItems) {
-            if (item.variantId) {
-              await Variant.increment("stock", {
-                by: item.quantity,
-                where: { id: item.variantId },
-              });
-              await inventoryService.releaseStock(item.variantId, item.quantity);
-            }
-          }
         }
       }
 

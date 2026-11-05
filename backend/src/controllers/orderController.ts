@@ -16,6 +16,7 @@ import { calculateDeliveryCharge } from "../utils/deliveryCharge.js";
 import { escapeCsvCell } from "../utils/csv.js";
 import { whatsappService } from "../services/whatsappService.js";
 import notificationService from "../services/notificationService.js";
+import { changeOrderStatus } from "../services/orderStatusService.js";
 
 class OrderController {
   async createOrder(req: Request, res: Response): Promise<void> {
@@ -460,14 +461,11 @@ class OrderController {
         return;
       }
 
-      await order.update({ orderStatus: status });
-
-      // Create status history entry
-      await StatusHistory.create({
-        orderId: order.id,
-        status,
-        note: note || `Status updated to ${status}`,
-      });
+      const changed = await changeOrderStatus(id, status, note || `Status updated to ${status}`);
+      if (!changed) {
+        res.status(400).json({ message: "This order is cancelled and can't be changed" });
+        return;
+      }
 
       // Fetch updated order with history
       const updatedOrder = await Order.findByPk(id, {
@@ -535,25 +533,12 @@ class OrderController {
         return;
       }
 
-      await order.update({ orderStatus: "cancelled" });
-
-      // Restore stock
-      const orderItems = await OrderItem.findAll({ where: { orderId: id } });
-      for (const item of orderItems) {
-        if (item.variantId) {
-          await Variant.increment("stock", {
-            by: item.quantity,
-            where: { id: item.variantId },
-          });
-        }
+      const changed = await changeOrderStatus(id, "cancelled", "Cancelled by customer");
+      if (!changed) {
+        res.status(400).json({ message: "Order is already cancelled" });
+        return;
       }
-
-      // Create status history
-      await StatusHistory.create({
-        orderId: order.id,
-        status: "cancelled",
-        note: "Cancelled by customer",
-      });
+      await order.reload();
 
       // Mark payment as refunded if paid
       if (order.paymentId) {
