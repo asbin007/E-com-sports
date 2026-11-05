@@ -148,7 +148,8 @@ const Register = () => {
             {loading ? <Loader className="h-5 w-5 animate-spin" /> : <>Create Account <ArrowRight className="h-4 w-4" /></>}
           </button>
 
-          {/* Google */}
+          {/* Set VITE_GOOGLE_LOGIN=true once Google has this site's redirect URI. */}
+          {import.meta.env.VITE_GOOGLE_LOGIN === "true" && (<>
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
               <div className="h-px w-full bg-border-primary" />
@@ -171,6 +172,7 @@ const Register = () => {
             </svg>
             Sign up with Google
           </button>
+          </>)}
 
           <div className="mt-4 text-center text-sm text-tertiary">
             Already have an account?{" "}

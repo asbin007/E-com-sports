@@ -169,6 +169,8 @@ const Login = () => {
           </button>
 
           {/* Divider */}
+          {/* Set VITE_GOOGLE_LOGIN=true once Google has this site's redirect URI. */}
+          {import.meta.env.VITE_GOOGLE_LOGIN === "true" && (<>
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="h-px w-full bg-border-primary" />
@@ -194,6 +196,7 @@ const Login = () => {
             </svg>
             Sign in with Google
           </button>
+          </>)}
         </form>
 
         <div className="mt-8 text-center text-sm text-tertiary">
