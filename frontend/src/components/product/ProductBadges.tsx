@@ -40,10 +40,12 @@ const ProductBadges = ({ product, layout = "stack" }: ProductBadgesProps) => {
 
   return (
     <div className={wrapper}>
-      {/* A discount sits over a photo, so it is a solid crimson fill, never a
-          soft chip — and never the brass accent, which means "action". */}
+      {/* A discount sits on top of a photo, so it is a white chip with crimson
+          type: a solid tag disappears against a dark shot, and white reads on
+          anything. It is a chip, not a filled control, so it cannot be
+          mistaken for a button. */}
       {discount > 0 && (
-        <span className={cn(BADGE, "border-sale-bright bg-sale-bright text-on-sale")}>
+        <span className={cn(BADGE, "border-accent bg-card text-accent")}>
           <span className="tabular-nums">-{discount}</span>
           <span>%</span>
         </span>

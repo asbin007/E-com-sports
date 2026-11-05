@@ -191,7 +191,17 @@ const Hero = () => {
       )}
 
       <div className="relative z-[2] mx-auto max-w-[1440px] px-4 pb-12 pt-10 sm:px-6 lg:px-8">
-        <motion.div variants={containerVariants} initial="hidden" animate="visible">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid gap-x-12 gap-y-10 lg:grid-cols-12 lg:items-start"
+        >
+          {/* LEFT: the headline and both ways in. The deal card used to sit
+              below all of this, which left the top-right third of the screen
+              empty and pushed the card under the fold. Both columns now start
+              at the top. */}
+          <div className="lg:col-span-7">
           <motion.p variants={itemVariants} custom={0.06} className="eyebrow">
             Brothers Sports House · Kit room
           </motion.p>
@@ -200,8 +210,8 @@ const Hero = () => {
               glow. Each line sits in its own clipping wrapper so it can rise
               out from under the line above it. */}
           <h1
-            className="mt-4 font-display font-bold uppercase leading-[0.92] text-primary"
-            style={{ fontSize: "clamp(56px,13vw,128px)" }}
+            className="mt-4 font-display font-bold uppercase leading-[0.9] text-primary"
+            style={{ fontSize: "clamp(48px,7.4vw,92px)" }}
           >
             <span className="block overflow-hidden">
               <motion.span variants={lineVariants} custom={0.12} className="block">
@@ -219,7 +229,7 @@ const Hero = () => {
             variants={itemVariants}
             custom={0.3}
             className="mt-2 font-display font-semibold leading-none text-accent"
-            style={{ fontSize: "clamp(24px,5vw,44px)" }}
+            style={{ fontSize: "clamp(22px,3.2vw,38px)" }}
           >
             खेलका सामान, घरसम्म
           </motion.p>
@@ -230,10 +240,8 @@ const Hero = () => {
             className="mt-3 h-[3px] w-[min(340px,70%)] origin-left bg-accent"
           />
 
-          <div className="mt-10 grid gap-10 lg:grid-cols-12 lg:items-start">
-            {/* LEFT: what we stock, the trust row, the two ways in */}
-            <motion.div variants={itemVariants} custom={0.38} className="lg:col-span-7">
-              <p className="max-w-[62ch] text-base leading-relaxed text-secondary">
+          <motion.div variants={itemVariants} custom={0.38} className="mt-7">
+              <p className="max-w-[56ch] text-base leading-relaxed text-secondary">
                 Football boots in UK sizes, club jerseys by season, plain team kits,
                 Kelme match and training balls in sizes 3, 4 and 5, plus trophies,
                 medals and bags — Nike, Adidas, Puma, New Balance, Hummel, Kelme,
@@ -267,16 +275,23 @@ const Hero = () => {
                 </button>
               </div>
             </motion.div>
+          </div>
 
-            {/* RIGHT: today's deal, straight off /recommendations/on-sale */}
-            <motion.div variants={cardVariants} className="lg:col-span-5">
+          {/* RIGHT: today's deal, straight off /recommendations/on-sale. It
+              sits level with the headline so the first screenful carries both
+              the shop's claim and something to buy. */}
+          <motion.div variants={cardVariants} className="lg:col-span-5">
               {featured ? (
                 <button
                   type="button"
                   onClick={() => navigate(`/product/${featured.id}`)}
                   className="w-full overflow-hidden rounded-card border-2 border-inverse bg-card text-left transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
                 >
-                  <div className="relative aspect-[4/5] overflow-hidden border-b-2 border-inverse bg-secondary">
+                  {/* A fixed height, not the 4:5 catalogue crop: at this
+                      column width 4:5 ran past the fold and buried the price.
+                      `aspect` plus `max-h` is not the fix — the ratio then
+                      shrinks the width too and leaves the card half empty. */}
+                  <div className="relative h-[clamp(240px,38vh,380px)] w-full overflow-hidden border-b-2 border-inverse bg-secondary">
                     <img
                       src={resolveImageUrl(featured)}
                       alt={featured.name}
@@ -289,7 +304,7 @@ const Hero = () => {
                       }}
                     />
                     {discount > 0 && (
-                      <span className="absolute left-3 top-3 rounded-tag border-[1.5px] border-sale-bright bg-sale-bright px-2 py-1 font-display text-sm font-bold uppercase leading-none tabular-nums text-on-sale">
+                      <span className="absolute left-3 top-3 rounded-tag border-[1.5px] border-accent bg-card px-2 py-1 font-display text-sm font-bold uppercase leading-none tabular-nums text-accent">
                         -{discount}% off
                       </span>
                     )}
@@ -374,8 +389,7 @@ const Hero = () => {
                   </div>
                 </div>
               )}
-            </motion.div>
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </section>
