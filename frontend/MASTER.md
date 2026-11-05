@@ -7,17 +7,17 @@ The shop is football-first: wall racks of bright and holographic firm-ground boo
 replica jerseys and plain team kit sets, Kelme footballs, a wall of trophies and medals, bags
 and training wear — out of Chaudhary Market in Bardibas and shipped
 across Nepal on cash on delivery. The identity borrows from the things already around that
-trade: shirt numbering, size runs chalked on a board, squad team sheets, and the brass of a
-trophy shelf under shop light.
+trade: shirt numbering, size runs chalked on a board, squad team sheets, and the navy and
+crimson of a club matchday programme.
 
 ---
 
 ## Theses
 
-**Visual.** A kit-room storefront on neutral graphite with one brass accent, condensed
-athletic display numerals in Teko over a Devanagari-capable Mukta body, dense 8px-grid
-spacing with wide section gutters, and flat 2-4px components outlined in 2px rules with hard
-offset shadows. The ground is quiet so the product photography is the only colour.
+**Visual.** A kit-room storefront on pale slate with navy ink and a flag-crimson accent,
+condensed athletic display numerals in Teko over a Devanagari-capable Mukta body, dense
+8px-grid spacing with wide section gutters, and flat 2-4px components outlined in 2px rules
+with hard offset shadows. White cards sit on the tinted ground so every product has an edge.
 
 **Interaction.** Fast and physical: 120ms transitions on a sharp ease-out, hover lifts an
 element 2px up and left onto a hard shadow, scroll reveals are a short 160ms fade with 40ms
@@ -31,54 +31,55 @@ blurred glows and anything that keeps content invisible until it scrolls into vi
 Tokens live in `src/index.css` as space-separated RGB channels and are consumed through the
 Tailwind mappings in `tailwind.config.js`. Never write a hex value in a component.
 
-| Token | Tailwind utility | Light | Dark | Use |
+| Token | Tailwind utility | Light (default) | Dark | Use |
 |---|---|---|---|---|
-| `--color-accent` | `accent`, `text-accent`, `bg-accent` | `#7A5E12` | `#C9A227` | Brass. Primary action, price, brand marks |
-| `--color-accent-hover` | `accent-hover` | `#5E480C` | `#E0B946` | Hover fill only |
-| `--color-on-accent` | `text-on-accent` | `#FFFFFF` | `#0B0B0C` | What sits on an accent fill. Never hardcode `text-white` on `bg-accent` |
-| `--color-sale` | `text-sale`, `border-sale` | `#B1142C` | `#FF5A6B` | Sale and urgency **text** (AA-safe) |
-| `--color-sale-bright` | `bg-sale-bright` | `#C8102E` | `#FF5A6B` | Solid discount flags over photos, always with `text-on-sale` |
-| `--color-on-sale` | `text-on-sale` | `#FFFFFF` | `#0B0B0C` | What sits on a sale fill |
-| `--color-sale-bg` | `bg-sale-soft` | `#FAE2E6` | `#3D1016` | Soft sale ground: panels and notices, not flags |
-| `--color-ink-fixed` | `text-ink-fixed` | `#111112` | `#111112` | The one text colour that does **not** invert. Use it on any bright fill, where every other text token flips and fails in one theme. |
-| `--color-pitch` | `text-pitch`, `border-pitch` | `#1F3D2B` | `#8FD0A6` | In stock, delivered, success |
-| `--color-bg-primary` | `bg-primary` | `#F0EFEC` | `#0B0B0C` | Page ground |
-| `--color-bg-secondary` | `bg-secondary` | `#E7E6E2` | `#141416` | Alternating bands |
-| `--color-bg-card` | `bg-card` | `#FFFFFF` | `#141416` | Cards, panels |
-| `--color-bg-inverse` | `bg-inverse` | `#0B0B0C` | `#F3F1EC` | Outlines, hard shadows, small inverted chips |
-| `--color-band` | `.band` (class, not a utility) | `#0B0B0C` | `#18181B` | Full-width inverted panels: announcement bar, footer, offer strip |
-| `--color-text-primary` | `text-primary` | `#111112` | `#F3F1EC` | Body and headings |
-| `--color-text-tertiary` | `text-tertiary` | `#545458` | `#A09D96` | Secondary labels |
-| `--color-text-muted` | `text-muted` | `#656569` | `#908E88` | De-emphasised text |
-| `--color-border-primary` | `border-border-primary` | `#CECDC8` | `#2A2A2E` | Hairlines |
+| `--color-accent` | `accent`, `text-accent`, `bg-accent` | `#BE0D2A` | `#FF6A7A` | Flag crimson. Primary action, price, brand marks |
+| `--color-accent-hover` | `accent-hover` | `#A00A23` | `#FF8B98` | Hover fill only |
+| `--color-on-accent` | `text-on-accent` | `#FFFFFF` | `#111E33` | What sits on an accent fill. Never hardcode `text-white` on `bg-accent` |
+| `--color-sale` | `text-sale`, `border-sale` | `#13213A` | `#C6D0E0` | Discount tag text |
+| `--color-sale-bright` | `bg-sale-bright` | `#13213A` | `#EEF2F8` | Solid discount flags over photos, always with `text-on-sale` |
+| `--color-on-sale` | `text-on-sale` | `#FFFFFF` | `#111E33` | What sits on a sale fill |
+| `--color-sale-bg` | `bg-sale-soft` | `#DCE3EC` | `#1C2C47` | Soft ground for notices, not flags |
+| `--color-ink-fixed` | `text-ink-fixed` | `#13213A` | `#13213A` | The one text colour that does **not** invert. Use it on any bright fill, where every other text token flips and fails in one theme. |
+| `--color-pitch` | `text-pitch`, `border-pitch` | `#155538` | `#8FD0A6` | In stock, delivered, success |
+| `--color-bg-primary` | `bg-primary` | `#E8EBEF` | `#111E33` | Page ground |
+| `--color-bg-secondary` | `bg-secondary` | `#DCE1E8` | `#18263E` | Alternating bands |
+| `--color-bg-card` | `bg-card` | `#FFFFFF` | `#18263E` | Cards, panels |
+| `--color-bg-inverse` | `bg-inverse` | `#13213A` | `#EEF2F8` | Outlines, hard shadows, small inverted chips |
+| `--color-band` | `.band` (class, not a utility) | `#13213A` | `#1C2C47` | Full-width inverted panels: announcement bar, footer, offer strip |
+| `--color-text-primary` | `text-primary` | `#13213A` | `#EEF2F8` | Body and headings |
+| `--color-text-tertiary` | `text-tertiary` | `#4C586E` | `#A0ADC2` | Secondary labels |
+| `--color-text-muted` | `text-muted` | `#586374` | `#96A3BA` | De-emphasised text |
+| `--color-border-primary` | `border-border-primary` | `#C2CAD6` | `#2A3A55` | Hairlines |
 
-**The ground is neutral on purpose.** Every boot, jersey and trophy in the catalogue is
-loud, so the page is quiet and the photographs carry all the colour. A tinted ground — the
-green this system used before, or a navy, or an oxblood — casts its own hue over every
-product shot and competes with the thing being sold.
+**White cards on a tinted page.** The ground is a cool pale blue-grey and the cards are pure
+white. That difference is the whole point: the previous near-white page put white cards on
+an almost-white ground, so nothing had an edge and the page read flat. Keep card surfaces
+white and let the page carry the tint.
 
-**Brass is the accent, crimson is the sale colour, and they never swap jobs.** Brass means
-"you can act on this": buttons, prices, the brand mark, the rule under the headline. Crimson
-means "this is a discount or something urgent". If a discount ever looks like a button, the
-palette has been misused.
+**Crimson is the action colour; a discount is a dark tag.** Crimson means "you can act on
+this": buttons, price, the brand mark, the rule under the headline. A discount flag is navy
+with white text — a printed price sticker, not a second red control. If a discount ever
+looks like a button, the palette has been misused.
 
-**Dark is the default theme.** A first-time visitor gets graphite; the toggle is still there
+**Light is the default theme.** A first-time visitor gets slate; the toggle is still there
 and a choice is remembered in `localStorage` under `bsh-theme`. The pre-paint script in
-`index.html` and `ThemeContext.tsx` must agree on this default.
+`index.html` and `ThemeContext.tsx` must agree on this default. Dark is the same palette
+after dark — the ground is the light theme's ink — and it is not the design target: the
+palette was chosen and is reviewed on light.
 
 **A band is not the page inverted.** `.band` (see `index.css`) is the full-width panel used
 by the announcement bar, the footer and the offer strip. It re-points `--color-bg-inverse`
 and `--color-text-inverse` for its subtree, so children that already use `text-inverse` or
-`border-inverse` keep working. In the dark theme a band is a raised graphite slab, never
-paper: a white panel would be the brightest thing on a page whose job is to show boots.
+`border-inverse` keep working.
 
 **Every text token in this table clears WCAG AA (4.5:1) against page, card and band grounds
 in both themes.** The ratios were computed, not eyeballed. If you introduce a new colour,
 compute it before shipping; a value that only passes in one theme is a bug.
 
 **Semantic colour is separate from the accent.** Stock and delivery success use pitch;
-discounts, errors and anything urgent use sale crimson; the brass accent only ever means
-"you can act on this". Do not use the accent to mean "good".
+discounts use the dark sale tag; the crimson accent only ever means "you can act on this".
+Do not use the accent to mean "good".
 
 ---
 
@@ -169,7 +170,7 @@ The box is an interactive control, so its hit area is **at least 44x44px** (WCAG
 it `min-w-[44px] min-h-[44px]` and centre the glyph; the visible border may sit inside that
 area but the tappable region may not shrink below it.
 
-**Chips.** 11px uppercase, 1.5px border. Stock count in pitch, discounts in sale on
+**Chips.** 11px uppercase, 1.5px border. Stock count in pitch, discounts in the sale tag on
 `bg-sale-soft`, everything else neutral. COD and delivery time belong on the card, not
 three clicks deep.
 

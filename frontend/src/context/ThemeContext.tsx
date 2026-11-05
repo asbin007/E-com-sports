@@ -21,8 +21,8 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
     const saved = localStorage.getItem("bsh-theme");
     if (saved === "light" || saved === "dark") return saved;
-    // Same default as the pre-paint script in index.html: dark unless chosen.
-    return "dark";
+    // Same default as the pre-paint script in index.html: light unless chosen.
+    return "light";
   });
 
   useEffect(() => {

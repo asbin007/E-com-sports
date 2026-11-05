@@ -163,8 +163,8 @@ const Hero = () => {
         className="pointer-events-none absolute inset-0 z-0"
         style={{
           background:
-            "radial-gradient(900px 420px at 18% 4%, rgb(var(--color-accent) / 0.14) 0%, transparent 62%)," +
-            "radial-gradient(760px 400px at 84% 0%, rgb(var(--color-text-primary) / 0.07) 0%, transparent 60%)",
+            "radial-gradient(900px 420px at 18% 4%, rgb(var(--color-accent) / 0.07) 0%, transparent 62%)," +
+            "radial-gradient(760px 400px at 84% 0%, rgb(var(--color-text-primary) / 0.06) 0%, transparent 60%)",
         }}
         initial={{ opacity: reduce ? 1 : 0 }}
         animate={{ opacity: 1 }}

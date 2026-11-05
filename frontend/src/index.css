@@ -4,103 +4,100 @@
 
 /* ===== KIT ROOM — BROTHERS SPORTS HOUSE =====
    Design system source of truth: frontend/MASTER.md
-   Dark (graphite and brass) is the default theme; light paper is the
-   alternative. The ground is neutral on purpose, the accent is brass, and
-   crimson is reserved for sale and urgency. */
+   Slate and navy. Light is the default theme and deep navy is the same
+   palette after dark. Crimson is the action colour; a discount is a dark
+   printed tag, never a second red control. */
 @layer base {
   :root {
-    /* Light — paper. The secondary theme; dark is the default. */
-    --color-bg-primary: 240 239 236;
-    --color-bg-secondary: 231 230 226;
-    --color-bg-tertiary: 221 220 215;
+    /* Light — slate and navy. The default theme.
+       A cool pale blue-grey page with pure white cards: the cards lift off
+       the ground instead of blending into it, which is what made the old
+       near-white page read flat. Navy is the ink, crimson is the action. */
+    --color-bg-primary: 232 235 239;
+    --color-bg-secondary: 220 225 232;
+    --color-bg-tertiary: 208 215 224;
     --color-bg-card: 255 255 255;
     --color-bg-elevated: 255 255 255;
-    --color-bg-inverse: 11 11 12;
+    --color-bg-inverse: 19 33 58;
 
-    --color-text-primary: 17 17 18;
-    --color-text-secondary: 61 61 64;
-    --color-text-tertiary: 84 84 88;
-    --color-text-muted: 101 101 105;
-    --color-text-inverse: 243 241 236;
+    --color-text-primary: 19 33 58;
+    --color-text-secondary: 46 62 90;
+    --color-text-tertiary: 76 88 110;
+    /* AA on the secondary band, which is the darkest light ground. */
+    --color-text-muted: 88 99 116;
+    --color-text-inverse: 241 244 248;
 
-    --color-border-primary: 206 205 200;
-    --color-border-secondary: 223 222 218;
+    --color-border-primary: 194 202 214;
+    --color-border-secondary: 214 220 229;
 
-    /* Brass. On paper the text-safe value is a deeper bronze; the fill stays
-       bright brass and always carries `text-on-accent`. */
-    --color-accent: 122 94 18;
-    --color-accent-hover: 94 72 12;
-    --color-accent-light: 245 237 214;
+    /* Flag crimson, a shade deeper so accent text clears AA on the band. */
+    --color-accent: 190 13 42;
+    --color-accent-hover: 160 10 35;
+    --color-accent-light: 250 226 230;
     --color-on-accent: 255 255 255;
 
-    /* Sale and urgency. Deliberately not the accent: a discount must not look
-       like a button, and a button must not look like a discount. */
-    --color-sale: 177 20 44;
-    /* Decorative fill only — a discount flag over a photo has to punch, so it
-       is a solid fill with `text-on-sale` on top, never a soft chip. */
-    --color-sale-bright: 200 16 46;
+    /* The discount tag is navy, not red: on this palette the accent already
+       means "you can act on this", and a red tag next to a red button makes
+       a discount look like a control. A dark printed tag reads as a price
+       sticker, which is what it is. */
+    --color-sale: 19 33 58;
+    --color-sale-bright: 19 33 58;
     --color-on-sale: 255 255 255;
-    --color-sale-bg: 250 226 230;
-    --color-pitch: 31 61 43;
+    --color-sale-bg: 220 227 236;
+    --color-pitch: 21 85 56;
 
     /* Ink that does NOT flip with the theme. The only safe text colour on a
-       bright fill (sale flags, brass chips), which stays bright in both
-       themes while every other text token inverts. */
-    --color-ink-fixed: 17 17 18;
+       bright fill, which stays bright in both themes while every other text
+       token inverts. */
+    --color-ink-fixed: 19 33 58;
 
     /* A "band" is a full-width panel that inverts against the page — the
        announcement bar, the footer, the offer strip. */
-    --color-band: 11 11 12;
-    --color-band-text: 243 241 236;
+    --color-band: 19 33 58;
+    --color-band-text: 241 244 248;
 
-    --color-surface-hover: 231 230 226;
-    --color-overlay: 11 11 12;
+    --color-surface-hover: 220 225 232;
+    --color-overlay: 19 33 58;
   }
 
   .dark {
-    /* Dark — graphite and brass. The default theme.
-       The ground is a NEUTRAL near-black, not a tinted one: every boot and
-       jersey in the catalogue is loud, so the page stays quiet and the photos
-       carry all the colour. Brass is the one accent; it is the only premium
-       metal that collides with none of the product photography. */
-    --color-bg-primary: 11 11 12;
-    --color-bg-secondary: 20 20 22;
-    --color-bg-tertiary: 26 26 29;
-    --color-bg-card: 20 20 22;
-    --color-bg-elevated: 26 26 29;
-    --color-bg-inverse: 243 241 236;
+    /* Dark — deep navy. The same palette after dark, not a different one:
+       the ground is the light theme's ink, the tag flips to a bright sticker
+       and the accent stays crimson. */
+    --color-bg-primary: 17 30 51;
+    --color-bg-secondary: 24 38 62;
+    --color-bg-tertiary: 32 48 75;
+    --color-bg-card: 24 38 62;
+    --color-bg-elevated: 32 48 75;
+    --color-bg-inverse: 238 242 248;
 
-    --color-text-primary: 243 241 236;
-    --color-text-secondary: 200 197 190;
-    --color-text-tertiary: 160 157 150;
-    /* AA on the card, which is the darkest ground muted text sits on. */
-    --color-text-muted: 144 142 136;
-    --color-text-inverse: 11 11 12;
+    --color-text-primary: 238 242 248;
+    --color-text-secondary: 198 208 224;
+    --color-text-tertiary: 160 173 194;
+    --color-text-muted: 150 163 186;
+    --color-text-inverse: 17 30 51;
 
-    --color-border-primary: 42 42 46;
-    --color-border-secondary: 32 32 35;
+    --color-border-primary: 42 58 85;
+    --color-border-secondary: 33 48 72;
 
-    --color-accent: 201 162 39;
-    --color-accent-hover: 224 185 70;
-    --color-accent-light: 58 46 10;
-    /* Brass is a bright fill, so what sits on it is graphite, not white. */
-    --color-on-accent: 11 11 12;
+    --color-accent: 255 106 122;
+    --color-accent-hover: 255 139 152;
+    --color-accent-light: 61 18 25;
+    --color-on-accent: 17 30 51;
 
-    --color-sale: 255 90 107;
-    --color-sale-bright: 255 90 107;
-    --color-on-sale: 11 11 12;
-    --color-sale-bg: 61 16 22;
+    --color-sale: 198 208 224;
+    --color-sale-bright: 238 242 248;
+    --color-on-sale: 17 30 51;
+    --color-sale-bg: 28 44 71;
     --color-pitch: 143 208 166;
 
     /* Deliberately NOT inverted — see the light-theme note. */
-    --color-ink-fixed: 17 17 18;
+    --color-ink-fixed: 19 33 58;
 
-    /* A band is a raised graphite slab, never paper: a white panel would be
-       the brightest thing on a page whose job is to show boots. */
-    --color-band: 24 24 27;
-    --color-band-text: 243 241 236;
+    --color-band: 28 44 71;
+    --color-band-text: 238 242 248;
 
-    --color-surface-hover: 26 26 29;
+    --color-surface-hover: 32 48 75;
     --color-overlay: 0 0 0;
   }
 }
