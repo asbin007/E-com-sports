@@ -391,8 +391,40 @@ class ProductController {
         ));
       }
 
+      // Replace the gallery outright when the caller sends imageUrls.
+      // Uploading only ever appended, so there was no way to change a product's
+      // main photo once it had one — an admin could add pictures but never fix
+      // a wrong one. Sending imageUrls: [] clears the gallery.
+      let replacedImages = false;
+      if (req.body.imageUrls !== undefined) {
+        let urls: unknown;
+        try {
+          urls = typeof req.body.imageUrls === "string" ? JSON.parse(req.body.imageUrls) : req.body.imageUrls;
+        } catch {
+          await transaction.rollback();
+          res.status(400).json({ message: "imageUrls must be a JSON array of URLs" });
+          return;
+        }
+        if (!Array.isArray(urls) || urls.some((u) => typeof u !== "string" || !/^https?:\/\//i.test(u))) {
+          await transaction.rollback();
+          res.status(400).json({ message: "imageUrls must be an array of http(s) URLs" });
+          return;
+        }
+
+        await ProductImage.destroy({ where: { productId: product.id }, transaction });
+        await Promise.all((urls as string[]).map((url, index) =>
+          ProductImage.create({
+            productId: product.id,
+            url,
+            isThumbnail: index === 0,
+            sortOrder: index,
+          }, { transaction })
+        ));
+        replacedImages = true;
+      }
+
       // Append new images
-      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      if (!replacedImages && req.files && Array.isArray(req.files) && req.files.length > 0) {
         const currentImages = await ProductImage.findAll({ where: { productId: product.id } });
         const startSortOrder = currentImages.length;
         await Promise.all((req.files as Express.Multer.File[]).map((file, index) =>
