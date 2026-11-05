@@ -19,6 +19,9 @@ services:
         value: 15m
       - key: JWT_REFRESH_EXPIRE_IN
         value: 7d
+      # Render adds 3 proxies and the Vercel rewrite adds 1.
+      - key: TRUST_PROXY_HOPS
+        value: "4"
       - key: DB_URL
         sync: false
       - key: JWT_SECRET_KEY

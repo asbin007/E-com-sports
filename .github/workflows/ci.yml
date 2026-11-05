@@ -30,6 +30,12 @@ jobs:
         env:
           DB_URL: postgres://ci:ci@127.0.0.1:1/ci
           JWT_SECRET_KEY: ci
+          GOOGLE_CLIENT_ID: ci
+          GOOGLE_CLIENT_SECRET: ci
+          RESEND_API: ci
+          CLOUDINARY_CLOUD_NAME: ci
+          CLOUDINARY_API_KEY: ci
+          CLOUDINARY_API_SECRET: ci
 
   web:
     name: ${{ matrix.app }} (typecheck + lint + build)
