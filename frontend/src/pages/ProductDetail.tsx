@@ -346,7 +346,7 @@ const ProductDetail = () => {
                   transition={{ duration: 0.16 }}
                   src={images[currentImageIndex] || NO_IMAGE_PLACEHOLDER}
                   alt={product.name}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full bg-white object-contain"
                 />
               </AnimatePresence>
 
@@ -405,7 +405,7 @@ const ProductDetail = () => {
                     <img
                       src={img}
                       alt={`${product.name} — view ${idx + 1}`}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full bg-white object-contain"
                     />
                   </button>
                 ))}

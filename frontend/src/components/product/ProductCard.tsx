@@ -188,7 +188,9 @@ const ProductCard = ({ product, index = 0 }: ProductCardProps) => {
         <img
           src={resolveImageUrl(product)}
           alt={product.name}
-          className={cn("h-full w-full object-cover", soldOut && "opacity-50 grayscale")}
+          // The catalogue images are square product shots padded on white, so they
+          // are fitted, not cropped: `cover` cut the boots and bags in half.
+          className={cn("h-full w-full bg-white object-contain", soldOut && "opacity-50 grayscale")}
         />
 
         <div className="absolute left-2 top-2 z-10">

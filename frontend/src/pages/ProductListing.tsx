@@ -514,7 +514,7 @@ const ProductListing = () => {
                                     }
                                   }}
                                   className={cn(
-                                    "h-full w-full object-cover",
+                                    "h-full w-full bg-white object-contain",
                                     soldOut && "opacity-50 grayscale"
                                   )}
                                 />
