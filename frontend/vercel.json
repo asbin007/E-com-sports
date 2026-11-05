@@ -1,3 +1,6 @@
 {
-  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/v1/:path*", "destination": "https://brothers-sports-api.onrender.com/api/v1/:path*" },
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ]
 }

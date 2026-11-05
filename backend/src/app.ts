@@ -27,6 +27,13 @@ import sportRoute from "./routes/sportRoute.js";
 
 const app = express();
 
+// Hosts put proxies in front of the app. Without this every visitor has the
+// proxy's IP and they all share one rate-limit bucket. The hop count depends on
+// the host: raise it until /api/ping reports the caller's own address.
+// ponytail: a caller reaching the API directly can spoof X-Forwarded-For and
+// dodge the limiter; lock the origin to the proxy if that ever matters.
+app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS ?? 1));
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP — managed by frontend/reverse proxy in production
@@ -95,6 +102,7 @@ app.get("/api/ping", (req, res) => {
   res.status(200).json({
     status: "ok",
     timestamp: new Date().toISOString(),
+    ip: req.ip,
   });
 });
 

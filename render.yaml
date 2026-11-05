@@ -1,10 +1,13 @@
 services:
   - type: web
-    name: bsh-backend
+    name: brothers-sports-api
     runtime: node
     plan: free
+    # Same region as the Neon database.
+    region: singapore
     rootDir: backend
-    buildCommand: npm ci && npm run build
+    # NODE_ENV=production makes npm skip devDependencies, and tsc lives there.
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -12,17 +15,15 @@ services:
         value: "22"
       - key: NODE_ENV
         value: production
-      - key: COOKIE_SAMESITE
-        value: none
+      - key: JWT_EXPIRE_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRE_IN
+        value: 7d
       - key: DB_URL
         sync: false
       - key: JWT_SECRET_KEY
         sync: false
       - key: JWT_REFRESH_SECRET
-        sync: false
-      - key: JWT_EXPIRE_IN
-        sync: false
-      - key: JWT_REFRESH_EXPIRE_IN
         sync: false
       - key: FRONTEND_URL
         sync: false
@@ -38,8 +39,6 @@ services:
         sync: false
       - key: ADMIN_EMAIL
         sync: false
-      - key: ADMIN_PASSWORD
-        sync: false
       - key: ADMIN_USERNAME
         sync: false
       - key: CLOUDINARY_CLOUD_NAME
@@ -49,4 +48,21 @@ services:
       - key: CLOUDINARY_API_SECRET
         sync: false
       - key: WHATSAPP_NUMBER
+        sync: false
+      # Checkout shows placeholder account numbers when these are missing.
+      - key: ESEWA_ENABLED
+        sync: false
+      - key: ESEWA_ACCOUNT_NAME
+        sync: false
+      - key: ESEWA_ACCOUNT_NUMBER
+        sync: false
+      - key: KHALTI_ENABLED
+        sync: false
+      - key: KHALTI_ACCOUNT_NAME
+        sync: false
+      - key: KHALTI_ACCOUNT_NUMBER
+        sync: false
+      - key: BANK_ENABLED
+        sync: false
+      - key: COD_ENABLED
         sync: false
