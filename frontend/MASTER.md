@@ -40,17 +40,30 @@ Tailwind mappings in `tailwind.config.js`. Never write a hex value in a componen
 | `--color-ink-fixed` | `text-ink-fixed` | `#16180F` | `#16180F` | The one text colour that does **not** invert. Use it on any bright fill, where every other text token flips and fails in one theme. |
 | `--color-marigold-bg` | `bg-marigold-soft` | `#F6D99B` | `#4A3708` | Offer chip ground |
 | `--color-pitch` | `text-pitch`, `border-pitch` | `#1F3D2B` | `#8FD0A6` | In stock, delivered, success |
-| `--color-bg-primary` | `bg-primary` | `#EEEFEA` | `#11130E` | Page ground |
-| `--color-bg-secondary` | `bg-secondary` | `#E4E6DF` | `#1A1D16` | Alternating bands |
-| `--color-bg-card` | `bg-card` | `#FFFFFF` | `#1A1D16` | Cards, panels |
-| `--color-bg-inverse` | `bg-inverse` | `#16180F` | `#EDEFE6` | Inverted bands, footer |
-| `--color-text-primary` | `text-primary` | `#16180F` | `#EDEFE6` | Body and headings |
-| `--color-text-tertiary` | `text-tertiary` | `#4F5548` | `#8E9482` | Secondary labels |
-| `--color-text-muted` | `text-muted` | `#64685C` | `#818678` | De-emphasised text |
-| `--color-border-primary` | `border-border-primary` | `#CFD3C6` | `#2E3327` | Hairlines |
+| `--color-bg-primary` | `bg-primary` | `#EEEFEA` | `#0E1A14` | Page ground |
+| `--color-bg-secondary` | `bg-secondary` | `#E4E6DF` | `#13241B` | Alternating bands |
+| `--color-bg-card` | `bg-card` | `#FFFFFF` | `#13241B` | Cards, panels |
+| `--color-bg-inverse` | `bg-inverse` | `#16180F` | `#EDEFE6` | Outlines, hard shadows, small inverted chips |
+| `--color-band` | `.band` (class, not a utility) | `#16180F` | `#1A3024` | Full-width inverted panels: announcement bar, footer, offer strip |
+| `--color-text-primary` | `text-primary` | `#16180F` | `#F2F5EE` | Body and headings |
+| `--color-text-tertiary` | `text-tertiary` | `#4F5548` | `#93A399` | Secondary labels |
+| `--color-text-muted` | `text-muted` | `#64685C` | `#898E80` | De-emphasised text |
+| `--color-border-primary` | `border-border-primary` | `#CFD3C6` | `#2A3D32` | Hairlines |
 
 Neutrals are biased green toward a pitch. Nothing in the palette is a pure grey, and the
 accent is the flag crimson, not Tailwind's stock orange.
+
+**Dark is the default theme.** A first-time visitor gets the floodlit pitch; the toggle is
+still there and a choice is remembered in `localStorage` under `bsh-theme`. The reason is the
+catalogue: every product photo is shot under shop light against a pale wall, and on a pale
+page the photos and the page fight. On the dark ground the photos are the only bright thing.
+The pre-paint script in `index.html` and `ThemeContext.tsx` must agree on this default.
+
+**A band is not the page inverted.** `.band` (see `index.css`) is the full-width panel used
+by the announcement bar, the footer and the offer strip. It re-points `--color-bg-inverse`
+and `--color-text-inverse` for its subtree, so children that already use `text-inverse` or
+`border-inverse` keep working. In the dark theme a band is a raised pitch green, never paper:
+a white slab would be the brightest thing on a page whose job is to show boots.
 
 **Every text token in this table clears WCAG AA (4.5:1) against page, card and band grounds
 in both themes.** The ratios were computed, not eyeballed. If you introduce a new colour,
@@ -108,8 +121,13 @@ card title `text-[29px]`.
   returns to `translate(0,0)` with no shadow.
 - Scroll reveal: 160ms fade, at most 12px of travel, 40ms stagger, and the element's resting
   state is visible - never leave anything at `opacity:0` waiting for an observer.
+- **The hero entrance is the one exception to the 300ms ceiling.** It plays once per page
+  load, so it gets a real choreography: floodlight up over 620ms, headline lines rising out
+  from under a mask at 420ms each 70ms apart, one 820ms pass of light across the section, and
+  the deal card settling at 420ms. Nothing in it repeats, and the chain is finished inside
+  1.1s. The ceiling still binds everything a visitor triggers more than once.
 - Banned: bounce, elastic, spring overshoot, parallax, infinite float, infinite pulse-glow,
-  marquees that run forever, anything over 300ms.
+  marquees that run forever, and anything over 300ms outside the hero entrance.
 - Every animation respects `prefers-reduced-motion`.
 
 ## Accessibility floor

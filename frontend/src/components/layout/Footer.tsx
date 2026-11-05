@@ -43,7 +43,7 @@ const Footer = () => {
 
   return (
     /* Ink ground under a 3px rule — no blur blob, no glow. */
-    <footer className="border-t-[3px] border-accent bg-inverse text-inverse">
+    <footer className="band border-t-[3px] border-accent">
       <div className="mx-auto max-w-[1440px] px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4 lg:gap-16">
           {/* Brand Column */}

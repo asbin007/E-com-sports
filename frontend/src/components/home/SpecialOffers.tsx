@@ -110,7 +110,7 @@ const SpecialOffers = ({
   // instead of quietly dropping a whole band out of the homepage.
   if (failed) {
     return (
-      <section className="bg-inverse py-16 text-inverse">
+      <section className="band py-16">
         <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
           {eyebrow("Most ordered, last 30 days")}
           {heading}
@@ -146,7 +146,7 @@ const SpecialOffers = ({
   const currentPrice = current.price || current.variants?.[0]?.price || 0;
 
   return (
-    <section className="overflow-hidden bg-inverse py-16 text-inverse">
+    <section className="band overflow-hidden py-16">
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-10 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">

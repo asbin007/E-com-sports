@@ -42,25 +42,59 @@ const TRUST = [
 ] as const;
 
 /**
- * Above-the-fold content must not wait on the animation: the resting state is
- * visible and the whole entrance chain is a 160ms fade with a 40ms stagger. It
- * collapses to nothing when the visitor has asked for reduced motion
- * (framer-motion's `useReducedMotion` reads `prefers-reduced-motion`).
+ * "Kick-off sweep": the floodlight comes up, one pass of light crosses the
+ * headline, and the headline lines rise out from under a mask so the type is
+ * cut by a line rather than faded in. Everything animates transform and
+ * opacity only, plays once, and never loops.
+ *
+ * Each element takes its own delay through framer-motion's `custom` prop
+ * instead of a blanket stagger, because the chain is not evenly spaced. Every
+ * delay below is in seconds and matches the validated timing.
+ *
+ * When the visitor has asked for reduced motion the whole chain collapses to
+ * the resting state with no transition — the content is never withheld.
  */
 const buildContainerVariants = (reduce: boolean): Variants => ({
   hidden: { opacity: reduce ? 1 : 0 },
-  visible: {
+  visible: { opacity: 1, transition: { duration: reduce ? 0 : 0.2 } },
+});
+
+/** Fades up 12px. `custom` is the delay in seconds. */
+const buildItemVariants = (reduce: boolean): Variants => ({
+  hidden: { opacity: reduce ? 1 : 0, y: reduce ? 0 : 12 },
+  visible: (delay = 0) => ({
     opacity: 1,
-    transition: reduce ? { duration: 0 } : { staggerChildren: 0.04 },
+    y: 0,
+    transition: { duration: reduce ? 0 : 0.3, delay: reduce ? 0 : delay, ease: EASE_SNAP },
+  }),
+});
+
+/** A headline line sliding up inside an `overflow-hidden` wrapper. */
+const buildLineVariants = (reduce: boolean): Variants => ({
+  hidden: { y: reduce ? "0%" : "110%" },
+  visible: (delay = 0) => ({
+    y: "0%",
+    transition: { duration: reduce ? 0 : 0.42, delay: reduce ? 0 : delay, ease: EASE_SNAP },
+  }),
+});
+
+/** The accent rule under the Nepali line draws out from the left. */
+const buildRuleVariants = (reduce: boolean): Variants => ({
+  hidden: { scaleX: reduce ? 1 : 0 },
+  visible: {
+    scaleX: 1,
+    transition: { duration: reduce ? 0 : 0.36, delay: reduce ? 0 : 0.34, ease: EASE_SNAP },
   },
 });
 
-const buildItemVariants = (reduce: boolean): Variants => ({
-  hidden: { opacity: reduce ? 1 : 0, y: reduce ? 0 : 12 },
+/** Today's deal settles in rather than sliding: 18px rise plus a 0.97 scale. */
+const buildCardVariants = (reduce: boolean): Variants => ({
+  hidden: { opacity: reduce ? 1 : 0, y: reduce ? 0 : 18, scale: reduce ? 1 : 0.97 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: reduce ? 0 : 0.16, ease: EASE_SNAP },
+    scale: 1,
+    transition: { duration: reduce ? 0 : 0.42, delay: reduce ? 0 : 0.3, ease: EASE_SNAP },
   },
 });
 
@@ -82,6 +116,9 @@ const Hero = () => {
   const reduce = prefersReducedMotion === true;
   const containerVariants = buildContainerVariants(reduce);
   const itemVariants = buildItemVariants(reduce);
+  const lineVariants = buildLineVariants(reduce);
+  const ruleVariants = buildRuleVariants(reduce);
+  const cardVariants = buildCardVariants(reduce);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,33 +154,85 @@ const Hero = () => {
       : 0;
 
   return (
-    <section className="bg-primary border-b-[3px] border-inverse">
-      <div className="mx-auto max-w-[1440px] px-4 pb-12 pt-10 sm:px-6 lg:px-8">
+    <section className="relative overflow-hidden bg-primary border-b-[3px] border-inverse">
+      {/* The floodlight. Two soft pools, drawn from the theme tokens so it
+          tints paper as well as the dark ground, and brought up on opacity
+          alone — no blur filter, no repaint per frame. */}
+      <motion.div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          background:
+            "radial-gradient(900px 420px at 18% 4%, rgb(var(--color-pitch) / 0.16) 0%, transparent 62%)," +
+            "radial-gradient(700px 380px at 84% 0%, rgb(var(--color-accent) / 0.12) 0%, transparent 60%)",
+        }}
+        initial={{ opacity: reduce ? 1 : 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: reduce ? 0 : 0.62, ease: EASE_SNAP }}
+      />
+
+      {/* One pass of light across the headline, then it is gone for the rest
+          of the session. Nothing here loops. */}
+      {!reduce && (
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-[1]"
+          style={{
+            background:
+              "linear-gradient(100deg, transparent 38%, rgb(var(--color-text-primary) / 0.08) 50%, transparent 62%)",
+          }}
+          initial={{ x: "-100%", opacity: 1 }}
+          animate={{ x: "100%", opacity: 0 }}
+          transition={{
+            x: { duration: 0.82, delay: 0.22, ease: "linear" },
+            opacity: { duration: 0.16, delay: 1.04 },
+          }}
+        />
+      )}
+
+      <div className="relative z-[2] mx-auto max-w-[1440px] px-4 pb-12 pt-10 sm:px-6 lg:px-8">
         <motion.div variants={containerVariants} initial="hidden" animate="visible">
-          <motion.p variants={itemVariants} className="eyebrow">
+          <motion.p variants={itemVariants} custom={0.06} className="eyebrow">
             Brothers Sports House · Kit room
           </motion.p>
 
-          {/* The thesis statement: one oversized Teko line, no gradient, no glow. */}
-          <motion.h1
-            variants={itemVariants}
+          {/* The thesis statement: one oversized Teko line, no gradient, no
+              glow. Each line sits in its own clipping wrapper so it can rise
+              out from under the line above it. */}
+          <h1
             className="mt-4 font-display font-bold uppercase leading-[0.92] text-primary"
             style={{ fontSize: "clamp(56px,13vw,128px)" }}
           >
-            Boots, kits &amp; trophies
-          </motion.h1>
+            <span className="block overflow-hidden">
+              <motion.span variants={lineVariants} custom={0.12} className="block">
+                Boots, kits
+              </motion.span>
+            </span>
+            <span className="block overflow-hidden">
+              <motion.span variants={lineVariants} custom={0.19} className="block">
+                &amp; trophies
+              </motion.span>
+            </span>
+          </h1>
 
           <motion.p
             variants={itemVariants}
+            custom={0.3}
             className="mt-2 font-display font-semibold leading-none text-accent"
             style={{ fontSize: "clamp(24px,5vw,44px)" }}
           >
             खेलका सामान, घरसम्म
           </motion.p>
 
+          <motion.div
+            aria-hidden="true"
+            variants={ruleVariants}
+            className="mt-3 h-[3px] w-[min(340px,70%)] origin-left bg-accent"
+          />
+
           <div className="mt-10 grid gap-10 lg:grid-cols-12 lg:items-start">
             {/* LEFT: what we stock, the trust row, the two ways in */}
-            <motion.div variants={itemVariants} className="lg:col-span-7">
+            <motion.div variants={itemVariants} custom={0.38} className="lg:col-span-7">
               <p className="max-w-[62ch] text-base leading-relaxed text-secondary">
                 Football boots in UK sizes, club jerseys by season, plain team kits,
                 Kelme match and training balls in sizes 3, 4 and 5, plus trophies,
@@ -180,7 +269,7 @@ const Hero = () => {
             </motion.div>
 
             {/* RIGHT: today's deal, straight off /recommendations/on-sale */}
-            <motion.div variants={itemVariants} className="lg:col-span-5">
+            <motion.div variants={cardVariants} className="lg:col-span-5">
               {featured ? (
                 <button
                   type="button"

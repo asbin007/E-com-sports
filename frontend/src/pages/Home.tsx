@@ -126,7 +126,7 @@ const CTABanner = () => {
   const navigate = useNavigate();
   const reduce = useReducedMotion();
   return (
-    <section className="bg-inverse py-16 text-inverse">
+    <section className="band py-16">
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
         <motion.div
           // Mount-driven: nothing below the fold waits on an observer.

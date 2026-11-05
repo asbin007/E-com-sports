@@ -45,27 +45,35 @@
        themes while every other text token inverts. */
     --color-ink-fixed: 22 24 15;
 
+    /* A "band" is a full-width panel that inverts against the page — the
+       announcement bar, the footer, the offer strip. */
+    --color-band: 22 24 15;
+    --color-band-text: 238 239 234;
+
     --color-surface-hover: 228 230 223;
     --color-overlay: 22 24 15;
   }
 
   .dark {
-    /* Dark — floodlit pitch at night */
-    --color-bg-primary: 17 19 14;
-    --color-bg-secondary: 26 29 22;
-    --color-bg-tertiary: 35 39 29;
-    --color-bg-card: 26 29 22;
-    --color-bg-elevated: 35 39 29;
+    /* Dark — floodlit pitch at night. The neutrals carry more green than the
+       old near-black did: on a page of boots and kits the photos are the only
+       bright thing, and a flat charcoal made them look like cut-outs. */
+    --color-bg-primary: 14 26 20;
+    --color-bg-secondary: 19 36 27;
+    --color-bg-tertiary: 26 48 36;
+    --color-bg-card: 19 36 27;
+    --color-bg-elevated: 26 48 36;
     --color-bg-inverse: 237 239 230;
 
-    --color-text-primary: 237 239 230;
-    --color-text-secondary: 195 200 184;
-    --color-text-tertiary: 142 148 130;
-    --color-text-muted: 129 134 120;
-    --color-text-inverse: 17 19 14;
+    --color-text-primary: 242 245 238;
+    --color-text-secondary: 194 205 196;
+    --color-text-tertiary: 147 163 153;
+    /* 4.8:1 on the card, which is the darkest ground muted text sits on. */
+    --color-text-muted: 137 142 128;
+    --color-text-inverse: 14 26 20;
 
-    --color-border-primary: 46 51 39;
-    --color-border-secondary: 35 39 29;
+    --color-border-primary: 42 61 50;
+    --color-border-secondary: 30 46 37;
 
     --color-accent: 255 83 102;
     --color-accent-hover: 255 120 134;
@@ -79,8 +87,25 @@
     /* Deliberately NOT inverted — see the light-theme note. */
     --color-ink-fixed: 22 24 15;
 
-    --color-surface-hover: 35 39 29;
+    /* In the dark theme a band must NOT be the paper colour: a white slab
+       would be the brightest thing on a page whose job is to show product
+       photos. It is a raised pitch green instead. */
+    --color-band: 26 48 36;
+    --color-band-text: 242 245 238;
+
+    --color-surface-hover: 26 48 36;
     --color-overlay: 0 0 0;
+  }
+}
+
+@layer components {
+  /* Re-points the inverse tokens for everything inside, so children that
+     already use text-inverse / border-inverse keep working unchanged. */
+  .band {
+    background-color: rgb(var(--color-band));
+    color: rgb(var(--color-band-text));
+    --color-bg-inverse: var(--color-band);
+    --color-text-inverse: var(--color-band-text);
   }
 }
 

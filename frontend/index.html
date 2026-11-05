@@ -9,7 +9,7 @@
       content="Football boots, club jerseys, team kits, Kelme footballs, trophies and medals from Brothers Sports House, Chaudhary Market, Bardibas. Delivered all over Nepal, cash on delivery."
     />
     <meta name="theme-color" content="#EEEFEA" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#11130E" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#0E1A14" media="(prefers-color-scheme: dark)" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Brothers Sports House" />
     <meta property="og:title" content="Brothers Sports House — Football boots, kits and trophies" />
@@ -24,12 +24,10 @@
       (function () {
         try {
           var stored = localStorage.getItem("bsh-theme");
-          var theme =
-            stored === "light" || stored === "dark"
-              ? stored
-              : window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light";
+          // Dark is the shop's default look, not a preference: the catalogue is
+          // photographed against light and reads better on a dark ground. A
+          // visitor who picks light keeps light.
+          var theme = stored === "light" || stored === "dark" ? stored : "dark";
           var root = document.documentElement;
           root.classList.remove("light", "dark");
           root.classList.add(theme);

@@ -21,7 +21,8 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
     const saved = localStorage.getItem("bsh-theme");
     if (saved === "light" || saved === "dark") return saved;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    // Same default as the pre-paint script in index.html: dark unless chosen.
+    return "dark";
   });
 
   useEffect(() => {

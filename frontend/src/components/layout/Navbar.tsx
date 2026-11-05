@@ -89,7 +89,7 @@ const Navbar = () => {
   return (
     <>
       {/* Announcement rule — the shop's own three facts, no emoji, no pulse */}
-      <div className="relative z-50 bg-inverse py-2 text-inverse">
+      <div className="band relative z-50 py-2">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 text-[11px] font-bold uppercase tracking-[0.12em]">
           {announcements.map((line, idx) => (
             <span key={line} className="flex items-center gap-3">

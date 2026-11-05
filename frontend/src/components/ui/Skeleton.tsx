@@ -206,7 +206,7 @@ export const CartSkeleton = () => (
 );
 
 export const SpecialOffersSkeleton = () => (
-  <section className="bg-inverse py-20">
+  <section className="band py-20">
     <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
       <div className="mb-12 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
         <div className="space-y-3">
