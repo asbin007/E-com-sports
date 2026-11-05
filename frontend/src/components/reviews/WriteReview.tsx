@@ -115,7 +115,7 @@ export default function WriteReview({ productId, onReviewAdded }: WriteReviewPro
                   className={cn(
                     "h-8 w-8 transition-colors duration-snap ease-snap",
                     star <= (hoverRating || rating)
-                      ? "fill-marigold text-marigold"
+                      ? "fill-sale text-sale"
                       : "text-border-primary"
                   )}
                 />

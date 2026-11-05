@@ -111,7 +111,7 @@ const Navbar = () => {
           <div className="flex h-16 items-center justify-between lg:h-[72px]">
             {/* Logo — a shirt number on a tag, never italic */}
             <Link to="/" className="flex items-center gap-2.5">
-              <span className="flex h-10 w-10 items-center justify-center rounded-tag border-2 border-inverse bg-accent font-display text-2xl font-bold leading-none text-white">
+              <span className="flex h-10 w-10 items-center justify-center rounded-tag border-2 border-inverse bg-accent font-display text-2xl font-bold leading-none text-on-accent">
                 B
               </span>
               <span className="hidden sm:block">
@@ -184,7 +184,7 @@ const Navbar = () => {
               >
                 <ShoppingBag className="h-[18px] w-[18px]" aria-hidden="true" />
                 {cartCount > 0 && (
-                  <span className="absolute right-1 top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-tag border-[1.5px] border-inverse bg-accent px-1 font-display text-xs font-bold leading-none tabular-nums text-white">
+                  <span className="absolute right-1 top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-tag border-[1.5px] border-inverse bg-accent px-1 font-display text-xs font-bold leading-none tabular-nums text-on-accent">
                     {cartCount > 9 ? "9+" : cartCount}
                   </span>
                 )}
@@ -197,7 +197,7 @@ const Navbar = () => {
                     to="/dashboard"
                     className="inline-flex h-11 items-center gap-2 rounded-tag px-2 transition duration-snap ease-snap hover:bg-surface-hover"
                   >
-                    <span className="flex h-7 w-7 items-center justify-center rounded-tag border-[1.5px] border-inverse bg-marigold-soft font-display text-sm font-bold leading-none text-marigold">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-tag border-[1.5px] border-inverse bg-sale-soft font-display text-sm font-bold leading-none text-sale">
                       {user?.username?.charAt(0).toUpperCase()}
                     </span>
                     <span className="hidden max-w-[80px] truncate text-[11px] font-bold uppercase tracking-[0.12em] text-primary md:block">
@@ -219,7 +219,7 @@ const Navbar = () => {
               ) : (
                 <Link
                   to="/login"
-                  className="ml-2 hidden h-11 items-center gap-1.5 rounded-tag border-2 border-inverse bg-accent px-4 font-display text-base font-semibold uppercase leading-none text-white transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none sm:inline-flex"
+                  className="ml-2 hidden h-11 items-center gap-1.5 rounded-tag border-2 border-inverse bg-accent px-4 font-display text-base font-semibold uppercase leading-none text-on-accent transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none sm:inline-flex"
                 >
                   <User className="h-3.5 w-3.5" aria-hidden="true" />
                   Login
@@ -265,7 +265,7 @@ const Navbar = () => {
                       className={cn(
                         "flex min-h-[44px] items-center justify-between rounded-tag px-4 text-[11px] font-bold uppercase tracking-[0.12em] transition duration-snap ease-snap",
                         isActive
-                          ? "bg-marigold-soft text-marigold"
+                          ? "bg-sale-soft text-sale"
                           : "text-secondary hover:bg-surface-hover hover:text-primary"
                       )}
                     >
@@ -284,7 +284,7 @@ const Navbar = () => {
                         onClick={() => setMobileOpen(false)}
                         className="flex min-h-[44px] items-center gap-3"
                       >
-                        <span className="flex h-10 w-10 items-center justify-center rounded-tag border-2 border-inverse bg-marigold-soft font-display text-lg font-bold leading-none text-marigold">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-tag border-2 border-inverse bg-sale-soft font-display text-lg font-bold leading-none text-sale">
                           {user?.username?.charAt(0).toUpperCase()}
                         </span>
                         <span>
@@ -313,7 +313,7 @@ const Navbar = () => {
                       <Link
                         to="/login"
                         onClick={() => setMobileOpen(false)}
-                        className="flex min-h-[44px] flex-1 items-center justify-center rounded-tag border-2 border-inverse bg-accent font-display text-base font-semibold uppercase leading-none text-white transition duration-snap ease-snap hover:bg-accent-hover"
+                        className="flex min-h-[44px] flex-1 items-center justify-center rounded-tag border-2 border-inverse bg-accent font-display text-base font-semibold uppercase leading-none text-on-accent transition duration-snap ease-snap hover:bg-accent-hover"
                       >
                         Login
                       </Link>
@@ -395,7 +395,7 @@ const Navbar = () => {
                         navigate(`/shop?q=${encodeURIComponent(term)}`);
                         setSearchOpen(false);
                       }}
-                      className="inline-flex min-h-[44px] items-center rounded-tag border-2 border-inverse bg-card px-4 text-[11px] font-bold uppercase tracking-[0.12em] text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-white hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
+                      className="inline-flex min-h-[44px] items-center rounded-tag border-2 border-inverse bg-card px-4 text-[11px] font-bold uppercase tracking-[0.12em] text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-on-accent hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none"
                     >
                       {term}
                     </button>

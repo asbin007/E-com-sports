@@ -231,7 +231,7 @@ const Cart = () => {
                         {availableStock !== null && (atStockCap || availableStock <= 5) && (
                           <p
                             className={`mt-1.5 text-[11px] font-bold uppercase tracking-[0.12em] tabular-nums ${
-                              atStockCap ? "text-marigold" : "text-tertiary"
+                              atStockCap ? "text-sale" : "text-tertiary"
                             }`}
                           >
                             {availableStock === 0
@@ -276,8 +276,8 @@ const Cart = () => {
                   transition={{ ...snap, delay: 0.12 + idx * 0.04 }}
                 >
                   <div className="flex items-center gap-3 rounded-card border-2 border-inverse bg-card p-4">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-tag border-2 border-inverse bg-marigold-soft">
-                      <feature.icon className="h-5 w-5 text-marigold" aria-hidden="true" />
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-tag border-2 border-inverse bg-sale-soft">
+                      <feature.icon className="h-5 w-5 text-sale" aria-hidden="true" />
                     </div>
                     <div>
                       <p className="font-display text-lg font-semibold uppercase leading-none text-primary">

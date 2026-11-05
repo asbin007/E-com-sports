@@ -19,7 +19,7 @@ const COLUMN_HEADING =
 
 /** 44x44 minimum hit area on the icon-only social links (WCAG 2.5.5). */
 const SOCIAL_LINK =
-  "inline-flex h-11 w-11 items-center justify-center rounded-tag border-2 border-primary/30 text-inverse transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:border-accent hover:bg-accent hover:text-white";
+  "inline-flex h-11 w-11 items-center justify-center rounded-tag border-2 border-primary/30 text-inverse transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:border-accent hover:bg-accent hover:text-on-accent";
 
 const LINK_ROW =
   "flex min-h-[44px] items-center gap-3 text-sm text-inverse/70 transition duration-snap ease-snap hover:text-accent";
@@ -49,7 +49,7 @@ const Footer = () => {
           {/* Brand Column */}
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-tag border-2 border-primary/30 bg-accent font-display text-2xl font-bold leading-none text-white">
+              <span className="flex h-11 w-11 items-center justify-center rounded-tag border-2 border-primary/30 bg-accent font-display text-2xl font-bold leading-none text-on-accent">
                 B
               </span>
               <span>

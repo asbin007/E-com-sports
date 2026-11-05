@@ -443,12 +443,12 @@ const Checkout = () => {
           <div
             className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-tag border-2 ${
               awaitingVerification
-                ? "border-marigold bg-marigold-soft"
+                ? "border-sale bg-sale-soft"
                 : "border-pitch bg-card"
             }`}
           >
             {awaitingVerification ? (
-              <Clock className="h-8 w-8 text-marigold" aria-hidden="true" />
+              <Clock className="h-8 w-8 text-sale" aria-hidden="true" />
             ) : (
               <CheckCircle className="h-8 w-8 text-pitch" aria-hidden="true" />
             )}
@@ -481,8 +481,8 @@ const Checkout = () => {
           {/* Proof upload failed — the money is already gone, so say so plainly
               and hand them a direct route to re-send it. */}
           {proofUploadFailed && (
-            <div className="mb-6 flex items-start gap-3 rounded-tag border-2 border-marigold bg-marigold-soft p-4 text-left">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-marigold" aria-hidden="true" />
+            <div className="mb-6 flex items-start gap-3 rounded-tag border-2 border-sale bg-sale-soft p-4 text-left">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-sale" aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <h2 className="font-display text-lg font-semibold uppercase leading-none text-primary">
                   Your payment proof did not upload
@@ -524,8 +524,8 @@ const Checkout = () => {
           <div className="mt-8 flex items-center justify-center gap-2 border-t-2 border-inverse pt-6">
             {awaitingVerification ? (
               <>
-                <Clock className="h-4 w-4 text-marigold" aria-hidden="true" />
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-marigold">
+                <Clock className="h-4 w-4 text-sale" aria-hidden="true" />
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-sale">
                   Awaiting manual payment verification
                 </p>
               </>
@@ -577,10 +577,10 @@ const Checkout = () => {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
           role="alert"
-          className="mb-6 rounded-tag border-2 border-marigold bg-marigold-soft p-4"
+          className="mb-6 rounded-tag border-2 border-sale bg-sale-soft p-4"
         >
           <div className="flex items-start gap-3">
-            <WifiOff className="mt-0.5 h-5 w-5 flex-shrink-0 text-marigold" aria-hidden="true" />
+            <WifiOff className="mt-0.5 h-5 w-5 flex-shrink-0 text-sale" aria-hidden="true" />
             <div className="min-w-0 flex-1">
               <h2 className="font-display text-lg font-semibold uppercase leading-none text-primary">
                 We couldn't reach the server
@@ -773,7 +773,7 @@ const Checkout = () => {
                             aria-pressed={isActive}
                             className={`min-h-[44px] rounded-card border-2 p-4 text-left transition-all duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none ${
                               isActive
-                                ? "border-inverse bg-marigold-soft"
+                                ? "border-inverse bg-sale-soft"
                                 : "border-border-primary bg-card"
                             }`}
                           >

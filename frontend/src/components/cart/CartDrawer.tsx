@@ -212,7 +212,7 @@ const CartDrawer = () => {
                         <p
                           className={cn(
                             "mt-1 text-[11px] font-bold uppercase tracking-[0.12em]",
-                            atStockCap ? "text-marigold" : "text-tertiary"
+                            atStockCap ? "text-sale" : "text-tertiary"
                           )}
                         >
                           {availableStock === 0

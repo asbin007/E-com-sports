@@ -251,7 +251,7 @@ const ProductCard = ({ product, index = 0 }: ProductCardProps) => {
             review stats. A fabricated figure costs more trust than none. */}
 
         <div className="flex items-baseline gap-2">
-          <span className="font-display text-[23px] font-semibold leading-none tabular-nums text-primary">
+          <span className="font-display text-[23px] font-semibold leading-none tabular-nums text-accent">
             {formatPrice(price)}
           </span>
           {discount > 0 && (
@@ -271,7 +271,7 @@ const ProductCard = ({ product, index = 0 }: ProductCardProps) => {
             </span>
           )}
           {discount > 0 && (
-            <span className={cn(CHIP, "border-marigold bg-marigold-soft text-marigold")}>
+            <span className={cn(CHIP, "border-sale-bright bg-sale-bright text-on-sale")}>
               <span className="tabular-nums">{discount}</span>
               <span className="ml-1">% off</span>
             </span>

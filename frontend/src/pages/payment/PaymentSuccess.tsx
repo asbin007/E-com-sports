@@ -44,11 +44,11 @@ const PaymentSuccess = () => {
       >
         {status === "verifying" && (
           <>
-            <Loader className="mx-auto mb-6 h-16 w-16 animate-spin text-marigold" aria-hidden="true" />
+            <Loader className="mx-auto mb-6 h-16 w-16 animate-spin text-sale" aria-hidden="true" />
             <h1 className="font-display text-[29px] font-semibold uppercase leading-none text-primary">
               Checking your payment
             </h1>
-            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-marigold">
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-sale">
               Please wait, do not close this page
             </p>
           </>
@@ -65,7 +65,7 @@ const PaymentSuccess = () => {
             <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-pitch">
               Your order is on its way
             </p>
-            <p className="mt-6 inline-block rounded-tag border-2 border-inverse bg-marigold-soft px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
+            <p className="mt-6 inline-block rounded-tag border-2 border-inverse bg-sale-soft px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
               Taking you back to the shop
             </p>
           </>

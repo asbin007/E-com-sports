@@ -64,7 +64,7 @@ export const DashboardProfileCard = () => {
 };
 
 export const DashboardHelpCard = () => (
-  <div className="rounded-card border-2 border-inverse bg-marigold-soft p-5">
+  <div className="rounded-card border-2 border-inverse bg-sale-soft p-5">
     <h2 className="mb-1 font-display text-xl font-semibold uppercase leading-none text-primary">
       Need Help?
     </h2>

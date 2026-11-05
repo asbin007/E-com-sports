@@ -18,7 +18,7 @@ const EASE_SNAP: [number, number, number, number] = [0.2, 0.7, 0.3, 1];
 
 /** 48px square, so it clears the 44px hit-area floor. */
 const CAROUSEL_BUTTON =
-  "inline-flex h-12 w-12 items-center justify-center rounded-tag border-2 border-primary/30 text-inverse transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:border-accent hover:bg-accent hover:text-white active:translate-x-0 active:translate-y-0";
+  "inline-flex h-12 w-12 items-center justify-center rounded-tag border-2 border-primary/30 text-inverse transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:border-accent hover:bg-accent hover:text-on-accent active:translate-x-0 active:translate-y-0";
 
 interface SpecialOffersProps {
   title?: string;
@@ -129,7 +129,7 @@ const SpecialOffers = ({
             <button
               type="button"
               onClick={() => setAttempt((n) => n + 1)}
-              className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-2 self-start rounded-tag border-2 border-primary/30 bg-accent px-5 font-display text-base font-semibold uppercase leading-none text-white transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover active:translate-x-0 active:translate-y-0 sm:self-auto"
+              className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-2 self-start rounded-tag border-2 border-primary/30 bg-accent px-5 font-display text-base font-semibold uppercase leading-none text-on-accent transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover active:translate-x-0 active:translate-y-0 sm:self-auto"
             >
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
               Try again
@@ -204,7 +204,7 @@ const SpecialOffers = ({
                   </p>
 
                   <p className="mt-6">
-                    <span className="inline-block rounded-tag border-2 border-primary/30 bg-accent px-5 py-2 font-display text-3xl font-bold leading-none tabular-nums text-white">
+                    <span className="inline-block rounded-tag border-2 border-primary/30 bg-accent px-5 py-2 font-display text-3xl font-bold leading-none tabular-nums text-on-accent">
                       Rs {currentPrice.toLocaleString()}
                     </span>
                   </p>
@@ -213,7 +213,7 @@ const SpecialOffers = ({
                     <button
                       type="button"
                       onClick={() => navigate(`/product/${current.id}`)}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-primary/30 bg-primary px-6 font-display text-lg font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-white active:translate-x-0 active:translate-y-0"
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-tag border-2 border-primary/30 bg-primary px-6 font-display text-lg font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-on-accent active:translate-x-0 active:translate-y-0"
                     >
                       <ShoppingBag className="h-4 w-4" aria-hidden="true" />
                       View product

@@ -89,8 +89,8 @@ const Login = () => {
         </div>
 
         {locked && (
-          <div className="mb-4 rounded-tag border-2 border-marigold bg-marigold-soft p-4 text-sm">
-            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-marigold">
+          <div className="mb-4 rounded-tag border-2 border-sale bg-sale-soft p-4 text-sm">
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-sale">
               <ShieldAlert className="h-4 w-4 shrink-0" />
               Account temporarily locked
             </div>

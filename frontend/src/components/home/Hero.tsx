@@ -99,7 +99,7 @@ const buildCardVariants = (reduce: boolean): Variants => ({
 });
 
 const PRIMARY_BUTTON =
-  "inline-flex items-center gap-2 rounded-tag border-2 border-inverse bg-accent px-6 py-3 font-display text-lg font-semibold uppercase leading-none text-white transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none";
+  "inline-flex items-center gap-2 rounded-tag border-2 border-inverse bg-accent px-6 py-3 font-display text-lg font-semibold uppercase leading-none text-on-accent transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none";
 
 const SECONDARY_BUTTON =
   "inline-flex items-center gap-2 rounded-tag border-2 border-inverse bg-card px-6 py-3 font-display text-lg font-semibold uppercase leading-none text-primary transition duration-snap ease-snap hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard active:translate-x-0 active:translate-y-0 active:shadow-none";
@@ -163,8 +163,8 @@ const Hero = () => {
         className="pointer-events-none absolute inset-0 z-0"
         style={{
           background:
-            "radial-gradient(900px 420px at 18% 4%, rgb(var(--color-pitch) / 0.16) 0%, transparent 62%)," +
-            "radial-gradient(700px 380px at 84% 0%, rgb(var(--color-accent) / 0.12) 0%, transparent 60%)",
+            "radial-gradient(900px 420px at 18% 4%, rgb(var(--color-accent) / 0.14) 0%, transparent 62%)," +
+            "radial-gradient(760px 400px at 84% 0%, rgb(var(--color-text-primary) / 0.07) 0%, transparent 60%)",
         }}
         initial={{ opacity: reduce ? 1 : 0 }}
         animate={{ opacity: 1 }}
@@ -289,7 +289,7 @@ const Hero = () => {
                       }}
                     />
                     {discount > 0 && (
-                      <span className="absolute left-3 top-3 rounded-tag border-[1.5px] border-marigold bg-marigold-soft px-2 py-1 font-display text-sm font-bold uppercase leading-none tabular-nums text-marigold">
+                      <span className="absolute left-3 top-3 rounded-tag border-[1.5px] border-sale-bright bg-sale-bright px-2 py-1 font-display text-sm font-bold uppercase leading-none tabular-nums text-on-sale">
                         -{discount}% off
                       </span>
                     )}

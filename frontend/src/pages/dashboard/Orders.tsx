@@ -98,7 +98,7 @@ const getPaymentState = (order: OrderLike): PaymentState => {
   }
   return {
     label: "Awaiting verification",
-    className: "text-marigold border-marigold bg-marigold-soft",
+    className: "text-sale border-sale bg-sale-soft",
     icon: Clock,
     urgent: false,
   };
@@ -132,13 +132,13 @@ const Orders = () => {
   }, [fetchOrders]);
 
   // Semantic, not accent: delivered reads pitch, in-flight and pending read
-  // marigold, cancelled reads accent crimson.
+  // sale, cancelled reads accent crimson.
   const getStatusColor = (status?: string) => {
     switch (status?.toLowerCase()) {
       case "delivered": return "text-pitch border-pitch";
-      case "processing": case "preparation": return "text-marigold border-marigold";
-      case "shipped": case "ontheway": return "text-marigold border-marigold";
-      case "pending": return "text-marigold border-marigold";
+      case "processing": case "preparation": return "text-sale border-sale";
+      case "shipped": case "ontheway": return "text-sale border-sale";
+      case "pending": return "text-sale border-sale";
       case "cancelled": return "text-accent border-accent";
       default: return "text-tertiary border-border-primary";
     }
@@ -352,7 +352,7 @@ const Orders = () => {
 
       {/* WhatsApp Support */}
       {!error && orders.length > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-card border-2 border-inverse bg-marigold-soft p-4">
+        <div className="flex items-center justify-between gap-3 rounded-card border-2 border-inverse bg-sale-soft p-4">
           <div className="flex items-center gap-3">
             <MessageCircle className="h-5 w-5 text-accent" aria-hidden="true" />
             <p className="text-sm font-bold text-primary">

@@ -115,13 +115,13 @@ const OrderDetail = () => {
   };
 
   // Semantic, not accent: delivered reads pitch, in-flight and pending read
-  // marigold, cancelled reads accent crimson.
+  // sale, cancelled reads accent crimson.
   const getStatusColor = (status?: string) => {
     switch (status?.toLowerCase()) {
       case "delivered": return "text-pitch border-pitch";
-      case "processing": case "preparation": return "text-marigold border-marigold";
-      case "shipped": case "ontheway": return "text-marigold border-marigold";
-      case "pending": return "text-marigold border-marigold";
+      case "processing": case "preparation": return "text-sale border-sale";
+      case "shipped": case "ontheway": return "text-sale border-sale";
+      case "pending": return "text-sale border-sale";
       case "cancelled": return "text-accent border-accent";
       default: return "text-tertiary border-border-primary";
     }
@@ -355,11 +355,11 @@ const OrderDetail = () => {
               initial={reduce ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
-              className="rounded-card border-2 border-marigold bg-marigold-soft p-5"
+              className="rounded-card border-2 border-sale bg-sale-soft p-5"
             >
               <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-tag border-2 border-marigold bg-card">
-                  <UploadCloud className="h-5 w-5 text-marigold" aria-hidden="true" />
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-tag border-2 border-sale bg-card">
+                  <UploadCloud className="h-5 w-5 text-sale" aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="font-display text-xl font-semibold uppercase leading-none text-primary">
@@ -382,11 +382,11 @@ const OrderDetail = () => {
               initial={reduce ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.16, ease: [0.2, 0.7, 0.3, 1] }}
-              className="rounded-card border-2 border-marigold bg-marigold-soft p-5"
+              className="rounded-card border-2 border-sale bg-sale-soft p-5"
             >
               <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-tag border-2 border-marigold bg-card">
-                  <ShieldCheck className="h-5 w-5 text-marigold" aria-hidden="true" />
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-tag border-2 border-sale bg-card">
+                  <ShieldCheck className="h-5 w-5 text-sale" aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="font-display text-xl font-semibold uppercase leading-none text-primary">
@@ -466,11 +466,11 @@ const OrderDetail = () => {
                 order.StatusHistories.map((entry, idx, histories) => {
                   const isLast = idx === histories.length - 1;
                   const statusTone: Record<string, string> = {
-                    pending: "text-marigold border-marigold",
-                    processing: "text-marigold border-marigold",
-                    preparation: "text-marigold border-marigold",
-                    shipped: "text-marigold border-marigold",
-                    ontheway: "text-marigold border-marigold",
+                    pending: "text-sale border-sale",
+                    processing: "text-sale border-sale",
+                    preparation: "text-sale border-sale",
+                    shipped: "text-sale border-sale",
+                    ontheway: "text-sale border-sale",
                     delivered: "text-pitch border-pitch",
                     cancelled: "text-accent border-accent",
                   };
@@ -557,7 +557,7 @@ const OrderDetail = () => {
                       ? "text-accent"
                       : paymentStatus === "paid"
                         ? "text-pitch"
-                        : "text-marigold"
+                        : "text-sale"
                   }`}
                 >
                   {paymentStatus}

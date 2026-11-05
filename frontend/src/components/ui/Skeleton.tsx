@@ -8,7 +8,7 @@ interface SkeletonProps {
  * Flat token-coloured rectangle with the shimmer sweeping across it. The
  * gradient is written as a `linear-gradient` over the CSS custom properties
  * because Tailwind's `from-*`/`via-*` stops resolve from `theme.colors`, which
- * this config only extends with accent, marigold and pitch — the previous
+ * this config only extends with accent, sale and pitch — the previous
  * `from-secondary via-tertiary to-secondary` produced no gradient at all, so
  * the shimmer animated nothing.
  */

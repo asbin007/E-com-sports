@@ -40,9 +40,10 @@ const ProductBadges = ({ product, layout = "stack" }: ProductBadgesProps) => {
 
   return (
     <div className={wrapper}>
-      {/* An offer reads marigold on the soft marigold ground, never the accent. */}
+      {/* A discount sits over a photo, so it is a solid crimson fill, never a
+          soft chip — and never the brass accent, which means "action". */}
       {discount > 0 && (
-        <span className={cn(BADGE, "border-marigold bg-marigold-soft text-marigold")}>
+        <span className={cn(BADGE, "border-sale-bright bg-sale-bright text-on-sale")}>
           <span className="tabular-nums">-{discount}</span>
           <span>%</span>
         </span>

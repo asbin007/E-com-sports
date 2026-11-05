@@ -46,13 +46,13 @@ const Dashboard = () => {
   }, [fetchOrders]);
 
   // Semantic, not accent: delivered reads pitch, in-flight and pending read
-  // marigold, cancelled reads accent crimson.
+  // sale, cancelled reads accent crimson.
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case "delivered": return "text-pitch border-pitch";
-      case "processing": case "preparation": return "text-marigold border-marigold";
-      case "shipped": case "ontheway": return "text-marigold border-marigold";
-      case "pending": return "text-marigold border-marigold";
+      case "processing": case "preparation": return "text-sale border-sale";
+      case "shipped": case "ontheway": return "text-sale border-sale";
+      case "pending": return "text-sale border-sale";
       case "cancelled": return "text-accent border-accent";
       default: return "text-tertiary border-border-primary";
     }
@@ -70,7 +70,7 @@ const Dashboard = () => {
 
   const stats = [
     { label: "Total Orders", value: statValue(totalOrders), icon: Package, tone: "text-accent" },
-    { label: "Active Orders", value: statValue(activeOrders), icon: Clock, tone: "text-marigold" },
+    { label: "Active Orders", value: statValue(activeOrders), icon: Clock, tone: "text-sale" },
     { label: "Delivered", value: statValue(deliveredOrders), icon: CheckCircle2, tone: "text-pitch" },
   ];
 

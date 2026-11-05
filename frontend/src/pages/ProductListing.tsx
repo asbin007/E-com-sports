@@ -254,7 +254,7 @@ const ProductListing = () => {
               onClick={() => toggleFilter(selectedId, setSelectedId, option.id)}
               className={cn(
                 FILTER_ROW,
-                isActive ? "bg-marigold-soft" : "hover:bg-surface-hover"
+                isActive ? "bg-sale-soft" : "hover:bg-surface-hover"
               )}
             >
               {/* A square ink box, not a radio pill — and the fill is not the

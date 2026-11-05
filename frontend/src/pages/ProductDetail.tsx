@@ -450,7 +450,7 @@ const ProductDetail = () => {
                       className={cn(
                         "h-4 w-4",
                         i <= Math.round(reviewStats.averageRating)
-                          ? "fill-marigold text-marigold"
+                          ? "fill-sale text-sale"
                           : "text-muted"
                       )}
                     />
@@ -483,7 +483,7 @@ const ProductDetail = () => {
                         <span className="font-display text-[26px] leading-none tabular-nums text-muted line-through">
                           Rs {originalPrice.toLocaleString()}
                         </span>
-                        <span className="inline-flex items-center rounded-tag border-[1.5px] border-marigold bg-marigold-soft px-1.5 py-0.5 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-marigold">
+                        <span className="inline-flex items-center rounded-tag border-[1.5px] border-sale bg-sale-soft px-1.5 py-0.5 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-sale">
                           <span className="tabular-nums">{discount}</span>
                           <span className="ml-1">% off</span>
                         </span>
@@ -508,8 +508,8 @@ const ProductDetail = () => {
 
             {/* Unavailable Banner */}
             {!isAvailable && (
-              <div className="mt-5 flex items-start gap-3 rounded-card border-2 border-marigold bg-marigold-soft p-3">
-                <PackageX aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-marigold" />
+              <div className="mt-5 flex items-start gap-3 rounded-card border-2 border-sale bg-sale-soft p-3">
+                <PackageX aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-sale" />
                 <div>
                   <p className="text-sm font-bold text-primary">
                     {hasVariants ? "Currently out of stock" : "Not available yet"}
@@ -635,7 +635,7 @@ const ProductDetail = () => {
 
             {/* Chosen combination does not exist */}
             {combinationUnavailable && (
-              <p className="mb-5 flex items-center gap-2 self-start rounded-tag border-[1.5px] border-marigold bg-marigold-soft px-1.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-marigold">
+              <p className="mb-5 flex items-center gap-2 self-start rounded-tag border-[1.5px] border-sale bg-sale-soft px-1.5 py-1 text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-sale">
                 <PackageX aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                 This combination isn't available — try another size or colour.
               </p>

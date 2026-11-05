@@ -14,11 +14,11 @@ export default {
           light: "rgb(var(--color-accent-light) / <alpha-value>)",
         },
         // Semantic, deliberately not the accent: stock and delivery success
-        // read pitch, offers and festival moments read marigold.
-        marigold: {
-          DEFAULT: "rgb(var(--color-marigold) / <alpha-value>)",
-          bright: "rgb(var(--color-marigold-bright) / <alpha-value>)",
-          soft: "rgb(var(--color-marigold-bg) / <alpha-value>)",
+        // read pitch, offers and festival moments read sale.
+        sale: {
+          DEFAULT: "rgb(var(--color-sale) / <alpha-value>)",
+          bright: "rgb(var(--color-sale-bright) / <alpha-value>)",
+          soft: "rgb(var(--color-sale-bg) / <alpha-value>)",
         },
         pitch: "rgb(var(--color-pitch) / <alpha-value>)",
       },
@@ -30,8 +30,8 @@ export default {
         elevated: "rgb(var(--color-bg-elevated) / <alpha-value>)",
         inverse: "rgb(var(--color-bg-inverse) / <alpha-value>)",
         "surface-hover": "rgb(var(--color-surface-hover) / <alpha-value>)",
-        "marigold-soft": "rgb(var(--color-marigold-bg) / <alpha-value>)",
-        "marigold-bright": "rgb(var(--color-marigold-bright) / <alpha-value>)",
+        "sale-soft": "rgb(var(--color-sale-bg) / <alpha-value>)",
+        "sale-bright": "rgb(var(--color-sale-bright) / <alpha-value>)",
         // So `.eyebrow`'s trailing hairline and any divider can use the border
         // token as a fill. Without this the utility does not exist and
         // @apply fails at CSS compile time.
@@ -44,16 +44,21 @@ export default {
         muted: "rgb(var(--color-text-muted) / <alpha-value>)",
         inverse: "rgb(var(--color-text-inverse) / <alpha-value>)",
         accent: "rgb(var(--color-accent) / <alpha-value>)",
-        marigold: "rgb(var(--color-marigold) / <alpha-value>)",
+        sale: "rgb(var(--color-sale) / <alpha-value>)",
         pitch: "rgb(var(--color-pitch) / <alpha-value>)",
         // The only text colour that is safe on a bright fill in BOTH themes.
         "ink-fixed": "rgb(var(--color-ink-fixed) / <alpha-value>)",
+        // What sits on top of an accent fill. Brass needs graphite, bronze
+        // needs white — so this flips with the theme and `text-white` must
+        // never be hardcoded on `bg-accent`.
+        "on-accent": "rgb(var(--color-on-accent) / <alpha-value>)",
+        "on-sale": "rgb(var(--color-on-sale) / <alpha-value>)",
       },
       borderColor: {
         "border-primary": "rgb(var(--color-border-primary) / <alpha-value>)",
         "border-secondary": "rgb(var(--color-border-secondary) / <alpha-value>)",
         inverse: "rgb(var(--color-bg-inverse) / <alpha-value>)",
-        marigold: "rgb(var(--color-marigold) / <alpha-value>)",
+        sale: "rgb(var(--color-sale) / <alpha-value>)",
         pitch: "rgb(var(--color-pitch) / <alpha-value>)",
       },
       fontFamily: {

@@ -47,7 +47,7 @@ const ReviewCard = ({ review }: { review: Review }) => {
               aria-hidden="true"
               className={cn(
                 "h-4 w-4",
-                i <= review.rating ? "fill-marigold text-marigold" : "text-border-primary"
+                i <= review.rating ? "fill-sale text-sale" : "text-border-primary"
               )}
             />
           ))}
@@ -102,7 +102,7 @@ const RatingBar = ({ rating, count, total }: { rating: number; count: number; to
       </span>
       <div className="h-2 flex-1 overflow-hidden rounded-tag border border-border-primary bg-card">
         <div
-          className="h-full bg-marigold-bright transition-all duration-snap ease-snap"
+          className="h-full bg-sale-bright transition-all duration-snap ease-snap"
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -177,7 +177,7 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
                     className={cn(
                       "h-5 w-5",
                       i <= Math.round(stats.averageRating)
-                        ? "fill-marigold text-marigold"
+                        ? "fill-sale text-sale"
                         : "text-border-primary"
                     )}
                   />

@@ -130,8 +130,8 @@ const VerifyEmail = () => {
 
         <form onSubmit={handleVerifyOtp} className="space-y-5">
           <div className="mb-4 flex justify-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-tag border-2 border-inverse bg-marigold-soft">
-              <Mail className="h-7 w-7 text-marigold" aria-hidden="true" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-tag border-2 border-inverse bg-sale-soft">
+              <Mail className="h-7 w-7 text-sale" aria-hidden="true" />
             </div>
           </div>
 

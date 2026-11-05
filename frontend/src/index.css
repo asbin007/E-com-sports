@@ -4,96 +4,103 @@
 
 /* ===== KIT ROOM — BROTHERS SPORTS HOUSE =====
    Design system source of truth: frontend/MASTER.md
-   Token names are unchanged from the previous theme so every component keeps
-   working; only the values moved. Neutrals are biased green toward a pitch and
-   the accent is the flag crimson, not a stock orange. */
+   Dark (graphite and brass) is the default theme; light paper is the
+   alternative. The ground is neutral on purpose, the accent is brass, and
+   crimson is reserved for sale and urgency. */
 @layer base {
   :root {
-    /* Light — green-biased paper */
-    --color-bg-primary: 238 239 234;
-    --color-bg-secondary: 228 230 223;
-    --color-bg-tertiary: 218 221 211;
+    /* Light — paper. The secondary theme; dark is the default. */
+    --color-bg-primary: 240 239 236;
+    --color-bg-secondary: 231 230 226;
+    --color-bg-tertiary: 221 220 215;
     --color-bg-card: 255 255 255;
     --color-bg-elevated: 255 255 255;
-    --color-bg-inverse: 22 24 15;
+    --color-bg-inverse: 11 11 12;
 
-    --color-text-primary: 22 24 15;
-    --color-text-secondary: 65 70 58;
-    /* Both clear WCAG AA (4.5:1) on paper, card and the secondary band. */
-    --color-text-tertiary: 79 85 72;
-    --color-text-muted: 100 104 92;
-    --color-text-inverse: 238 239 234;
+    --color-text-primary: 17 17 18;
+    --color-text-secondary: 61 61 64;
+    --color-text-tertiary: 84 84 88;
+    --color-text-muted: 101 101 105;
+    --color-text-inverse: 243 241 236;
 
-    --color-border-primary: 207 211 198;
-    --color-border-secondary: 222 225 215;
+    --color-border-primary: 206 205 200;
+    --color-border-secondary: 223 222 218;
 
-    --color-accent: 200 16 46;
-    --color-accent-hover: 168 10 36;
-    --color-accent-light: 250 226 230;
+    /* Brass. On paper the text-safe value is a deeper bronze; the fill stays
+       bright brass and always carries `text-on-accent`. */
+    --color-accent: 122 94 18;
+    --color-accent-hover: 94 72 12;
+    --color-accent-light: 245 237 214;
+    --color-on-accent: 255 255 255;
 
-    /* Semantic — kept separate from the accent on purpose.
-       `marigold` is the text-safe value (4.5:1 on paper, card and the soft
-       ground); `marigold-bright` is decorative fill only and always carries
-       ink text on top. */
-    --color-marigold: 137 84 4;
-    --color-marigold-bright: 232 163 23;
-    --color-marigold-bg: 246 217 155;
+    /* Sale and urgency. Deliberately not the accent: a discount must not look
+       like a button, and a button must not look like a discount. */
+    --color-sale: 177 20 44;
+    /* Decorative fill only — a discount flag over a photo has to punch, so it
+       is a solid fill with `text-on-sale` on top, never a soft chip. */
+    --color-sale-bright: 200 16 46;
+    --color-on-sale: 255 255 255;
+    --color-sale-bg: 250 226 230;
     --color-pitch: 31 61 43;
 
     /* Ink that does NOT flip with the theme. The only safe text colour on a
-       bright fill (marigold flags, sale banners), which stays bright in both
+       bright fill (sale flags, brass chips), which stays bright in both
        themes while every other text token inverts. */
-    --color-ink-fixed: 22 24 15;
+    --color-ink-fixed: 17 17 18;
 
     /* A "band" is a full-width panel that inverts against the page — the
        announcement bar, the footer, the offer strip. */
-    --color-band: 22 24 15;
-    --color-band-text: 238 239 234;
+    --color-band: 11 11 12;
+    --color-band-text: 243 241 236;
 
-    --color-surface-hover: 228 230 223;
-    --color-overlay: 22 24 15;
+    --color-surface-hover: 231 230 226;
+    --color-overlay: 11 11 12;
   }
 
   .dark {
-    /* Dark — floodlit pitch at night. The neutrals carry more green than the
-       old near-black did: on a page of boots and kits the photos are the only
-       bright thing, and a flat charcoal made them look like cut-outs. */
-    --color-bg-primary: 14 26 20;
-    --color-bg-secondary: 19 36 27;
-    --color-bg-tertiary: 26 48 36;
-    --color-bg-card: 19 36 27;
-    --color-bg-elevated: 26 48 36;
-    --color-bg-inverse: 237 239 230;
+    /* Dark — graphite and brass. The default theme.
+       The ground is a NEUTRAL near-black, not a tinted one: every boot and
+       jersey in the catalogue is loud, so the page stays quiet and the photos
+       carry all the colour. Brass is the one accent; it is the only premium
+       metal that collides with none of the product photography. */
+    --color-bg-primary: 11 11 12;
+    --color-bg-secondary: 20 20 22;
+    --color-bg-tertiary: 26 26 29;
+    --color-bg-card: 20 20 22;
+    --color-bg-elevated: 26 26 29;
+    --color-bg-inverse: 243 241 236;
 
-    --color-text-primary: 242 245 238;
-    --color-text-secondary: 194 205 196;
-    --color-text-tertiary: 147 163 153;
-    /* 4.8:1 on the card, which is the darkest ground muted text sits on. */
-    --color-text-muted: 137 142 128;
-    --color-text-inverse: 14 26 20;
+    --color-text-primary: 243 241 236;
+    --color-text-secondary: 200 197 190;
+    --color-text-tertiary: 160 157 150;
+    /* AA on the card, which is the darkest ground muted text sits on. */
+    --color-text-muted: 144 142 136;
+    --color-text-inverse: 11 11 12;
 
-    --color-border-primary: 42 61 50;
-    --color-border-secondary: 30 46 37;
+    --color-border-primary: 42 42 46;
+    --color-border-secondary: 32 32 35;
 
-    --color-accent: 255 83 102;
-    --color-accent-hover: 255 120 134;
-    --color-accent-light: 74 18 26;
+    --color-accent: 201 162 39;
+    --color-accent-hover: 224 185 70;
+    --color-accent-light: 58 46 10;
+    /* Brass is a bright fill, so what sits on it is graphite, not white. */
+    --color-on-accent: 11 11 12;
 
-    --color-marigold: 255 194 71;
-    --color-marigold-bright: 255 194 71;
-    --color-marigold-bg: 74 55 8;
+    --color-sale: 255 90 107;
+    --color-sale-bright: 255 90 107;
+    --color-on-sale: 11 11 12;
+    --color-sale-bg: 61 16 22;
     --color-pitch: 143 208 166;
 
     /* Deliberately NOT inverted — see the light-theme note. */
-    --color-ink-fixed: 22 24 15;
+    --color-ink-fixed: 17 17 18;
 
-    /* In the dark theme a band must NOT be the paper colour: a white slab
-       would be the brightest thing on a page whose job is to show product
-       photos. It is a raised pitch green instead. */
-    --color-band: 26 48 36;
-    --color-band-text: 242 245 238;
+    /* A band is a raised graphite slab, never paper: a white panel would be
+       the brightest thing on a page whose job is to show boots. */
+    --color-band: 24 24 27;
+    --color-band-text: 243 241 236;
 
-    --color-surface-hover: 26 48 36;
+    --color-surface-hover: 26 26 29;
     --color-overlay: 0 0 0;
   }
 }
@@ -120,9 +127,10 @@
     @apply border-border-primary;
   }
 
-  /* Marigold focus ring, so it never disappears against a crimson control */
+  /* Crimson focus ring: distinct from the brass accent, so it stays visible
+     on top of a brass button as well as on the page. */
   :focus-visible {
-    outline: 3px solid rgb(var(--color-marigold));
+    outline: 3px solid rgb(var(--color-sale));
     outline-offset: 2px;
   }
 
