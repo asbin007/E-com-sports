@@ -22,6 +22,14 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # Dev and tests run through tsx, so only this catches crashes in the
+      # compiled output that production runs.
+      - run: npm run build
+      - name: Load the compiled app
+        run: node -e "import('./dist/src/app.js').then(() => process.exit(0))"
+        env:
+          DB_URL: postgres://ci:ci@127.0.0.1:1/ci
+          JWT_SECRET_KEY: ci
 
   web:
     name: ${{ matrix.app }} (typecheck + lint + build)
