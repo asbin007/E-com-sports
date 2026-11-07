@@ -1,4 +1,5 @@
 import express from "express";
+import type { Request, Response } from "express";
 import path from "path";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -98,13 +99,24 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.get("/api/ping", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    ip: req.ip,
-  });
-});
+/**
+ * Keep-awake target. Returns 204 with an empty body on purpose.
+ *
+ * The free Render instance spins down after ~15 minutes idle and then takes
+ * ~50s to answer, which reads as a broken shop. A cron pings this to stop
+ * that. The first pinger (cron-job.org) disabled itself after 26 consecutive
+ * failures reporting "Response data too big" — not from here, this route was
+ * 74 bytes, but from Render's own page served while the instance was waking.
+ * An empty body cannot trip a size limit whatever the pinger's cap, and HEAD
+ * is accepted for the same reason.
+ *
+ * `/api/health` still returns JSON for anything that wants a readable body.
+ */
+const ping = (_req: Request, res: Response) => {
+  res.status(204).end();
+};
+app.get("/api/ping", ping);
+app.head("/api/ping", ping);
 
 app.get("/", (req, res) => {
   res.status(200).json({
